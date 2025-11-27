@@ -613,15 +613,25 @@
       // Determine which ranking to load based on tournament number
       const previousTournament = parseInt(tournamentNum) - 1;
 
+      console.log('=== DEBUG Loading Players ===');
+      console.log('categoryId:', categoryId);
+      console.log('season:', season);
+      console.log('tournamentNum:', tournamentNum);
+      console.log('previousTournament:', previousTournament);
+
       try {
         // Load ranking from previous tournament(s)
         if (previousTournament >= 1) {
+          console.log('Fetching rankings for categoryId=' + categoryId + ', season=' + season);
           const rankingResponse = await fetch(`${API_URL}/rankings?categoryId=${categoryId}&season=${season}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
 
+          console.log('Rankings response status:', rankingResponse.status);
+
           if (rankingResponse.ok) {
             const rankings = await rankingResponse.json();
+            console.log('Rankings returned:', rankings.length, 'players');
             rankedPlayers = rankings.map((r, index) => ({
               licence: r.licence,
               first_name: r.first_name,
@@ -631,9 +641,12 @@
               total_match_points: r.total_match_points,
               isRanked: true
             }));
+          } else {
+            console.log('Rankings response NOT OK');
           }
         } else {
           // T1 - no previous ranking, would need to use player list
+          console.log('T1 selected - no previous ranking');
           rankedPlayers = [];
         }
 
