@@ -301,6 +301,14 @@
           <strong id="summaryTournament">-</strong>
         </div>
         <div class="summary-row">
+          <span>Date:</span>
+          <strong id="summaryDate">-</strong>
+        </div>
+        <div class="summary-row">
+          <span>Lieu:</span>
+          <strong id="summaryLieu">-</strong>
+        </div>
+        <div class="summary-row">
           <span>Nombre de joueurs:</span>
           <strong id="summaryPlayers">-</strong>
         </div>
@@ -332,7 +340,10 @@
         <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
         <h4>Fichier généré avec succès !</h4>
         <p style="color: #666; margin-bottom: 20px;">Le fichier Excel a été téléchargé automatiquement.</p>
-        <button class="btn" id="newGenerationBtn">Nouvelle génération</button>
+        <div class="action-buttons" style="justify-content: center;">
+          <button class="btn" id="backToStep3Btn" style="background: #6c757d;">Retour à l'aperçu</button>
+          <button class="btn" id="newGenerationBtn">Nouvelle génération</button>
+        </div>
       </div>
     </div>
   </div>
@@ -787,6 +798,7 @@
 
     document.getElementById('backToStep1Btn').addEventListener('click', () => goToStep(1));
     document.getElementById('backToStep2Btn').addEventListener('click', () => goToStep(2));
+    document.getElementById('backToStep3Btn').addEventListener('click', () => goToStep(3));
     document.getElementById('newGenerationBtn').addEventListener('click', () => {
       // Reset state
       rankedPlayers = [];
@@ -821,6 +833,19 @@
       document.getElementById('summaryCategory').textContent = currentCategory.display_name;
       document.getElementById('summaryTournament').textContent =
         currentTournament === '4' ? 'Finale Départementale' : `Tournoi ${currentTournament}`;
+
+      // Add tournament date and lieu from external tournament
+      if (matchingTournoi) {
+        const dateStr = matchingTournoi.debut
+          ? new Date(matchingTournoi.debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+          : 'Non définie';
+        document.getElementById('summaryDate').textContent = dateStr;
+        document.getElementById('summaryLieu').textContent = matchingTournoi.lieu || 'Non défini';
+      } else {
+        document.getElementById('summaryDate').textContent = 'Non définie';
+        document.getElementById('summaryLieu').textContent = 'Non défini';
+      }
+
       document.getElementById('summaryPlayers').textContent = selectedPlayers.length;
 
       const config = getPouleConfig(selectedPlayers.length);
