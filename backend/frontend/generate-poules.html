@@ -643,7 +643,17 @@
       const select2 = document.getElementById('locationSelect2');
 
       const options = '<option value="">-- Sélectionner un club --</option>' +
-        clubs.map(c => `<option value="${c.id}" data-name="${c.name}" data-address="${c.address || ''}">${c.name}</option>`).join('');
+        clubs.map(c => {
+          const fullAddress = [c.street, c.zip_code, c.city].filter(Boolean).join(' ');
+          return `<option value="${c.id}"
+            data-name="${c.name}"
+            data-street="${c.street || ''}"
+            data-city="${c.city || ''}"
+            data-zipcode="${c.zip_code || ''}"
+            data-phone="${c.phone || ''}"
+            data-email="${c.email || ''}"
+            data-address="${fullAddress}">${c.name}</option>`;
+        }).join('');
 
       select1.innerHTML = options;
       select2.innerHTML = options;
@@ -1159,17 +1169,29 @@
 
       // Get selected locations and times
       const location1Select = document.getElementById('locationSelect1');
+      const loc1Option = location1Select.options[location1Select.selectedIndex];
       const location1 = location1Select.value ? {
         id: location1Select.value,
-        name: location1Select.options[location1Select.selectedIndex].dataset.name,
-        address: location1Select.options[location1Select.selectedIndex].dataset.address
+        name: loc1Option.dataset.name,
+        street: loc1Option.dataset.street,
+        city: loc1Option.dataset.city,
+        zip_code: loc1Option.dataset.zipcode,
+        phone: loc1Option.dataset.phone,
+        email: loc1Option.dataset.email,
+        address: loc1Option.dataset.address
       } : null;
 
       const location2Select = document.getElementById('locationSelect2');
+      const loc2Option = location2Select.options[location2Select.selectedIndex];
       const location2 = location2Select.value ? {
         id: location2Select.value,
-        name: location2Select.options[location2Select.selectedIndex].dataset.name,
-        address: location2Select.options[location2Select.selectedIndex].dataset.address
+        name: loc2Option.dataset.name,
+        street: loc2Option.dataset.street,
+        city: loc2Option.dataset.city,
+        zip_code: loc2Option.dataset.zipcode,
+        phone: loc2Option.dataset.phone,
+        email: loc2Option.dataset.email,
+        address: loc2Option.dataset.address
       } : null;
 
       const startTime1 = document.getElementById('startTime1').value || '14:00';

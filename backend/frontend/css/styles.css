@@ -214,8 +214,20 @@ body {
   border-radius: 12px;
   padding: 8px 0;
   z-index: 1000;
-  margin-top: 5px;
+  margin-top: 0;
+  padding-top: 12px;
   border: 1px solid #e0e0e0;
+}
+
+/* Invisible bridge to prevent hover gap */
+.nav-dropdown::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: transparent;
 }
 
 .nav-dropdown:hover .nav-dropdown-content {
@@ -265,13 +277,16 @@ body {
 
 /* Logout button special styling */
 .nav-links .nav-logout {
-  background: #dc3545;
+  background: #dc3545 !important;
   color: white !important;
   margin-left: 10px;
+  border-radius: 8px;
+  padding: 10px 16px;
 }
 
 .nav-links .nav-logout:hover {
-  background: #c82333;
+  background: #c82333 !important;
+  color: white !important;
 }
 
 .card {
