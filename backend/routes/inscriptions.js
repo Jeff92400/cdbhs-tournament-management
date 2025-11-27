@@ -453,11 +453,11 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
         const row = worksheet.getRow(currentRow);
         row.values = [
           playerIndex + 1,
-          player.last_name,
+          `${player.last_name} (${player.finalRank || player.originalRank})`,
           player.first_name,
           player.club || '',
           player.licence,
-          player.isNew ? 'Nouveau' : `#${player.originalRank}`
+          player.isNew ? 'Nouveau' : `#${player.finalRank || player.originalRank}`
         ];
 
         // Highlight new players
@@ -480,12 +480,21 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
 
       const matches = generateMatchSchedule(poule.players.length);
       matches.forEach((match, matchIndex) => {
-        const p1 = poule.players[match.player1 - 1];
-        const p2 = poule.players[match.player2 - 1];
         worksheet.getCell(`A${currentRow}`).value = `Match ${matchIndex + 1}:`;
-        worksheet.getCell(`B${currentRow}`).value = `${p1.last_name} ${p1.first_name}`;
-        worksheet.getCell(`C${currentRow}`).value = 'vs';
-        worksheet.getCell(`D${currentRow}`).value = `${p2.last_name} ${p2.first_name}`;
+
+        // Handle dynamic matches (where opponent depends on previous match results)
+        if (match.dynamic) {
+          worksheet.getCell(`B${currentRow}`).value = match.description;
+          worksheet.getCell(`B${currentRow}`).font = { italic: true, color: { argb: 'FF666666' } };
+        } else {
+          const p1 = poule.players[match.player1 - 1];
+          const p2 = poule.players[match.player2 - 1];
+          if (p1 && p2) {
+            worksheet.getCell(`B${currentRow}`).value = `${p1.last_name} ${p1.first_name} (${p1.finalRank || p1.originalRank || '-'})`;
+            worksheet.getCell(`C${currentRow}`).value = 'vs';
+            worksheet.getCell(`D${currentRow}`).value = `${p2.last_name} ${p2.first_name} (${p2.finalRank || p2.originalRank || '-'})`;
+          }
+        }
         currentRow++;
       });
 

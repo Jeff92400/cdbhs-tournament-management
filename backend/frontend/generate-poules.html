@@ -842,7 +842,7 @@
           ${poule.players.map((p, index) => `
             <div class="poule-player">
               <span class="poule-player-rank">${index + 1}.</span>
-              <span>${p.last_name} ${p.first_name}</span>
+              <span>${p.last_name} ${p.first_name} <strong style="color: #1F4788;">(${p.finalRank})</strong></span>
               ${p.isNew ? '<span class="badge badge-new" style="margin-left: auto;">Nouveau</span>' : ''}
             </div>
           `).join('')}
