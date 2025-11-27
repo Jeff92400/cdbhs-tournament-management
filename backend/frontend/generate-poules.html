@@ -281,20 +281,6 @@
         <p style="padding: 20px; color: #666; text-align: center;">Aucun nouveau joueur</p>
       </div>
 
-      <h4 style="margin-top: 20px;">Ajout last minute</h4>
-      <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
-        <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">Ajouter un joueur qui n'est pas inscrit dans le système externe</p>
-        <div style="display: flex; gap: 10px; align-items: center;">
-          <input type="text" id="lastMinuteSearch" placeholder="Rechercher par nom ou licence..."
-                 style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-          <button class="btn" id="addLastMinuteBtn" style="background: #dc3545;" disabled>Ajouter</button>
-        </div>
-        <div id="lastMinuteResults" style="display: none; max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 10px; background: white;"></div>
-        <div class="player-list" id="lastMinutePlayersList" style="margin-top: 10px; max-height: 150px;">
-          <!-- Added last minute players will appear here -->
-        </div>
-      </div>
-
       <div class="action-buttons">
         <button class="btn" id="backToStep1Btn" style="background: #6c757d;">Retour</button>
         <button class="btn" id="validatePlayersBtn" disabled>Valider la liste</button>
@@ -384,15 +370,12 @@
     let categories = [];
     let rankedPlayers = [];
     let newPlayers = [];
-    let lastMinutePlayers = [];
-    let allSystemPlayers = [];
     let selectedPlayers = [];
     let currentCategory = null;
     let currentSeason = null;
     let currentTournament = null;
     let externalTournois = [];
     let matchingTournoi = null;
-    let selectedLastMinutePlayer = null;
 
     // Poule configuration based on number of players
     const POULE_CONFIG = {
@@ -680,20 +663,6 @@
           newPlayers = [];
         }
 
-        // Load all system players for last minute search
-        const allPlayersResponse = await fetch(`${API_URL}/players`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (allPlayersResponse.ok) {
-          allSystemPlayers = await allPlayersResponse.json();
-        }
-
-        // Reset last minute players
-        lastMinutePlayers = [];
-        selectedLastMinutePlayer = null;
-        document.getElementById('lastMinuteSearch').value = '';
-        document.getElementById('lastMinuteResults').style.display = 'none';
-
         renderPlayerLists();
         goToStep(2);
 
@@ -741,35 +710,6 @@
         `).join('');
       }
 
-      // Render last minute players
-      const lastMinuteList = document.getElementById('lastMinutePlayersList');
-      if (lastMinutePlayers.length === 0) {
-        lastMinuteList.innerHTML = '';
-      } else {
-        lastMinuteList.innerHTML = lastMinutePlayers.map((p, index) => `
-          <div class="player-item new-player ${p.selected ? 'selected' : ''}"
-               data-licence="${p.licence}" data-type="lastMinute" data-index="${index}">
-            <input type="checkbox" ${p.selected ? 'checked' : ''}>
-            <span class="player-rank">-</span>
-            <span class="player-name">${p.last_name} ${p.first_name}</span>
-            <span class="player-club">${p.club || ''}</span>
-            <span class="player-licence">${p.licence}</span>
-            <span class="badge" style="background: #dc3545; color: white;">Last minute</span>
-            <button class="btn-remove-lastminute" data-index="${index}" style="margin-left: auto; background: none; border: none; color: #dc3545; cursor: pointer; font-size: 18px;" title="Retirer">×</button>
-          </div>
-        `).join('');
-
-        // Add remove handlers for last minute players
-        document.querySelectorAll('.btn-remove-lastminute').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const idx = parseInt(btn.dataset.index);
-            lastMinutePlayers.splice(idx, 1);
-            renderPlayerLists();
-          });
-        });
-      }
-
       // Add click handlers
       document.querySelectorAll('.player-item').forEach(item => {
         item.addEventListener('click', (e) => {
@@ -796,10 +736,8 @@
 
       if (type === 'ranked') {
         rankedPlayers[index].selected = checkbox.checked;
-      } else if (type === 'new') {
+      } else {
         newPlayers[index].selected = checkbox.checked;
-      } else if (type === 'lastMinute') {
-        lastMinutePlayers[index].selected = checkbox.checked;
       }
 
       item.classList.toggle('selected', checkbox.checked);
@@ -809,8 +747,7 @@
     function updateSelectionSummary() {
       const selectedRanked = rankedPlayers.filter(p => p.selected);
       const selectedNew = newPlayers.filter(p => p.selected);
-      const selectedLastMinute = lastMinutePlayers.filter(p => p.selected);
-      const totalSelected = selectedRanked.length + selectedNew.length + selectedLastMinute.length;
+      const totalSelected = selectedRanked.length + selectedNew.length;
 
       document.getElementById('selectedCount').textContent = totalSelected;
 
@@ -830,14 +767,12 @@
     document.getElementById('selectAllBtn').addEventListener('click', () => {
       rankedPlayers.forEach(p => { if (!p.forfait) p.selected = true; });
       newPlayers.forEach(p => p.selected = true);
-      lastMinutePlayers.forEach(p => p.selected = true);
       renderPlayerLists();
     });
 
     document.getElementById('deselectAllBtn').addEventListener('click', () => {
       rankedPlayers.forEach(p => p.selected = false);
       newPlayers.forEach(p => p.selected = false);
-      lastMinutePlayers.forEach(p => p.selected = false);
       renderPlayerLists();
     });
 
@@ -846,90 +781,6 @@
         p.selected = p.isInscribed && !p.forfait;
       });
       newPlayers.forEach(p => p.selected = true);
-      lastMinutePlayers.forEach(p => p.selected = true);
-      renderPlayerLists();
-    });
-
-    // Last minute player search
-    document.getElementById('lastMinuteSearch').addEventListener('input', (e) => {
-      const searchTerm = e.target.value.toLowerCase().trim();
-      const resultsDiv = document.getElementById('lastMinuteResults');
-
-      if (searchTerm.length < 2) {
-        resultsDiv.style.display = 'none';
-        document.getElementById('addLastMinuteBtn').disabled = true;
-        selectedLastMinutePlayer = null;
-        return;
-      }
-
-      // Get all already selected/added licences
-      const usedLicences = new Set([
-        ...rankedPlayers.map(p => p.licence?.replace(/\s/g, '')),
-        ...newPlayers.map(p => p.licence?.replace(/\s/g, '')),
-        ...lastMinutePlayers.map(p => p.licence?.replace(/\s/g, ''))
-      ]);
-
-      // Search in all system players
-      const results = allSystemPlayers.filter(p => {
-        const licenceClean = p.licence?.replace(/\s/g, '') || '';
-        if (usedLicences.has(licenceClean)) return false;
-
-        const fullName = `${p.first_name} ${p.last_name}`.toLowerCase();
-        const reverseName = `${p.last_name} ${p.first_name}`.toLowerCase();
-        return fullName.includes(searchTerm) ||
-               reverseName.includes(searchTerm) ||
-               licenceClean.toLowerCase().includes(searchTerm);
-      }).slice(0, 10);
-
-      if (results.length === 0) {
-        resultsDiv.innerHTML = '<p style="padding: 10px; color: #666;">Aucun joueur trouvé</p>';
-        resultsDiv.style.display = 'block';
-        document.getElementById('addLastMinuteBtn').disabled = true;
-        selectedLastMinutePlayer = null;
-      } else {
-        resultsDiv.innerHTML = results.map(p => `
-          <div class="search-result-item" data-licence="${p.licence}"
-               style="padding: 10px 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between;"
-               onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'">
-            <span><strong>${p.last_name} ${p.first_name}</strong></span>
-            <span style="color: #666;">${p.club || ''} - ${p.licence}</span>
-          </div>
-        `).join('');
-        resultsDiv.style.display = 'block';
-
-        // Add click handlers to results
-        resultsDiv.querySelectorAll('.search-result-item').forEach(item => {
-          item.addEventListener('click', () => {
-            const licence = item.dataset.licence;
-            selectedLastMinutePlayer = allSystemPlayers.find(p => p.licence === licence);
-            document.getElementById('lastMinuteSearch').value = `${selectedLastMinutePlayer.last_name} ${selectedLastMinutePlayer.first_name}`;
-            resultsDiv.style.display = 'none';
-            document.getElementById('addLastMinuteBtn').disabled = false;
-          });
-        });
-      }
-    });
-
-    // Add last minute player button
-    document.getElementById('addLastMinuteBtn').addEventListener('click', () => {
-      if (!selectedLastMinutePlayer) return;
-
-      lastMinutePlayers.push({
-        licence: selectedLastMinutePlayer.licence,
-        first_name: selectedLastMinutePlayer.first_name,
-        last_name: selectedLastMinutePlayer.last_name,
-        club: selectedLastMinutePlayer.club || '',
-        isNew: true,
-        isLastMinute: true,
-        selected: true
-      });
-
-      // Reset search
-      document.getElementById('lastMinuteSearch').value = '';
-      document.getElementById('lastMinuteResults').style.display = 'none';
-      document.getElementById('addLastMinuteBtn').disabled = true;
-      selectedLastMinutePlayer = null;
-
       renderPlayerLists();
     });
 
@@ -952,7 +803,6 @@
       // Reset state
       rankedPlayers = [];
       newPlayers = [];
-      lastMinutePlayers = [];
       selectedPlayers = [];
       goToStep(1);
     });
@@ -973,14 +823,6 @@
 
       // Then add new players sorted by timestamp
       newPlayers.filter(p => p.selected).forEach(p => {
-        selectedPlayers.push({
-          ...p,
-          finalRank: newRank++
-        });
-      });
-
-      // Finally add last minute players
-      lastMinutePlayers.filter(p => p.selected).forEach(p => {
         selectedPlayers.push({
           ...p,
           finalRank: newRank++
