@@ -11,6 +11,40 @@ const router = express.Router();
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
+// Helper function to parse date in DD/MM/YYYY format
+function parseDate(dateStr) {
+  if (!dateStr || dateStr === 'NULL' || dateStr === '') return null;
+
+  // Check if it's DD/MM/YYYY format
+  const ddmmyyyy = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (ddmmyyyy) {
+    const [, day, month, year] = ddmmyyyy;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+
+  // Check if it's already YYYY-MM-DD
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateStr;
+  }
+
+  return null;
+}
+
+// Helper function to parse datetime in DD/MM/YYYY HH:MM format
+function parseDateTime(dateTimeStr) {
+  if (!dateTimeStr || dateTimeStr === 'NULL' || dateTimeStr === '') return null;
+
+  // Check if it's DD/MM/YYYY HH:MM format
+  const match = dateTimeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (match) {
+    const [, day, month, year, hour, minute, second = '00'] = match;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${hour.padStart(2, '0')}:${minute}:${second}`;
+  }
+
+  // Return as-is if already in ISO format
+  return dateTimeStr;
+}
+
 // Import tournoi_ext from CSV
 router.post('/tournoi/import', authenticateToken, upload.single('file'), async (req, res) => {
   if (!req.file) {
@@ -21,8 +55,12 @@ router.post('/tournoi/import', authenticateToken, upload.single('file'), async (
     const fileContent = fs.readFileSync(req.file.path, 'utf-8');
     const records = [];
 
+    // Auto-detect delimiter (semicolon or comma)
+    const firstLine = fileContent.split('\n')[0];
+    const delimiter = firstLine.includes(';') ? ';' : ',';
+
     const parser = parse(fileContent, {
-      delimiter: ',',
+      delimiter: delimiter,
       columns: true,
       skip_empty_lines: true,
       trim: true,
@@ -45,8 +83,8 @@ router.post('/tournoi/import', authenticateToken, upload.single('file'), async (
         const mode = record.MODE || record.mode || '';
         const categorie = record.CATEGORIE || record.categorie || '';
         const taille = parseInt(record.TAILLE || record.taille) || null;
-        const debut = record.DEBUT || record.debut || null;
-        const fin = record.FIN || record.fin || null;
+        const debut = parseDate(record.DEBUT || record.debut);
+        const fin = parseDate(record.FIN || record.fin);
         const grandCoin = parseInt(record.GRAND_COIN || record.grand_coin) || 0;
         const tailleCadre = record.TAILLE_CADRE || record.taille_cadre || null;
         const lieu = record.LIEU || record.lieu || '';
@@ -117,8 +155,12 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
     const fileContent = fs.readFileSync(req.file.path, 'utf-8');
     const records = [];
 
+    // Auto-detect delimiter (semicolon or comma)
+    const firstLine = fileContent.split('\n')[0];
+    const delimiter = firstLine.includes(';') ? ';' : ',';
+
     const parser = parse(fileContent, {
-      delimiter: ',',
+      delimiter: delimiter,
       columns: true,
       skip_empty_lines: true,
       trim: true,
@@ -139,7 +181,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
         const inscriptionId = parseInt(record.INSCRIPTION_ID || record.inscription_id);
         const joueurId = parseInt(record.JOUEUR_ID || record.joueur_id) || null;
         const tournoiId = parseInt(record.TOURNOI_ID || record.tournoi_id);
-        const timestamp = record.TIMESTAMP || record.timestamp || null;
+        const timestamp = parseDateTime(record.TIMESTAMP || record.timestamp);
         const email = record.EMAIL || record.email || '';
         const telephone = record.TELEPHONE || record.telephone || '';
         const licence = (record.LICENCE || record.licence || '').replace(/\s+/g, '').trim();
