@@ -733,6 +733,23 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
     // ==========================================
     const convV2 = workbook.addWorksheet('Convocation v2');
 
+    // Page setup for A4 printing
+    convV2.pageSetup = {
+      paperSize: 9,  // A4
+      orientation: 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,  // 0 = auto
+      margins: {
+        left: 0.5,
+        right: 0.5,
+        top: 0.5,
+        bottom: 0.5,
+        header: 0.3,
+        footer: 0.3
+      }
+    };
+
     // Define colors
     const colors = {
       primary: 'FF1F4788',      // Dark blue
@@ -745,14 +762,14 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
       lightText: 'FF666666'
     };
 
-    // Set column widths
+    // Set column widths - enlarged for better A4 coverage
     convV2.columns = [
-      { width: 6 },    // A - Rang
-      { width: 12 },   // B - Licence
-      { width: 16 },   // C - Nom
-      { width: 14 },   // D - Prénom
-      { width: 30 },   // E - Club
-      { width: 6 }     // F - empty
+      { width: 8 },    // A - Rang
+      { width: 14 },   // B - Licence
+      { width: 22 },   // C - Nom
+      { width: 18 },   // D - Prénom
+      { width: 38 },   // E - Club
+      { width: 8 }     // F - empty/padding
     ];
 
     let v2Row = 1;
