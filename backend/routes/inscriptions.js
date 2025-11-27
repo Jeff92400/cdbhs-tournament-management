@@ -733,20 +733,20 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
     // ==========================================
     const convV2 = workbook.addWorksheet('Convocation v2');
 
-    // Page setup for A4 printing
+    // Page setup for A4 printing - fit everything on 1 page
     convV2.pageSetup = {
       paperSize: 9,  // A4
       orientation: 'portrait',
       fitToPage: true,
       fitToWidth: 1,
-      fitToHeight: 0,  // 0 = auto
+      fitToHeight: 1,  // Force to 1 page
       margins: {
-        left: 0.5,
-        right: 0.5,
-        top: 0.5,
-        bottom: 0.5,
-        header: 0.3,
-        footer: 0.3
+        left: 0.4,
+        right: 0.4,
+        top: 0.4,
+        bottom: 0.4,
+        header: 0.2,
+        footer: 0.2
       }
     };
 
