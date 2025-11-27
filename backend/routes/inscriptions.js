@@ -387,16 +387,19 @@ router.delete('/all', authenticateToken, (req, res) => {
 
 // Generate Excel file with poules
 router.post('/generate-poules', authenticateToken, async (req, res) => {
-  const { category, season, tournament, players, poules, config } = req.body;
+  const { category, season, tournament, players, poules, config, tournamentDate, tournamentLieu } = req.body;
 
   try {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Poules');
 
-    // Title
+    // Title with tournament date
     const tournamentLabel = tournament === '4' ? 'Finale Départementale' : `Tournoi ${tournament}`;
+    const dateStr = tournamentDate ? new Date(tournamentDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const titleText = dateStr ? `${category.display_name} - ${tournamentLabel} - ${dateStr}` : `${category.display_name} - ${tournamentLabel}`;
+
     worksheet.mergeCells('A1:F1');
-    worksheet.getCell('A1').value = `${category.display_name} - ${tournamentLabel}`;
+    worksheet.getCell('A1').value = titleText;
     worksheet.getCell('A1').font = { size: 18, bold: true, color: { argb: 'FF1F4788' } };
     worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
     worksheet.getCell('A1').fill = {
@@ -438,14 +441,18 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
       worksheet.getRow(currentRow).height = 25;
       currentRow++;
 
-      // Column headers for this poule
-      worksheet.getRow(currentRow).values = ['#', 'Nom', 'Prénom', 'Club', 'Licence', 'Classement Initial'];
-      worksheet.getRow(currentRow).font = { bold: true };
-      worksheet.getRow(currentRow).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFD3D3D3' }
-      };
+      // Column headers for this poule (apply style only to columns A-F)
+      const headerRow = worksheet.getRow(currentRow);
+      headerRow.values = ['#', 'Nom', 'Prénom', 'Club', 'Licence', 'Classement Initial'];
+      ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+        const cell = worksheet.getCell(`${col}${currentRow}`);
+        cell.font = { bold: true };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFD3D3D3' }
+        };
+      });
       currentRow++;
 
       // Players in this poule
@@ -457,16 +464,18 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
           player.first_name,
           player.club || '',
           player.licence,
-          player.isNew ? 'Nouveau' : `#${player.finalRank || player.originalRank}`
+          `#${player.finalRank || player.originalRank}`
         ];
 
-        // Highlight new players
+        // Highlight new players (only columns A-F)
         if (player.isNew) {
-          row.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFFFF3E0' }
-          };
+          ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+            worksheet.getCell(`${col}${currentRow}`).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFF3E0' }
+            };
+          });
         }
 
         currentRow++;
@@ -515,14 +524,17 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
     worksheet.getRow(currentRow).height = 25;
     currentRow++;
 
-    // Headers
+    // Headers (apply style only to columns A-F)
     worksheet.getRow(currentRow).values = ['Rang', 'Nom', 'Prénom', 'Club', 'Licence', 'Poule'];
-    worksheet.getRow(currentRow).font = { bold: true };
-    worksheet.getRow(currentRow).fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFD3D3D3' }
-    };
+    ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+      const cell = worksheet.getCell(`${col}${currentRow}`);
+      cell.font = { bold: true };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD3D3D3' }
+      };
+    });
     currentRow++;
 
     // All players
@@ -546,11 +558,13 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
       ];
 
       if (player.isNew) {
-        row.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFFFF3E0' }
-        };
+        ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+          worksheet.getCell(`${col}${currentRow}`).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFF3E0' }
+          };
+        });
       }
 
       currentRow++;

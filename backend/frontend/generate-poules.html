@@ -893,7 +893,9 @@
             tournament: currentTournament,
             players: selectedPlayers,
             poules: poules,
-            config: config
+            config: config,
+            tournamentDate: matchingTournoi?.debut || null,
+            tournamentLieu: matchingTournoi?.lieu || null
           })
         });
 
