@@ -92,11 +92,47 @@
       padding: 5px 0;
       display: flex;
       align-items: center;
+      gap: 5px;
     }
     .poule-player-rank {
       width: 25px;
       font-weight: bold;
       color: #666;
+    }
+    .move-player-btn {
+      margin-left: auto;
+      padding: 2px 8px;
+      font-size: 0.75em;
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    .move-player-btn:hover {
+      opacity: 1;
+    }
+    .move-dropdown {
+      position: absolute;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      z-index: 100;
+      min-width: 120px;
+    }
+    .move-dropdown-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .move-dropdown-item:hover {
+      background: #f5f5f5;
+    }
+    .poule-card {
+      position: relative;
     }
     .step-indicator {
       display: flex;
@@ -1117,16 +1153,31 @@
       goToStep(3);
     });
 
+    // Store current poules globally for manipulation
+    let currentPoules = [];
+
     function renderPoulePreview(poules) {
+      currentPoules = poules;
       const container = document.getElementById('poulePreview');
+      const numPoules = poules.length;
+
       container.innerHTML = poules.map(poule => `
         <div class="poule-card" data-poule="${poule.number}">
           <h4>Poule ${poule.number} (${poule.players.length} joueurs)</h4>
           ${poule.players.map((p, index) => `
-            <div class="poule-player">
+            <div class="poule-player" data-licence="${p.licence}" data-poule="${poule.number}">
               <span class="poule-player-rank">${index + 1}.</span>
-              <span>${p.last_name} ${p.first_name} <strong style="color: #1F4788;">(${p.finalRank})</strong></span>
-              ${p.isLastMinute ? '<span class="badge" style="background: #dc3545; color: white; margin-left: auto;">Last minute</span>' : (p.isNew ? '<span class="badge badge-new" style="margin-left: auto;">Nouveau</span>' : '')}
+              <span style="flex: 1;">${p.last_name} ${p.first_name} <strong style="color: #1F4788;">(${p.finalRank})</strong></span>
+              ${p.isLastMinute ? '<span class="badge" style="background: #dc3545; color: white;">Last minute</span>' : (p.isNew ? '<span class="badge badge-new">Nouveau</span>' : '')}
+              ${numPoules > 1 ? `
+                <select class="move-player-select" data-licence="${p.licence}" data-from-poule="${poule.number}"
+                        style="padding: 2px 5px; font-size: 0.75em; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                  <option value="">Déplacer...</option>
+                  ${poules.filter(op => op.number !== poule.number).map(op =>
+                    `<option value="${op.number}">→ Poule ${op.number}</option>`
+                  ).join('')}
+                </select>
+              ` : ''}
             </div>
           `).join('')}
           <div class="poule-location-select" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ddd;">
@@ -1138,8 +1189,49 @@
         </div>
       `).join('');
 
+      // Add move player handlers
+      container.querySelectorAll('.move-player-select').forEach(select => {
+        select.addEventListener('change', (e) => {
+          const licence = select.dataset.licence;
+          const fromPoule = parseInt(select.dataset.fromPoule);
+          const toPoule = parseInt(e.target.value);
+
+          if (toPoule) {
+            movePlayerBetweenPoules(licence, fromPoule, toPoule);
+          }
+          // Reset select
+          select.value = '';
+        });
+      });
+
       // Update location labels when locations change
       updatePouleLocationLabels();
+    }
+
+    function movePlayerBetweenPoules(licence, fromPouleNum, toPouleNum) {
+      // Find the player in the source poule
+      const fromPoule = currentPoules.find(p => p.number === fromPouleNum);
+      const toPoule = currentPoules.find(p => p.number === toPouleNum);
+
+      if (!fromPoule || !toPoule) return;
+
+      const playerIndex = fromPoule.players.findIndex(p => p.licence === licence);
+      if (playerIndex === -1) return;
+
+      // Remove from source poule
+      const [player] = fromPoule.players.splice(playerIndex, 1);
+
+      // Add to destination poule
+      toPoule.players.push(player);
+
+      // Re-render
+      renderPoulePreview(currentPoules);
+
+      // Show success message briefly
+      const msg = document.getElementById('successMessage');
+      msg.textContent = `${player.last_name} ${player.first_name} déplacé vers Poule ${toPouleNum}`;
+      msg.style.display = 'block';
+      setTimeout(() => msg.style.display = 'none', 2000);
     }
 
     function updatePouleLocationLabels() {
@@ -1165,7 +1257,8 @@
     // Generate Excel
     document.getElementById('generateExcelBtn').addEventListener('click', async () => {
       const config = getPouleConfig(selectedPlayers.length);
-      const poules = distributeSerpentine(selectedPlayers, config.poules);
+      // Use currentPoules which may have been modified by moving players
+      const poules = currentPoules.length > 0 ? currentPoules : distributeSerpentine(selectedPlayers, config.poules);
 
       // Get selected locations and times
       const location1Select = document.getElementById('locationSelect1');
