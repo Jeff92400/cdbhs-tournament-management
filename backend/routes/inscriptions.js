@@ -783,14 +783,24 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
     let v2Row = 1;
 
     // === HEADER SECTION ===
-    // Season banner
+    // Convocation title
     convV2.mergeCells(`A${v2Row}:E${v2Row}`);
-    convV2.getCell(`A${v2Row}`).value = `SAISON ${season}`;
-    convV2.getCell(`A${v2Row}`).font = { size: 22, bold: true, color: { argb: colors.white } };
+    convV2.getCell(`A${v2Row}`).value = `CONVOCATION TOURNOI N°${tournament}`;
+    convV2.getCell(`A${v2Row}`).font = { size: 24, bold: true, color: { argb: colors.white } };
     convV2.getCell(`A${v2Row}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.primary } };
     convV2.getCell(`A${v2Row}`).alignment = { horizontal: 'center', vertical: 'middle' };
     convV2.getCell(`A${v2Row}`).border = blackBorder;
-    convV2.getRow(v2Row).height = 45;
+    convV2.getRow(v2Row).height = 50;
+    v2Row++;
+
+    // Season banner
+    convV2.mergeCells(`A${v2Row}:E${v2Row}`);
+    convV2.getCell(`A${v2Row}`).value = `SAISON ${season}`;
+    convV2.getCell(`A${v2Row}`).font = { size: 16, bold: true, color: { argb: colors.white } };
+    convV2.getCell(`A${v2Row}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.secondary } };
+    convV2.getCell(`A${v2Row}`).alignment = { horizontal: 'center', vertical: 'middle' };
+    convV2.getCell(`A${v2Row}`).border = blackBorder;
+    convV2.getRow(v2Row).height = 35;
     v2Row++;
 
     // Empty row
@@ -813,20 +823,13 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
     convV2.getRow(v2Row).height = 15;
     v2Row++;
 
-    // Tournament info box
-    convV2.mergeCells(`A${v2Row}:B${v2Row}`);
-    convV2.getCell(`A${v2Row}`).value = `TOURNOI N° ${tournament}`;
-    convV2.getCell(`A${v2Row}`).font = { size: 14, bold: true, color: { argb: colors.white } };
+    // Category info box (full width since tournament number is now in title)
+    convV2.mergeCells(`A${v2Row}:E${v2Row}`);
+    convV2.getCell(`A${v2Row}`).value = category.display_name;
+    convV2.getCell(`A${v2Row}`).font = { size: 16, bold: true, color: { argb: colors.white } };
     convV2.getCell(`A${v2Row}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.secondary } };
     convV2.getCell(`A${v2Row}`).alignment = { horizontal: 'center', vertical: 'middle' };
     convV2.getCell(`A${v2Row}`).border = blackBorder;
-
-    convV2.mergeCells(`C${v2Row}:E${v2Row}`);
-    convV2.getCell(`C${v2Row}`).value = category.display_name;
-    convV2.getCell(`C${v2Row}`).font = { size: 14, bold: true, color: { argb: colors.white } };
-    convV2.getCell(`C${v2Row}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.secondary } };
-    convV2.getCell(`C${v2Row}`).alignment = { horizontal: 'center', vertical: 'middle' };
-    convV2.getCell(`C${v2Row}`).border = blackBorder;
     convV2.getRow(v2Row).height = 35;
     v2Row++;
 
