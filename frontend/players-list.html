@@ -187,6 +187,30 @@
       window.location.href = 'login.html';
     }
 
+    // Get user role from JWT token
+    let userRole = 'viewer';
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userRole = payload.role || (payload.admin ? 'admin' : 'viewer');
+    } catch (e) {
+      console.error('Error decoding token:', e);
+    }
+
+    const isAdmin = userRole === 'admin';
+
+    // Hide admin-only elements for non-admin users
+    if (!isAdmin) {
+      // Hide clear all players button
+      const clearBtn = document.getElementById('clearPlayersBtn');
+      if (clearBtn) clearBtn.style.display = 'none';
+
+      // Hide Actions column header
+      const actionsHeader = document.querySelector('thead th:last-child');
+      if (actionsHeader && actionsHeader.textContent === 'Actions') {
+        actionsHeader.style.display = 'none';
+      }
+    }
+
     // Logout
     document.getElementById('logoutBtn').addEventListener('click', (e) => {
       e.preventDefault();
@@ -421,7 +445,8 @@
       tbody.innerHTML = '';
 
       if (players.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Aucun joueur trouvé</td></tr>';
+        const colspan = isAdmin ? 10 : 9;
+        tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center; padding: 20px;">Aucun joueur trouvé</td></tr>`;
         return;
       }
 
@@ -445,19 +470,25 @@
               ${player.is_active ? '✓ Actif' : '✗ Inactif'}
             </span>
           </td>
+          ${isAdmin ? `
           <td style="text-align: center;">
             <button class="btn btn-small edit-player-btn" style="background: #4CAF50; padding: 5px 10px; font-size: 12px;">✏️ Modifier</button>
           </td>
+          ` : ''}
         `;
 
         tbody.appendChild(row);
 
-        // Add click event to edit button
-        const editBtn = row.querySelector('.edit-player-btn');
-        editBtn.onclick = (e) => {
-          e.stopPropagation();
-          openEditModal(player);
-        };
+        // Add click event to edit button (only for admin)
+        if (isAdmin) {
+          const editBtn = row.querySelector('.edit-player-btn');
+          if (editBtn) {
+            editBtn.onclick = (e) => {
+              e.stopPropagation();
+              openEditModal(player);
+            };
+          }
+        }
       });
     }
 
