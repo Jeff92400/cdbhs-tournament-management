@@ -255,12 +255,15 @@
       `;
     }
 
-    // Logout
-    document.getElementById('logoutBtn').addEventListener('click', (e) => {
-      e.preventDefault();
-      localStorage.removeItem('token');
-      window.location.href = 'login.html';
-    });
+    // Logout (if button exists)
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        localStorage.removeItem('token');
+        window.location.href = 'login.html';
+      });
+    }
 
     // Get tournament ID from URL
     const urlParams = new URLSearchParams(window.location.search);
