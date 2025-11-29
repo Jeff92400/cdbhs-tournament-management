@@ -854,8 +854,7 @@
       try {
         // Load ranking from previous tournament(s)
         if (previousTournament >= 1) {
-          // Use game_type and level instead of categoryId for more reliable matching
-          const rankingResponse = await fetch(`${API_URL}/rankings?gameType=${encodeURIComponent(currentCategory.game_type)}&level=${encodeURIComponent(currentCategory.level)}&season=${season}`, {
+          const rankingResponse = await fetch(`${API_URL}/rankings?categoryId=${categoryId}&season=${season}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
 
