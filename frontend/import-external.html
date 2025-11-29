@@ -94,12 +94,9 @@
       window.location.href = 'login.html';
     }
 
-    // Check user role - this page is admin only
+    // This page is accessible to all authenticated users (admin and viewer)
+    // to allow updating inscriptions before generating poules
     const userRole = localStorage.getItem('userRole');
-    if (userRole !== 'admin') {
-      alert('Accès réservé aux administrateurs');
-      window.location.href = 'dashboard.html';
-    }
 
 
     // File upload handling helper

@@ -231,8 +231,29 @@
     <div id="errorMessage" class="error" style="display: none;"></div>
     <div id="successMessage" class="success" style="display: none;"></div>
 
+    <!-- Warning: Update inscriptions -->
+    <div class="card" id="inscriptionWarning" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); border-left: 5px solid #ffc107; margin-bottom: 20px;">
+      <div style="display: flex; align-items: flex-start; gap: 15px;">
+        <div style="font-size: 32px;">⚠️</div>
+        <div style="flex: 1;">
+          <h3 style="margin: 0 0 10px 0; color: #856404;">Mise à jour des inscriptions</h3>
+          <p style="margin: 0 0 15px 0; color: #856404;">
+            Avant de générer les poules, assurez-vous que le fichier des inscriptions est à jour depuis la base IONOS.
+          </p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="import-external.html" class="btn" style="background: #ffc107; color: #856404; font-weight: bold;">
+              📤 Mettre à jour les inscriptions
+            </a>
+            <button class="btn" id="skipInscriptionUpdate" style="background: #6c757d;">
+              Continuer sans mise à jour →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Step Indicator -->
-    <div class="step-indicator">
+    <div class="step-indicator" id="stepIndicatorContainer" style="display: none;">
       <div class="step active" id="step1Indicator">
         <span class="step-number">1</span>
         <span>Sélection</span>
@@ -255,7 +276,7 @@
     </div>
 
     <!-- Step 1: Select Tournament -->
-    <div class="card" id="step1">
+    <div class="card" id="step1" style="display: none;">
       <h3>Étape 1: Sélectionner le Tournoi</h3>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
@@ -511,6 +532,13 @@
       localStorage.removeItem('userRole');
       localStorage.removeItem('username');
       window.location.href = 'login.html';
+    });
+
+    // Skip inscription update warning
+    document.getElementById('skipInscriptionUpdate').addEventListener('click', () => {
+      document.getElementById('inscriptionWarning').style.display = 'none';
+      document.getElementById('stepIndicatorContainer').style.display = 'flex';
+      document.getElementById('step1').style.display = 'block';
     });
 
     // State
