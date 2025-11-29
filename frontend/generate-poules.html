@@ -70,6 +70,10 @@
       background: #dc3545;
       color: white;
     }
+    .badge-inscrit {
+      background: #28a745;
+      color: white;
+    }
     .poule-preview {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -868,7 +872,7 @@
                 forfait: i.forfait
               }));
 
-            // Mark ranked players who are inscribed or forfait
+            // Mark ranked players who are inscribed or forfait AND auto-select them
             rankedPlayers.forEach(p => {
               const inscription = inscriptions.find(i =>
                 i.licence?.replace(/\s/g, '') === p.licence?.replace(/\s/g, '')
@@ -876,7 +880,16 @@
               if (inscription) {
                 p.isInscribed = true;
                 p.forfait = inscription.forfait === 1;
+                // Auto-select inscribed players (not forfait)
+                if (!p.forfait) {
+                  p.selected = true;
+                }
               }
+            });
+
+            // Auto-select all new players (they are all inscribed by definition)
+            newPlayers.forEach(p => {
+              p.selected = true;
             });
           }
         } else {
@@ -926,7 +939,7 @@
             <span class="player-name">${p.last_name} ${p.first_name}</span>
             <span class="player-club">${p.club || ''}</span>
             <span class="player-licence">${p.licence}</span>
-            ${p.forfait ? '<span class="badge badge-forfait">Forfait</span>' : ''}
+            ${p.forfait ? '<span class="badge badge-forfait">Forfait</span>' : (p.isInscribed ? '<span class="badge badge-inscrit">Inscrit</span>' : '')}
           </div>
         `).join('');
       }
