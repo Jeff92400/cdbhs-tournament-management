@@ -246,7 +246,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
 });
 
 // Get all external tournaments
-router.get('/tournoi', authenticateToken, (req, res) => {
+router.get('/tournoi', authenticateToken, async (req, res) => {
   const { mode, categorie } = req.query;
 
   let query = 'SELECT * FROM tournoi_ext';
@@ -254,10 +254,32 @@ router.get('/tournoi', authenticateToken, (req, res) => {
   const conditions = [];
 
   if (mode) {
-    // Case-insensitive matching for mode, ignoring spaces
-    // This handles "3BANDES" matching "3 bandes" or "3 BANDES"
-    conditions.push(`UPPER(REPLACE(mode, ' ', '')) = UPPER(REPLACE($${params.length + 1}, ' ', ''))`);
-    params.push(mode);
+    // Use mode_mapping table to find all IONOS mode variations for this game_type
+    // First, get all ionos_mode values that map to this game_type
+    try {
+      const mappingQuery = 'SELECT ionos_mode FROM mode_mapping WHERE game_type = $1';
+      const mappingResult = await new Promise((resolve, reject) => {
+        db.all(mappingQuery, [mode], (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        });
+      });
+
+      if (mappingResult.length > 0) {
+        // Match any of the mapped ionos_mode values
+        const placeholders = mappingResult.map((_, i) => `$${params.length + i + 1}`).join(', ');
+        conditions.push(`UPPER(mode) IN (${placeholders})`);
+        mappingResult.forEach(m => params.push(m.ionos_mode.toUpperCase()));
+      } else {
+        // Fallback: direct matching with space removal
+        conditions.push(`UPPER(REPLACE(mode, ' ', '')) = UPPER(REPLACE($${params.length + 1}, ' ', ''))`);
+        params.push(mode);
+      }
+    } catch (err) {
+      // Fallback on error
+      conditions.push(`UPPER(REPLACE(mode, ' ', '')) = UPPER(REPLACE($${params.length + 1}, ' ', ''))`);
+      params.push(mode);
+    }
   }
   if (categorie) {
     // Case-insensitive matching for categorie

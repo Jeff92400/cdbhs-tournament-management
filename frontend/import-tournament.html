@@ -82,6 +82,23 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal for existing tournament warning -->
+    <div id="existingTournamentModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+      <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <h3 style="margin-top: 0; color: #dc3545;">⚠️ Tournoi existant</h3>
+        <p style="color: #666; margin-bottom: 15px;">Un tournoi existe déjà pour cette catégorie/numéro/saison :</p>
+        <div id="existingTournamentInfo" style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+        </div>
+        <p style="color: #dc3545; font-weight: bold; margin-bottom: 20px;">
+          En continuant, les résultats existants seront définitivement remplacés !
+        </p>
+        <div style="display: flex; gap: 10px;">
+          <button id="confirmOverwriteBtn" class="btn" style="flex: 1; background: #dc3545;">Remplacer le tournoi</button>
+          <button id="cancelOverwriteBtn" class="btn" style="flex: 1; background: #6c757d;">Annuler</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -280,6 +297,59 @@
       document.getElementById('importBtn').textContent = 'Importer le tournoi';
     });
 
+    // Show existing tournament warning modal
+    function showExistingTournamentModal(tournament) {
+      const modal = document.getElementById('existingTournamentModal');
+      const info = document.getElementById('existingTournamentInfo');
+
+      const importDate = tournament.importDate
+        ? new Date(tournament.importDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : 'Non renseignée';
+
+      info.innerHTML = `
+        <p style="margin: 0 0 8px 0;"><strong>${tournament.categoryName}</strong></p>
+        <p style="margin: 0 0 8px 0;">Tournoi ${tournament.tournamentNumber} - Saison ${tournament.season}</p>
+        <p style="margin: 0 0 8px 0;">Joueurs enregistrés : <strong>${tournament.playerCount}</strong></p>
+        <p style="margin: 0; font-size: 12px; color: #666;">Importé le : ${importDate}</p>
+      `;
+
+      modal.style.display = 'flex';
+    }
+
+    // Hide existing tournament modal
+    function hideExistingTournamentModal() {
+      document.getElementById('existingTournamentModal').style.display = 'none';
+    }
+
+    // Confirm overwrite button
+    document.getElementById('confirmOverwriteBtn').addEventListener('click', async () => {
+      hideExistingTournamentModal();
+      await proceedWithValidation();
+    });
+
+    // Cancel overwrite button
+    document.getElementById('cancelOverwriteBtn').addEventListener('click', () => {
+      hideExistingTournamentModal();
+      document.getElementById('importBtn').disabled = false;
+      document.getElementById('importBtn').textContent = 'Importer le tournoi';
+    });
+
+    // Check if tournament exists
+    async function checkTournamentExists(categoryId, tournamentNumber, season) {
+      try {
+        const response = await fetch(
+          `${API_URL}/tournaments/check-exists?categoryId=${categoryId}&tournamentNumber=${tournamentNumber}&season=${encodeURIComponent(season)}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (error) {
+        console.error('Error checking tournament:', error);
+      }
+      return { exists: false };
+    }
+
     // Perform the actual import
     async function performImport(formData) {
       const errorDiv = document.getElementById('errorMessage');
@@ -347,7 +417,48 @@
       }
     }
 
-    // Form submission - validate first, then import
+    // Proceed with validation (after overwrite confirmation or if no existing tournament)
+    async function proceedWithValidation() {
+      const errorDiv = document.getElementById('errorMessage');
+      const importBtn = document.getElementById('importBtn');
+
+      importBtn.textContent = 'Validation en cours...';
+
+      try {
+        // Validate and check for unknown players
+        const validateResponse = await fetch(`${API_URL}/tournaments/validate`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: currentFormData
+        });
+
+        const validateData = await validateResponse.json();
+
+        if (!validateResponse.ok) {
+          throw new Error(validateData.error || 'Erreur lors de la validation');
+        }
+
+        if (validateData.status === 'validation_required' && validateData.unknownPlayers.length > 0) {
+          // Show modal for unknown players
+          importBtn.textContent = 'En attente de création des joueurs...';
+          showUnknownPlayersModal(validateData.unknownPlayers);
+        } else {
+          // All players exist, proceed with import
+          importBtn.textContent = 'Import en cours...';
+          await performImport(currentFormData);
+        }
+
+      } catch (error) {
+        errorDiv.textContent = error.message || 'Erreur de connexion au serveur';
+        errorDiv.style.display = 'block';
+        importBtn.disabled = false;
+        importBtn.textContent = 'Importer le tournoi';
+      }
+    }
+
+    // Form submission - check for existing tournament first, then validate, then import
     document.getElementById('importForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -379,32 +490,18 @@
       currentFormData = formData;
 
       importBtn.disabled = true;
-      importBtn.textContent = 'Validation en cours...';
+      importBtn.textContent = 'Vérification...';
 
       try {
-        // First validate and check for unknown players
-        const validateResponse = await fetch(`${API_URL}/tournaments/validate`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        });
+        // First check if tournament already exists
+        const existsResult = await checkTournamentExists(categoryId, tournamentNumber, season);
 
-        const validateData = await validateResponse.json();
-
-        if (!validateResponse.ok) {
-          throw new Error(validateData.error || 'Erreur lors de la validation');
-        }
-
-        if (validateData.status === 'validation_required' && validateData.unknownPlayers.length > 0) {
-          // Show modal for unknown players
-          importBtn.textContent = 'En attente de création des joueurs...';
-          showUnknownPlayersModal(validateData.unknownPlayers);
+        if (existsResult.exists) {
+          // Show warning modal
+          showExistingTournamentModal(existsResult.tournament);
         } else {
-          // All players exist, proceed with import
-          importBtn.textContent = 'Import en cours...';
-          await performImport(formData);
+          // No existing tournament, proceed with validation
+          await proceedWithValidation();
         }
 
       } catch (error) {

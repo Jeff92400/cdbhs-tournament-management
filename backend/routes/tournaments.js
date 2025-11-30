@@ -191,6 +191,47 @@ router.post('/create-players', authenticateToken, async (req, res) => {
   }
 });
 
+// Check if tournament exists (for warning before overwrite)
+router.get('/check-exists', authenticateToken, (req, res) => {
+  const { categoryId, tournamentNumber, season } = req.query;
+
+  if (!categoryId || !tournamentNumber || !season) {
+    return res.status(400).json({ error: 'Category ID, tournament number, and season required' });
+  }
+
+  const query = `
+    SELECT t.id, t.tournament_date, t.import_date, c.display_name,
+           COUNT(tr.id) as player_count
+    FROM tournaments t
+    JOIN categories c ON t.category_id = c.id
+    LEFT JOIN tournament_results tr ON tr.tournament_id = t.id
+    WHERE t.category_id = $1 AND t.tournament_number = $2 AND t.season = $3
+    GROUP BY t.id, t.tournament_date, t.import_date, c.display_name
+  `;
+
+  db.get(query, [categoryId, tournamentNumber, season], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (row) {
+      res.json({
+        exists: true,
+        tournament: {
+          id: row.id,
+          categoryName: row.display_name,
+          tournamentNumber: tournamentNumber,
+          season: season,
+          tournamentDate: row.tournament_date,
+          importDate: row.import_date,
+          playerCount: row.player_count
+        }
+      });
+    } else {
+      res.json({ exists: false });
+    }
+  });
+});
+
 // Import tournament results from CSV
 router.post('/import', authenticateToken, upload.single('file'), async (req, res) => {
   if (!req.file) {

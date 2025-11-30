@@ -194,6 +194,16 @@ async function initializeDatabase() {
       )
     `);
 
+    // Mode mapping table - maps IONOS mode names to internal game_type
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS mode_mapping (
+        id SERIAL PRIMARY KEY,
+        ionos_mode TEXT NOT NULL UNIQUE,
+        game_type TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     await client.query('COMMIT');
 
     // Initialize default admin (legacy)
@@ -246,6 +256,42 @@ async function initializeDatabase() {
       }
       console.log('Categories initialized');
     }
+
+    // Initialize mode mappings (IONOS mode names -> internal game_type)
+    const modeMappings = [
+      // LIBRE variations
+      { ionos_mode: 'Libre', game_type: 'LIBRE' },
+      { ionos_mode: 'LIBRE', game_type: 'LIBRE' },
+      { ionos_mode: 'libre', game_type: 'LIBRE' },
+      // CADRE variations
+      { ionos_mode: 'Cadre', game_type: 'CADRE' },
+      { ionos_mode: 'CADRE', game_type: 'CADRE' },
+      { ionos_mode: 'cadre', game_type: 'CADRE' },
+      // BANDE variations (1 bande)
+      { ionos_mode: 'Bande', game_type: 'BANDE' },
+      { ionos_mode: 'BANDE', game_type: 'BANDE' },
+      { ionos_mode: 'bande', game_type: 'BANDE' },
+      { ionos_mode: '1 Bande', game_type: 'BANDE' },
+      { ionos_mode: '1 BANDE', game_type: 'BANDE' },
+      { ionos_mode: '1 bande', game_type: 'BANDE' },
+      { ionos_mode: '1Bande', game_type: 'BANDE' },
+      { ionos_mode: '1BANDE', game_type: 'BANDE' },
+      // 3 BANDES variations
+      { ionos_mode: '3 Bandes', game_type: '3BANDES' },
+      { ionos_mode: '3 BANDES', game_type: '3BANDES' },
+      { ionos_mode: '3 bandes', game_type: '3BANDES' },
+      { ionos_mode: '3Bandes', game_type: '3BANDES' },
+      { ionos_mode: '3BANDES', game_type: '3BANDES' },
+      { ionos_mode: '3bandes', game_type: '3BANDES' }
+    ];
+
+    for (const mapping of modeMappings) {
+      await client.query(
+        'INSERT INTO mode_mapping (ionos_mode, game_type) VALUES ($1, $2) ON CONFLICT (ionos_mode) DO NOTHING',
+        [mapping.ionos_mode, mapping.game_type]
+      );
+    }
+    console.log('Mode mappings initialized');
 
     // Initialize default clubs
     const clubResult = await client.query('SELECT COUNT(*) as count FROM clubs');
