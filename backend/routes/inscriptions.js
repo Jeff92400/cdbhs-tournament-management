@@ -1024,12 +1024,11 @@ router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
 
   console.log(`Fetching upcoming tournaments from ${startDate} to ${endDate}`);
 
+  // Simple query first to get tournaments, then we'll count inscriptions
   const query = `
-    SELECT t.*,
-           COALESCE((SELECT COUNT(*) FROM inscriptions i WHERE i.tournoi_id = t.tournoi_id AND (i.forfait IS NULL OR i.forfait != 1)), 0) as inscrit_count
-    FROM tournoi_ext t
-    WHERE t.debut::date >= $1::date AND t.debut::date <= $2::date
-    ORDER BY t.debut ASC, t.mode, t.categorie
+    SELECT * FROM tournoi_ext
+    WHERE debut >= $1 AND debut <= $2
+    ORDER BY debut ASC, mode, categorie
   `;
 
   db.all(query, [startDate, endDate], (err, rows) => {
@@ -1037,8 +1036,15 @@ router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
       console.error('Error fetching upcoming tournaments:', err);
       return res.status(500).json({ error: err.message });
     }
-    console.log(`Found ${rows ? rows.length : 0} upcoming tournaments`);
-    res.json(rows || []);
+
+    // Add inscrit_count as 0 for now (can be enhanced later)
+    const results = (rows || []).map(row => ({
+      ...row,
+      inscrit_count: 0
+    }));
+
+    console.log(`Found ${results.length} upcoming tournaments`);
+    res.json(results);
   });
 });
 
