@@ -600,6 +600,9 @@
       document.getElementById('inscriptionWarning').style.display = 'none';
       document.getElementById('stepIndicatorContainer').style.display = 'flex';
       document.getElementById('step1').style.display = 'block';
+      // Show and load upcoming tournaments
+      document.getElementById('upcomingTournamentsCard').style.display = 'block';
+      loadUpcomingTournaments();
     });
 
     // State
@@ -754,6 +757,15 @@
 
     // Load upcoming tournaments
     async function loadUpcomingTournaments() {
+      const container = document.getElementById('upcomingTournamentsList');
+      const noTournamentsDiv = document.getElementById('noUpcomingTournaments');
+      const card = document.getElementById('upcomingTournamentsCard');
+
+      // Show loading state
+      container.innerHTML = '<p style="text-align: center; color: #666;">Chargement des tournois...</p>';
+      container.style.display = 'block';
+      noTournamentsDiv.style.display = 'none';
+
       try {
         const response = await fetch(`${API_URL}/inscriptions/tournoi/upcoming`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -761,9 +773,6 @@
 
         if (response.ok) {
           const tournaments = await response.json();
-          const container = document.getElementById('upcomingTournamentsList');
-          const noTournamentsDiv = document.getElementById('noUpcomingTournaments');
-          const card = document.getElementById('upcomingTournamentsCard');
 
           if (tournaments.length === 0) {
             container.style.display = 'none';
@@ -875,13 +884,15 @@
       }
     }
 
-    // Load upcoming tournaments on page load (after skip warning)
-    document.getElementById('skipInscriptionUpdate').addEventListener('click', () => {
+    // Also load upcoming tournaments when coming from import-external page
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('skipWarning') === 'true') {
       document.getElementById('inscriptionWarning').style.display = 'none';
       document.getElementById('stepIndicatorContainer').style.display = 'flex';
       document.getElementById('step1').style.display = 'block';
+      document.getElementById('upcomingTournamentsCard').style.display = 'block';
       loadUpcomingTournaments();
-    });
+    }
 
     // Load clubs for location selection
     async function loadClubs() {
