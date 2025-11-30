@@ -197,6 +197,53 @@
       gap: 10px;
       margin-top: 20px;
     }
+
+    /* Upcoming tournament cards */
+    .upcoming-tournament-card {
+      border: 2px solid #dee2e6;
+      border-radius: 12px;
+      padding: 15px;
+      background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .upcoming-tournament-card:hover {
+      border-color: #1F4788;
+      box-shadow: 0 4px 12px rgba(31, 71, 136, 0.15);
+      transform: translateY(-2px);
+    }
+    .upcoming-tournament-card .tournament-mode {
+      font-size: 0.85em;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+    .upcoming-tournament-card .tournament-name {
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #1F4788;
+      margin-bottom: 10px;
+    }
+    .upcoming-tournament-card .tournament-details {
+      font-size: 0.9em;
+      color: #666;
+    }
+    .upcoming-tournament-card .tournament-details span {
+      display: block;
+      margin-bottom: 3px;
+    }
+    .upcoming-tournament-card .tournament-date {
+      color: #28a745;
+      font-weight: 500;
+    }
+    .upcoming-tournament-card .tournament-inscrits {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+      font-weight: 500;
+      color: #17a2b8;
+    }
   </style>
 </head>
 <body>
@@ -249,6 +296,20 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Upcoming Tournaments Section -->
+    <div class="card" id="upcomingTournamentsCard" style="display: none;">
+      <h3>🗓️ Tournois à venir</h3>
+      <p style="color: #666; margin-bottom: 15px;">
+        Cliquez sur un tournoi pour pré-remplir automatiquement la sélection.
+      </p>
+      <div id="upcomingTournamentsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
+        <!-- Tournaments will be loaded here -->
+      </div>
+      <div id="noUpcomingTournaments" style="display: none; text-align: center; padding: 20px; color: #666;">
+        <p>Aucun tournoi prévu pour ce weekend.</p>
       </div>
     </div>
 
@@ -690,6 +751,137 @@
     }
 
     loadCategories();
+
+    // Load upcoming tournaments
+    async function loadUpcomingTournaments() {
+      try {
+        const response = await fetch(`${API_URL}/inscriptions/tournoi/upcoming`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const tournaments = await response.json();
+          const container = document.getElementById('upcomingTournamentsList');
+          const noTournamentsDiv = document.getElementById('noUpcomingTournaments');
+          const card = document.getElementById('upcomingTournamentsCard');
+
+          if (tournaments.length === 0) {
+            container.style.display = 'none';
+            noTournamentsDiv.style.display = 'block';
+          } else {
+            container.style.display = 'grid';
+            noTournamentsDiv.style.display = 'none';
+
+            container.innerHTML = tournaments.map(t => {
+              const dateStr = t.debut
+                ? new Date(t.debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+                : 'Date non définie';
+
+              // Extract tournament number from name (e.g., "TOURNOI 2" -> "2")
+              const tournamentMatch = t.nom.match(/TOURNOI\s*(\d+)/i);
+              const tournamentNum = tournamentMatch ? tournamentMatch[1] : '';
+
+              return `
+                <div class="upcoming-tournament-card"
+                     data-mode="${t.mode}"
+                     data-categorie="${t.categorie}"
+                     data-tournament-num="${tournamentNum}"
+                     data-tournoi-id="${t.tournoi_id}"
+                     data-lieu="${t.lieu || ''}"
+                     data-date="${t.debut || ''}">
+                  <div class="tournament-mode">${t.mode} - ${t.categorie}</div>
+                  <div class="tournament-name">${t.nom}</div>
+                  <div class="tournament-details">
+                    <span class="tournament-date">📅 ${dateStr}</span>
+                    <span>📍 ${t.lieu || 'Lieu non défini'}</span>
+                  </div>
+                  <div class="tournament-inscrits">
+                    👥 ${t.inscrit_count || 0} inscrit(s)
+                  </div>
+                </div>
+              `;
+            }).join('');
+
+            // Add click handlers
+            container.querySelectorAll('.upcoming-tournament-card').forEach(card => {
+              card.addEventListener('click', () => selectUpcomingTournament(card));
+            });
+          }
+
+          card.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error loading upcoming tournaments:', error);
+      }
+    }
+
+    // Handle click on upcoming tournament card
+    async function selectUpcomingTournament(card) {
+      const mode = card.dataset.mode;
+      const categorie = card.dataset.categorie;
+      const tournamentNum = card.dataset.tournamentNum;
+      const tournoiId = card.dataset.tournoiId;
+      const lieu = card.dataset.lieu;
+      const date = card.dataset.date;
+
+      // Find matching category using mode_mapping logic
+      // We need to match the IONOS mode to our internal game_type
+      const modeNormalized = mode.toUpperCase().replace(/\s+/g, '');
+
+      // Mapping from IONOS modes to internal game_types
+      const modeToGameType = {
+        'LIBRE': 'LIBRE',
+        '3BANDES': '3BANDES',
+        '3 BANDES': '3BANDES',
+        'BANDE': 'BANDE',
+        '1BANDE': 'BANDE',
+        '1 BANDE': 'BANDE',
+        'CADRE': 'CADRE'
+      };
+
+      const gameType = modeToGameType[mode.toUpperCase()] || modeToGameType[modeNormalized] || mode.toUpperCase();
+
+      // Find matching category
+      const matchingCategory = categories.find(c =>
+        c.game_type.toUpperCase() === gameType &&
+        c.level.toUpperCase() === categorie.toUpperCase()
+      );
+
+      if (matchingCategory) {
+        // Set dropdowns
+        document.getElementById('categorySelect').value = matchingCategory.id;
+        document.getElementById('tournamentSelect').value = tournamentNum;
+
+        // Store the selected tournament info for later use
+        window.selectedUpcomingTournament = {
+          tournoiId,
+          lieu,
+          date,
+          mode,
+          categorie,
+          tournamentNum
+        };
+
+        // Trigger change event to load tournament info
+        document.getElementById('categorySelect').dispatchEvent(new Event('change'));
+
+        // Enable load button
+        document.getElementById('loadPlayersBtn').disabled = false;
+
+        // Scroll to step 1
+        document.getElementById('step1').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        alert(`Impossible de trouver la catégorie correspondante pour ${mode} - ${categorie}`);
+      }
+    }
+
+    // Load upcoming tournaments on page load (after skip warning)
+    document.getElementById('skipInscriptionUpdate').addEventListener('click', () => {
+      document.getElementById('inscriptionWarning').style.display = 'none';
+      document.getElementById('stepIndicatorContainer').style.display = 'flex';
+      document.getElementById('step1').style.display = 'block';
+      loadUpcomingTournaments();
+    });
 
     // Load clubs for location selection
     async function loadClubs() {

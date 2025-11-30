@@ -1000,6 +1000,44 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
   }
 });
 
+// Get upcoming tournaments (for the current weekend and next weekend)
+router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
+  // Get today's date
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Start from tomorrow (today's tournaments are being played)
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Get the next Sunday (end of current weekend) and the following Sunday (end of next weekend)
+  const daysUntilSunday = (7 - tomorrow.getDay()) % 7;
+  const thisSunday = new Date(tomorrow);
+  thisSunday.setDate(tomorrow.getDate() + daysUntilSunday);
+
+  const nextSunday = new Date(thisSunday);
+  nextSunday.setDate(thisSunday.getDate() + 7);
+
+  // Format dates for SQL
+  const startDate = tomorrow.toISOString().split('T')[0];
+  const endDate = nextSunday.toISOString().split('T')[0];
+
+  const query = `
+    SELECT t.*,
+           (SELECT COUNT(*) FROM inscriptions i WHERE i.tournoi_id = t.tournoi_id AND i.forfait != 1) as inscrit_count
+    FROM tournoi_ext t
+    WHERE t.debut >= $1 AND t.debut <= $2
+    ORDER BY t.debut ASC, t.mode, t.categorie
+  `;
+
+  db.all(query, [startDate, endDate], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows || []);
+  });
+});
+
 // Helper function to generate match schedule based on poule size
 function generateMatchSchedule(pouleSize) {
   if (pouleSize === 3) {
