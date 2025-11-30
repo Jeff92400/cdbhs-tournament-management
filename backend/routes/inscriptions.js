@@ -301,6 +301,27 @@ router.get('/tournoi', authenticateToken, async (req, res) => {
   });
 });
 
+// Get last inscription import date
+router.get('/last-import', authenticateToken, (req, res) => {
+  // Get the most recent created_at from inscriptions table
+  const query = `
+    SELECT MAX(created_at) as last_import_date,
+           COUNT(*) as total_inscriptions
+    FROM inscriptions
+  `;
+
+  db.get(query, [], (err, row) => {
+    if (err) {
+      console.error('Error fetching last import date:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({
+      lastImportDate: row?.last_import_date || null,
+      totalInscriptions: row?.total_inscriptions || 0
+    });
+  });
+});
+
 // Get upcoming tournaments (for the current weekend and next weekend)
 // IMPORTANT: This route must be BEFORE /tournoi/:id to avoid :id catching "upcoming"
 router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
