@@ -301,6 +301,53 @@ router.get('/tournoi', authenticateToken, async (req, res) => {
   });
 });
 
+// Get upcoming tournaments (for the current weekend and next weekend)
+// IMPORTANT: This route must be BEFORE /tournoi/:id to avoid :id catching "upcoming"
+router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
+  // Get today's date
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Start from tomorrow (today's tournaments are being played)
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Get the next Sunday (end of current weekend) and the following Sunday (end of next weekend)
+  const daysUntilSunday = (7 - tomorrow.getDay()) % 7;
+  const thisSunday = new Date(tomorrow);
+  thisSunday.setDate(tomorrow.getDate() + daysUntilSunday);
+
+  const nextSunday = new Date(thisSunday);
+  nextSunday.setDate(thisSunday.getDate() + 7);
+
+  // Format dates for SQL
+  const startDate = tomorrow.toISOString().split('T')[0];
+  const endDate = nextSunday.toISOString().split('T')[0];
+
+  console.log(`Fetching upcoming tournaments from ${startDate} to ${endDate}`);
+
+  const query = `
+    SELECT * FROM tournoi_ext
+    WHERE debut >= $1 AND debut <= $2
+    ORDER BY debut ASC, mode, categorie
+  `;
+
+  db.all(query, [startDate, endDate], (err, rows) => {
+    if (err) {
+      console.error('Error fetching upcoming tournaments:', err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    const results = (rows || []).map(row => ({
+      ...row,
+      inscrit_count: 0
+    }));
+
+    console.log(`Found ${results.length} upcoming tournaments`);
+    res.json(results);
+  });
+});
+
 // Get a specific external tournament
 router.get('/tournoi/:id', authenticateToken, (req, res) => {
   db.get('SELECT * FROM tournoi_ext WHERE tournoi_id = $1', [req.params.id], (err, row) => {
@@ -998,54 +1045,6 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
     console.error('Excel generation error:', error);
     res.status(500).json({ error: error.message });
   }
-});
-
-// Get upcoming tournaments (for the current weekend and next weekend)
-router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
-  // Get today's date
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Start from tomorrow (today's tournaments are being played)
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  // Get the next Sunday (end of current weekend) and the following Sunday (end of next weekend)
-  const daysUntilSunday = (7 - tomorrow.getDay()) % 7;
-  const thisSunday = new Date(tomorrow);
-  thisSunday.setDate(tomorrow.getDate() + daysUntilSunday);
-
-  const nextSunday = new Date(thisSunday);
-  nextSunday.setDate(thisSunday.getDate() + 7);
-
-  // Format dates for SQL - use ISO format for proper PostgreSQL date comparison
-  const startDate = tomorrow.toISOString().split('T')[0];
-  const endDate = nextSunday.toISOString().split('T')[0];
-
-  console.log(`Fetching upcoming tournaments from ${startDate} to ${endDate}`);
-
-  // Simple query first to get tournaments, then we'll count inscriptions
-  const query = `
-    SELECT * FROM tournoi_ext
-    WHERE debut >= $1 AND debut <= $2
-    ORDER BY debut ASC, mode, categorie
-  `;
-
-  db.all(query, [startDate, endDate], (err, rows) => {
-    if (err) {
-      console.error('Error fetching upcoming tournaments:', err);
-      return res.status(500).json({ error: err.message });
-    }
-
-    // Add inscrit_count as 0 for now (can be enhanced later)
-    const results = (rows || []).map(row => ({
-      ...row,
-      inscrit_count: 0
-    }));
-
-    console.log(`Found ${results.length} upcoming tournaments`);
-    res.json(results);
-  });
 });
 
 // Helper function to generate match schedule based on poule size
