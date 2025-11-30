@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Guide Utilisateur - Tournois à Jouer</title>
+  <style>
+    body {
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px;
+      color: #333;
+    }
+    h1 {
+      color: #1F4788;
+      font-size: 24pt;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+      margin-top: 40px;
+    }
+    h2 {
+      color: #667eea;
+      font-size: 16pt;
+      margin-top: 30px;
+      border-left: 4px solid #667eea;
+      padding-left: 10px;
+    }
+    h3 {
+      color: #1F4788;
+      font-size: 13pt;
+      margin-top: 20px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 15px 0;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #667eea;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    .tip-box {
+      background-color: #e7f3ff;
+      border-left: 4px solid #1F4788;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .warning-box {
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .step-number {
+      display: inline-block;
+      background-color: #667eea;
+      color: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 30px;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    code {
+      background-color: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: Consolas, monospace;
+    }
+    .screenshot-placeholder {
+      background-color: #f0f0f0;
+      border: 2px dashed #ccc;
+      padding: 40px;
+      text-align: center;
+      margin: 20px 0;
+      color: #666;
+      font-style: italic;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10pt;
+      font-weight: bold;
+    }
+    .badge-green { background-color: #28a745; color: white; }
+    .badge-red { background-color: #dc3545; color: white; }
+    .badge-orange { background-color: #fd7e14; color: white; }
+    .badge-blue { background-color: #007bff; color: white; }
+    ul, ol {
+      margin: 10px 0;
+      padding-left: 25px;
+    }
+    li {
+      margin: 5px 0;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .toc {
+      background-color: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .toc a {
+      color: #1F4788;
+      text-decoration: none;
+    }
+    .toc a:hover {
+      text-decoration: underline;
+    }
+    .footer {
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+      font-size: 10pt;
+      color: #666;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Guide Utilisateur<br>Tournois à Jouer</h1>
+
+<p style="font-size: 14pt; color: #666;">
+  Ce guide vous accompagne pas à pas dans la préparation des poules pour vos tournois de billard.
+</p>
+
+<div class="toc">
+  <h3 style="margin-top: 0;">Table des matières</h3>
+  <ol>
+    <li><a href="#overview">Vue d'ensemble</a></li>
+    <li><a href="#step0">Écran d'accueil - Vérification des données</a></li>
+    <li><a href="#step1">Étape 1 : Sélection du Tournoi</a></li>
+    <li><a href="#step2">Étape 2 : Sélection des Joueurs</a></li>
+    <li><a href="#step3">Étape 3 : Validation et Aperçu des Poules</a></li>
+    <li><a href="#step4">Étape 4 : Génération du Fichier Excel</a></li>
+    <li><a href="#tips">Astuces et Bonnes Pratiques</a></li>
+    <li><a href="#faq">Questions Fréquentes</a></li>
+  </ol>
+</div>
+
+<h2 id="overview"><span class="step-number">0</span> Vue d'ensemble</h2>
+
+<p>Le module <strong>"Tournois à jouer"</strong> vous permet de :</p>
+<ul>
+  <li>Vérifier la fraîcheur des données IONOS</li>
+  <li>Sélectionner un tournoi à préparer</li>
+  <li>Choisir les joueurs participants</li>
+  <li>Visualiser et ajuster les poules</li>
+  <li>Générer le fichier Excel de convocation</li>
+</ul>
+
+<p>Le processus se déroule en <strong>4 étapes</strong> :</p>
+<table>
+  <tr>
+    <th>Étape</th>
+    <th>Nom</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">1</span></td>
+    <td>Sélection</td>
+    <td>Choisir le tournoi à préparer</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">2</span></td>
+    <td>Joueurs</td>
+    <td>Sélectionner les participants</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">3</span></td>
+    <td>Validation</td>
+    <td>Vérifier et ajuster les poules</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">4</span></td>
+    <td>Génération</td>
+    <td>Créer le fichier Excel</td>
+  </tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2 id="step0">Écran d'accueil - Vérification des données</h2>
+
+<div class="screenshot-placeholder">
+  [Capture d'écran : Panneau de vérification des imports]
+</div>
+
+<h3>Ce que vous voyez</h3>
+
+<p>À l'ouverture de la page, un <strong>panneau d'avertissement jaune</strong> s'affiche avec :</p>
+<ul>
+  <li><strong>Inscriptions</strong> : Date de dernière mise à jour du fichier des inscriptions</li>
+  <li><strong>Tournois</strong> : Date de dernière mise à jour du fichier des tournois externes</li>
+  <li><strong>Joueurs</strong> : Date de dernière mise à jour du fichier des joueurs FFB</li>
+</ul>
+
+<h3>Code couleur des dates</h3>
+
+<table>
+  <tr>
+    <th>Couleur</th>
+    <th>Signification</th>
+  </tr>
+  <tr>
+    <td style="color: #28a745; font-weight: bold;">Vert</td>
+    <td>Mis à jour il y a moins de 24h</td>
+  </tr>
+  <tr>
+    <td style="color: #ffc107; font-weight: bold;">Jaune</td>
+    <td>Mis à jour il y a 1-2 jours</td>
+  </tr>
+  <tr>
+    <td style="color: #fd7e14; font-weight: bold;">Orange</td>
+    <td>Mis à jour il y a 3-7 jours</td>
+  </tr>
+  <tr>
+    <td style="color: #dc3545; font-weight: bold;">Rouge</td>
+    <td>Mis à jour il y a plus de 7 jours ou jamais importé</td>
+  </tr>
+</table>
+
+<h3>Ce que vous pouvez faire</h3>
+
+<ol>
+  <li><strong>Mettre à jour les inscriptions</strong> (bouton jaune)
+    <ul>
+      <li>Cliquez pour accéder à la page d'import des fichiers IONOS</li>
+      <li>Recommandé si les données ont plus de 2 jours</li>
+    </ul>
+  </li>
+  <li><strong>Continuer sans mise à jour</strong> (bouton gris)
+    <ul>
+      <li>Cliquez si vous êtes sûr que vos données sont à jour</li>
+      <li>Passe directement à l'étape de sélection du tournoi</li>
+    </ul>
+  </li>
+</ol>
+
+<div class="page-break"></div>
+
+<h2 id="step1"><span class="step-number">1</span> Étape 1 : Sélection du Tournoi</h2>
+
+<div class="screenshot-placeholder">
+  [Capture d'écran : Sélection du tournoi avec tournois à venir]
+</div>
+
+<h3>Tournois à venir</h3>
+
+<p>En haut de l'écran, une section <strong>"Tournois à venir"</strong> affiche automatiquement les tournois prévus dans les 2 prochaines semaines.</p>
+
+<p>Chaque carte de tournoi affiche :</p>
+<ul>
+  <li><strong>Mode et catégorie</strong> (ex: 3 BANDES - N3, LIBRE - R2)</li>
+  <li><strong>Numéro du tournoi</strong> (Tournoi 1, 2, 3 ou Finale)</li>
+  <li><strong>Date</strong> du tournoi</li>
+  <li><strong>Lieu</strong> prévu</li>
+  <li><strong>Nombre d'inscrits</strong> dans le système IONOS</li>
+</ul>
+
+<h3>Ce que vous pouvez faire</h3>
+
+<div class="tip-box">
+  <strong>Option 1 : Cliquer sur un tournoi à venir</strong>
+  <ul>
+    <li>Les champs Catégorie, Saison et Tournoi se remplissent automatiquement</li>
+    <li>Le tournoi sélectionné est mis en surbrillance (bordure bleue)</li>
+    <li>Un résumé bleu apparaît avec les détails du tournoi</li>
+  </ul>
+</div>
+
+<div class="tip-box">
+  <strong>Option 2 : Sélection manuelle</strong>
+  <ul>
+    <li><strong>Catégorie</strong> : Choisissez le mode de jeu et le niveau</li>
+    <li><strong>Saison</strong> : Pré-sélectionnée automatiquement (ex: 2025-2026)</li>
+    <li><strong>Tournoi à préparer</strong> : Sélectionnez Tournoi 1, 2, 3 ou Finale</li>
+  </ul>
+</div>
+
+<h3>Validation</h3>
+
+<p>Une fois le tournoi sélectionné, un <strong>résumé bleu</strong> apparaît avec :</p>
+<ul>
+  <li>La catégorie complète</li>
+  <li>La date du tournoi</li>
+  <li>Le lieu prévu</li>
+  <li>Le nombre de joueurs inscrits</li>
+</ul>
+
+<p>Cliquez sur <strong>"Charger les joueurs"</strong> pour passer à l'étape 2.</p>
+
+<div class="page-break"></div>
+
+<h2 id="step2"><span class="step-number">2</span> Étape 2 : Sélection des Joueurs</h2>
+
+<div class="screenshot-placeholder">
+  [Capture d'écran : Sélection des joueurs avec les 3 sections]
+</div>
+
+<h3>Résumé en temps réel</h3>
+
+<p>En haut de l'écran, un panneau affiche en temps réel :</p>
+<ul>
+  <li><strong>Joueurs sélectionnés</strong> : Nombre total de joueurs cochés</li>
+  <li><strong>Configuration des poules</strong> : Répartition optimale (ex: "5 poules de 3 et 1 poule de 4")</li>
+  <li><strong>Tables nécessaires</strong> : Nombre de tables de billard requises</li>
+</ul>
+
+<h3>Les 3 sections de joueurs</h3>
+
+<h4>1. Joueurs classés (du classement actuel)</h4>
+
+<p>Liste des joueurs présents dans le classement de la catégorie, triés par position :</p>
+<ul>
+  <li><strong>#1, #2, #3...</strong> : Position au classement</li>
+  <li><strong>Nom du joueur</strong></li>
+  <li><strong>Club</strong> et <strong>Licence</strong></li>
+  <li><span class="badge badge-green">Inscrit</span> : Le joueur est inscrit dans IONOS</li>
+  <li><span class="badge badge-red">Forfait</span> : Le joueur a déclaré forfait</li>
+</ul>
+
+<p>Les joueurs inscrits sont <strong>automatiquement pré-cochés</strong>.</p>
+
+<h4>2. Nouveaux joueurs (inscrits non classés)</h4>
+
+<p>Joueurs inscrits dans IONOS mais absents du classement actuel :</p>
+<ul>
+  <li>Marqués avec un badge <span class="badge badge-orange">Nouveau</span></li>
+  <li>Position affichée comme <strong>"-"</strong></li>
+  <li>Automatiquement pré-cochés</li>
+</ul>
+
+<p>Ces joueurs seront placés en fin de distribution serpentine.</p>
+
+<h4>3. Ajout last minute</h4>
+
+<p>Permet d'ajouter un joueur qui n'est pas inscrit dans IONOS :</p>
+<ol>
+  <li>Tapez le nom ou le numéro de licence</li>
+  <li>Sélectionnez le joueur dans la liste déroulante</li>
+  <li>Cliquez sur <strong>"Ajouter"</strong></li>
+</ol>
+
+<p>Utile pour les inscriptions de dernière minute ou les remplacements.</p>
+
+<h3>Boutons d'action rapide</h3>
+
+<table>
+  <tr>
+    <th>Bouton</th>
+    <th>Action</th>
+  </tr>
+  <tr>
+    <td><strong>Tout sélectionner</strong></td>
+    <td>Coche tous les joueurs de la liste</td>
+  </tr>
+  <tr>
+    <td><strong>Tout désélectionner</strong></td>
+    <td>Décoche tous les joueurs</td>
+  </tr>
+  <tr>
+    <td><strong>Sélectionner les inscrits</strong></td>
+    <td>Coche uniquement les joueurs avec le badge "Inscrit"</td>
+  </tr>
+</table>
+
+<h3>Navigation</h3>
+<ul>
+  <li><strong>Retour</strong> : Revenir à l'étape 1 (sélection du tournoi)</li>
+  <li><strong>Valider la liste</strong> : Passer à l'étape 3 (aperçu des poules)</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="step3"><span class="step-number">3</span> Étape 3 : Validation et Aperçu des Poules</h2>
+
+<div class="screenshot-placeholder">
+  [Capture d'écran : Validation avec aperçu des poules et configuration du lieu]
+</div>
+
+<h3>Résumé du tournoi</h3>
+
+<p>En haut, un tableau récapitule :</p>
+<ul>
+  <li><strong>Catégorie</strong> : Mode et niveau</li>
+  <li><strong>Tournoi</strong> : Numéro du tournoi</li>
+  <li><strong>Date</strong> : Date de la compétition</li>
+  <li><strong>Lieu</strong> : Lieu prévu (depuis IONOS)</li>
+  <li><strong>Nombre de joueurs</strong> : Total des participants</li>
+  <li><strong>Configuration</strong> : Répartition des poules</li>
+  <li><strong>Tables nécessaires</strong> : Nombre de tables requises</li>
+</ul>
+
+<h3>Aperçu des Poules (Distribution Serpentine)</h3>
+
+<p>Les joueurs sont répartis automatiquement selon la <strong>méthode serpentine</strong> :</p>
+<ul>
+  <li>Les joueurs sont distribués en zigzag selon leur classement</li>
+  <li>Cela garantit un équilibre entre les poules</li>
+</ul>
+
+<p>Chaque poule affiche :</p>
+<ul>
+  <li><strong>Titre</strong> : "Poule 1 (3 joueurs)", "Poule 2 (3 joueurs)", etc.</li>
+  <li><strong>Liste des joueurs</strong> avec leur position au classement entre parenthèses</li>
+  <li><span class="badge badge-orange">Nouveau</span> pour les joueurs non classés</li>
+  <li><strong>Sélecteur de lieu</strong> pour chaque poule</li>
+</ul>
+
+<h3>Déplacer un joueur</h3>
+
+<p>Pour chaque joueur, un bouton <strong>"Déplacer..."</strong> permet de le transférer vers une autre poule :</p>
+<ol>
+  <li>Cliquez sur "Déplacer..."</li>
+  <li>Sélectionnez la poule de destination</li>
+  <li>Le joueur est immédiatement déplacé</li>
+</ol>
+
+<div class="tip-box">
+  <strong>Utile pour :</strong>
+  <ul>
+    <li>Éviter que des joueurs du même club soient dans la même poule</li>
+    <li>Ajuster manuellement la répartition si nécessaire</li>
+  </ul>
+</div>
+
+<h3>Lieu et Horaire de la Compétition</h3>
+
+<h4>Lieu principal</h4>
+<ul>
+  <li>Sélectionnez le club où se déroule le tournoi</li>
+  <li>Liste déroulante avec tous les clubs enregistrés</li>
+</ul>
+
+<h4>Heure de début</h4>
+<ul>
+  <li>Choisissez l'heure de début (14:00, 14:30, 15:00, etc.)</li>
+</ul>
+
+<h4>Option : Ajouter un second lieu (split)</h4>
+
+<p>Pour les tournois répartis sur 2 clubs :</p>
+<ol>
+  <li>Cliquez sur <strong>"+ Ajouter un second lieu (split)"</strong></li>
+  <li>Un deuxième sélecteur de lieu apparaît</li>
+  <li>Pour chaque poule, sélectionnez "Lieu 1" ou "Lieu 2"</li>
+</ol>
+
+<h3>Navigation</h3>
+<ul>
+  <li><strong>Modifier la liste</strong> : Revenir à l'étape 2 pour ajuster les joueurs</li>
+  <li><strong>Générer le fichier Excel</strong> : Créer le fichier de convocation</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2 id="step4"><span class="step-number">4</span> Étape 4 : Génération du Fichier Excel</h2>
+
+<p>Après avoir cliqué sur <strong>"Générer le fichier Excel"</strong>, le fichier est automatiquement téléchargé.</p>
+
+<h3>Contenu du fichier Excel</h3>
+
+<p>Le fichier généré contient <strong>3 feuilles</strong> :</p>
+
+<table>
+  <tr>
+    <th>Feuille</th>
+    <th>Contenu</th>
+  </tr>
+  <tr>
+    <td><strong>Poules</strong></td>
+    <td>Composition de chaque poule, planning des matchs avec ordre de passage, colonnes pour noter les scores</td>
+  </tr>
+  <tr>
+    <td><strong>Convocation</strong></td>
+    <td>Liste des joueurs convoqués, informations sur le lieu et l'heure, format traditionnel</td>
+  </tr>
+  <tr>
+    <td><strong>Convocation v2</strong></td>
+    <td>Mise en page professionnelle, logo du club, informations détaillées, prêt à imprimer</td>
+  </tr>
+</table>
+
+<h3>Nom du fichier</h3>
+
+<p>Le fichier est nommé automatiquement selon le format :</p>
+<p><code>Poules_[CATEGORIE]_T[NUMERO]_[DATE].xlsx</code></p>
+<p>Exemple : <code>Poules_3BANDES-N3_T2_06-12-2025.xlsx</code></p>
+
+<div class="page-break"></div>
+
+<h2 id="tips">Astuces et Bonnes Pratiques</h2>
+
+<h3>Avant le tournoi</h3>
+<ol>
+  <li><strong>Mettez à jour les fichiers IONOS</strong> la veille ou le matin du tournoi</li>
+  <li><strong>Vérifiez les forfaits</strong> déclarés dans le système</li>
+  <li><strong>Préparez la liste des joueurs last minute</strong> potentiels</li>
+</ol>
+
+<h3>Pendant la sélection</h3>
+<ol>
+  <li><strong>Utilisez les tournois à venir</strong> pour gagner du temps</li>
+  <li><strong>Vérifiez le nombre de tables</strong> disponibles dans votre club</li>
+  <li><strong>Ajustez les poules</strong> si des joueurs du même club sont ensemble</li>
+</ol>
+
+<h3>Après la génération</h3>
+<ol>
+  <li><strong>Vérifiez le fichier Excel</strong> avant impression</li>
+  <li><strong>Envoyez les convocations</strong> aux joueurs si nécessaire</li>
+  <li><strong>Gardez une copie</strong> du fichier pour l'arbitrage</li>
+</ol>
+
+<div class="page-break"></div>
+
+<h2 id="faq">Questions Fréquentes</h2>
+
+<h3>Pourquoi un joueur n'apparaît-il pas dans la liste ?</h3>
+<p>Vérifiez que :</p>
+<ul>
+  <li>Le joueur est bien inscrit dans IONOS</li>
+  <li>Le fichier des inscriptions a été importé récemment</li>
+  <li>Le joueur n'a pas été déclaré forfait</li>
+</ul>
+
+<h3>Comment ajouter un joueur de dernière minute ?</h3>
+<p>Utilisez la section <strong>"Ajout last minute"</strong> :</p>
+<ol>
+  <li>Tapez son nom ou numéro de licence</li>
+  <li>Sélectionnez-le dans la liste</li>
+  <li>Cliquez sur "Ajouter"</li>
+</ol>
+
+<h3>Comment gérer un tournoi sur 2 lieux ?</h3>
+<ol>
+  <li>À l'étape 3, cliquez sur <strong>"+ Ajouter un second lieu (split)"</strong></li>
+  <li>Sélectionnez les 2 clubs</li>
+  <li>Pour chaque poule, choisissez le lieu approprié</li>
+</ol>
+
+<h3>Les données sont-elles sauvegardées ?</h3>
+<p>Non, la sélection des joueurs n'est pas sauvegardée entre les sessions. Vous devez refaire la sélection à chaque fois que vous générez un nouveau fichier.</p>
+
+<div class="footer">
+  <p><strong>Guide utilisateur - Module Tournois à Jouer</strong></p>
+  <p>CDBHS Tournois - Version 1.1</p>
+  <p>Mis à jour le 30 novembre 2025</p>
+</div>
+
+</body>
+</html>
