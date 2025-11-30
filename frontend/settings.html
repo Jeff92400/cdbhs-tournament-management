@@ -39,6 +39,44 @@
       </form>
     </div>
 
+    <!-- User Management Section - Admin Only -->
+    <div class="card admin-only" id="userManagementSection">
+      <h3>Gestion des Utilisateurs</h3>
+      <p style="margin-bottom: 20px; color: #666;">Gérez les comptes utilisateurs de l'application (administrateurs et viewers).</p>
+
+      <!-- Add New User Form -->
+      <div style="margin-bottom: 25px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+        <h4 style="margin-top: 0; margin-bottom: 15px; color: #1F4788;">Ajouter un utilisateur</h4>
+        <form id="addUserForm" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 15px; align-items: end;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="newUsername">Nom d'utilisateur :</label>
+            <input type="text" id="newUsername" required minlength="3" placeholder="ex: jean.dupont">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="newUserPassword">Mot de passe :</label>
+            <input type="password" id="newUserPassword" required minlength="6" placeholder="Min. 6 caractères">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="newUserRole">Rôle :</label>
+            <select id="newUserRole" required style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 100%;">
+              <option value="viewer">Viewer (lecture seule)</option>
+              <option value="admin">Administrateur</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Ajouter</button>
+        </form>
+      </div>
+
+      <!-- Users List -->
+      <div id="usersListContainer">
+        <h4 style="margin-bottom: 15px; color: #1F4788;">Utilisateurs existants</h4>
+        <div id="usersList" style="display: grid; gap: 10px;">
+          <!-- Users will be loaded here -->
+          <p style="color: #666; text-align: center;">Chargement...</p>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <h3>Calendrier de la saison</h3>
       <p style="margin-bottom: 20px; color: #666;">Téléversez le calendrier de la saison (PDF ou Excel) pour le rendre accessible à tous les utilisateurs.</p>
@@ -106,6 +144,268 @@
     if (!token) {
       window.location.href = 'login.html';
     }
+
+    // Check user role and hide admin sections for viewers
+    function checkUserRole() {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.role !== 'admin') {
+          document.querySelectorAll('.admin-only').forEach(el => {
+            el.style.display = 'none';
+          });
+        }
+      } catch (e) {
+        console.error('Error parsing token:', e);
+      }
+    }
+    checkUserRole();
+
+    // ============= USER MANAGEMENT =============
+
+    // Load users list
+    async function loadUsers() {
+      try {
+        const response = await fetch(`${API_URL}/auth/users`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 403) {
+            // User is not admin, hide the section
+            document.getElementById('userManagementSection').style.display = 'none';
+            return;
+          }
+          throw new Error('Erreur lors du chargement des utilisateurs');
+        }
+
+        const users = await response.json();
+        renderUsersList(users);
+      } catch (error) {
+        console.error('Error loading users:', error);
+        document.getElementById('usersList').innerHTML = `
+          <p style="color: #dc3545; text-align: center;">Erreur: ${error.message}</p>
+        `;
+      }
+    }
+
+    // Render users list
+    function renderUsersList(users) {
+      const container = document.getElementById('usersList');
+
+      if (users.length === 0) {
+        container.innerHTML = '<p style="color: #666; text-align: center;">Aucun utilisateur trouvé</p>';
+        return;
+      }
+
+      container.innerHTML = users.map(user => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px; background: white; border: 1px solid #ddd; border-radius: 8px;">
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: ${user.role === 'admin' ? '#1F4788' : '#6c757d'}; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+              ${user.username.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <strong>${user.username}</strong>
+              <span style="display: inline-block; margin-left: 10px; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: ${user.role === 'admin' ? '#d4edda' : '#e2e3e5'}; color: ${user.role === 'admin' ? '#155724' : '#383d41'};">
+                ${user.role === 'admin' ? 'Administrateur' : 'Viewer'}
+              </span>
+              ${user.is_active === false ? '<span style="display: inline-block; margin-left: 5px; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: #f8d7da; color: #721c24;">Désactivé</span>' : ''}
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            ${user.id !== 1 ? `
+              <button onclick="toggleUserRole(${user.id}, '${user.role}')" class="btn" style="background: #17a2b8; padding: 6px 12px; font-size: 13px;">
+                ${user.role === 'admin' ? 'Rétrograder' : 'Promouvoir'}
+              </button>
+              <button onclick="resetUserPassword(${user.id}, '${user.username}')" class="btn" style="background: #ffc107; color: #000; padding: 6px 12px; font-size: 13px;">
+                Reset MDP
+              </button>
+              <button onclick="toggleUserActive(${user.id}, ${user.is_active !== false})" class="btn" style="background: ${user.is_active !== false ? '#6c757d' : '#28a745'}; padding: 6px 12px; font-size: 13px;">
+                ${user.is_active !== false ? 'Désactiver' : 'Activer'}
+              </button>
+              <button onclick="deleteUser(${user.id}, '${user.username}')" class="btn" style="background: #dc3545; padding: 6px 12px; font-size: 13px;">
+                Supprimer
+              </button>
+            ` : '<span style="color: #666; font-style: italic; font-size: 13px;">Compte principal</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Add new user
+    document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById('newUsername').value.trim();
+      const password = document.getElementById('newUserPassword').value;
+      const role = document.getElementById('newUserRole').value;
+
+      try {
+        const response = await fetch(`${API_URL}/auth/users`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username, password, role })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Erreur lors de la création de l\'utilisateur');
+        }
+
+        // Success
+        document.getElementById('successMessage').textContent = `Utilisateur "${username}" créé avec succès !`;
+        document.getElementById('successMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+
+        // Reset form and reload users
+        document.getElementById('addUserForm').reset();
+        loadUsers();
+
+      } catch (error) {
+        console.error('Error creating user:', error);
+        document.getElementById('errorMessage').textContent = error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+        document.getElementById('successMessage').style.display = 'none';
+      }
+    });
+
+    // Toggle user role
+    async function toggleUserRole(userId, currentRole) {
+      const newRole = currentRole === 'admin' ? 'viewer' : 'admin';
+      const action = currentRole === 'admin' ? 'rétrograder en viewer' : 'promouvoir en admin';
+
+      if (!confirm(`Voulez-vous ${action} cet utilisateur ?`)) return;
+
+      try {
+        const response = await fetch(`${API_URL}/auth/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ role: newRole })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erreur lors de la modification');
+        }
+
+        loadUsers();
+        document.getElementById('successMessage').textContent = 'Rôle modifié avec succès !';
+        document.getElementById('successMessage').style.display = 'block';
+
+      } catch (error) {
+        console.error('Error updating user role:', error);
+        document.getElementById('errorMessage').textContent = error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+      }
+    }
+
+    // Reset user password
+    async function resetUserPassword(userId, username) {
+      const newPassword = prompt(`Nouveau mot de passe pour "${username}" (min. 6 caractères) :`);
+      if (!newPassword) return;
+
+      if (newPassword.length < 6) {
+        alert('Le mot de passe doit contenir au moins 6 caractères');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/auth/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ password: newPassword })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erreur lors de la modification');
+        }
+
+        document.getElementById('successMessage').textContent = `Mot de passe de "${username}" modifié avec succès !`;
+        document.getElementById('successMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+
+      } catch (error) {
+        console.error('Error resetting password:', error);
+        document.getElementById('errorMessage').textContent = error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+      }
+    }
+
+    // Toggle user active status
+    async function toggleUserActive(userId, isCurrentlyActive) {
+      const action = isCurrentlyActive ? 'désactiver' : 'activer';
+      if (!confirm(`Voulez-vous ${action} cet utilisateur ?`)) return;
+
+      try {
+        const response = await fetch(`${API_URL}/auth/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ is_active: !isCurrentlyActive })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erreur lors de la modification');
+        }
+
+        loadUsers();
+        document.getElementById('successMessage').textContent = `Utilisateur ${isCurrentlyActive ? 'désactivé' : 'activé'} avec succès !`;
+        document.getElementById('successMessage').style.display = 'block';
+
+      } catch (error) {
+        console.error('Error toggling user status:', error);
+        document.getElementById('errorMessage').textContent = error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+      }
+    }
+
+    // Delete user
+    async function deleteUser(userId, username) {
+      if (!confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur "${username}" ?\n\nCette action est irréversible.`)) return;
+
+      try {
+        const response = await fetch(`${API_URL}/auth/users/${userId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erreur lors de la suppression');
+        }
+
+        loadUsers();
+        document.getElementById('successMessage').textContent = `Utilisateur "${username}" supprimé avec succès !`;
+        document.getElementById('successMessage').style.display = 'block';
+
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        document.getElementById('errorMessage').textContent = error.message;
+        document.getElementById('errorMessage').style.display = 'block';
+      }
+    }
+
+    // Load users on page load
+    loadUsers();
+
+    // ============= END USER MANAGEMENT =============
 
     // Load and display last export info
     function displayLastExport() {
