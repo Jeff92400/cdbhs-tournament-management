@@ -391,6 +391,49 @@ router.get('/last-import', authenticateToken, (req, res) => {
   });
 });
 
+// Seed import_history with initial data (admin utility)
+router.post('/seed-import-history', authenticateToken, (req, res) => {
+  // Only allow admins
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  // Insert initial records for yesterday to bootstrap the system
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString();
+
+  const fileTypes = ['inscriptions', 'tournois', 'joueurs'];
+  let inserted = 0;
+  let errors = [];
+
+  const insertQuery = `
+    INSERT INTO import_history (file_type, import_date, record_count, filename, imported_by)
+    VALUES ($1, $2, 0, 'Initial seed', 'system')
+    ON CONFLICT DO NOTHING
+  `;
+
+  let completed = 0;
+  fileTypes.forEach(fileType => {
+    db.run(insertQuery, [fileType, yesterdayStr], (err) => {
+      if (err) {
+        errors.push({ fileType, error: err.message });
+      } else {
+        inserted++;
+      }
+      completed++;
+
+      if (completed === fileTypes.length) {
+        res.json({
+          message: `Seeded import_history with ${inserted} records`,
+          inserted,
+          errors: errors.length > 0 ? errors : undefined
+        });
+      }
+    });
+  });
+});
+
 // Get upcoming tournaments (for the current weekend and next weekend)
 // IMPORTANT: This route must be BEFORE /tournoi/:id to avoid :id catching "upcoming"
 router.get('/tournoi/upcoming', authenticateToken, (req, res) => {

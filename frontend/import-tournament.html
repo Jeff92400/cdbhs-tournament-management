@@ -356,6 +356,9 @@
       const successDiv = document.getElementById('successMessage');
       const importBtn = document.getElementById('importBtn');
 
+      // Get category ID for the link
+      const categoryId = document.getElementById('categorySelect').value;
+
       try {
         const response = await fetch(`${API_URL}/tournaments/import`, {
           method: 'POST',
@@ -383,7 +386,7 @@
               </div>
             </div>
             <p style="margin-top: 20px;">
-              <a href="rankings.html" class="btn btn-small">Voir les classements mis à jour</a>
+              <a href="rankings.html?categoryId=${categoryId}" class="btn btn-small">Voir les classements mis à jour</a>
             </p>
           `;
 

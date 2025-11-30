@@ -121,8 +121,10 @@
   <div class="container">
     <div class="navbar">
       <h2><img src="images/billiard-icon.png" alt="🎱" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;">🎱</span> Résultats du Tournoi</h2>
-      <div class="nav-links">
+      <div class="nav-links" style="display: flex; gap: 10px;">
         <a href="dashboard.html" class="btn" style="background: #1F4788; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none;">← Accueil</a>
+        <a href="#" id="viewRankingsBtn" class="btn" style="background: #28a745; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none;">📊 Classement</a>
+        <a href="generate-poules.html" class="btn" style="background: #667eea; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none;">🎯 Tournois à jouer</a>
       </div>
     </div>
 
@@ -390,6 +392,14 @@
 
         document.getElementById('loadingTournament').style.display = 'none';
         document.getElementById('tournamentContent').style.display = 'block';
+
+        // Update rankings link with category ID
+        const rankingsBtn = document.getElementById('viewRankingsBtn');
+        if (data.tournament.category_id) {
+          rankingsBtn.href = `rankings.html?categoryId=${data.tournament.category_id}`;
+        } else {
+          rankingsBtn.href = 'rankings.html';
+        }
 
       } catch (error) {
         console.error('Error loading tournament results:', error);
