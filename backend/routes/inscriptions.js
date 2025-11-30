@@ -1018,22 +1018,26 @@ router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
   const nextSunday = new Date(thisSunday);
   nextSunday.setDate(thisSunday.getDate() + 7);
 
-  // Format dates for SQL
+  // Format dates for SQL - use ISO format for proper PostgreSQL date comparison
   const startDate = tomorrow.toISOString().split('T')[0];
   const endDate = nextSunday.toISOString().split('T')[0];
 
+  console.log(`Fetching upcoming tournaments from ${startDate} to ${endDate}`);
+
   const query = `
     SELECT t.*,
-           (SELECT COUNT(*) FROM inscriptions i WHERE i.tournoi_id = t.tournoi_id AND i.forfait != 1) as inscrit_count
+           COALESCE((SELECT COUNT(*) FROM inscriptions i WHERE i.tournoi_id = t.tournoi_id AND (i.forfait IS NULL OR i.forfait != 1)), 0) as inscrit_count
     FROM tournoi_ext t
-    WHERE t.debut >= $1 AND t.debut <= $2
+    WHERE t.debut::date >= $1::date AND t.debut::date <= $2::date
     ORDER BY t.debut ASC, t.mode, t.categorie
   `;
 
   db.all(query, [startDate, endDate], (err, rows) => {
     if (err) {
+      console.error('Error fetching upcoming tournaments:', err);
       return res.status(500).json({ error: err.message });
     }
+    console.log(`Found ${rows ? rows.length : 0} upcoming tournaments`);
     res.json(rows || []);
   });
 });
