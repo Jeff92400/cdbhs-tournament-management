@@ -27,6 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "pg": "^8.16.3",
+    "resend": "^2.0.0",
     "sqlite3": "^5.1.6"
   },
   "devDependencies": {

@@ -572,6 +572,46 @@
         <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
         <h4>Fichier généré avec succès !</h4>
         <p style="color: #666; margin-bottom: 20px;">Le fichier Excel a été téléchargé automatiquement.</p>
+
+        <!-- Email convocations section -->
+        <div id="emailSection" style="margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+          <h4 style="margin: 0 0 15px 0; color: #1F4788;">📧 Envoyer les convocations par email</h4>
+          <p style="color: #666; margin-bottom: 15px;">
+            Envoyer une convocation personnalisée à chaque joueur avec le détail de sa poule.
+          </p>
+          <div id="emailStats" style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px;">
+            <span id="emailableCount">-</span> joueurs avec email valide sur <span id="totalPlayersCount">-</span>
+          </div>
+
+          <!-- Player selection list -->
+          <div id="playerSelectionSection" style="margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <label style="font-weight: bold; color: #333;">Sélectionner les joueurs à convoquer :</label>
+              <div>
+                <button type="button" id="selectAllBtn" class="btn" style="background: #28a745; padding: 5px 10px; font-size: 12px; margin-right: 5px;">Tout cocher</button>
+                <button type="button" id="deselectAllBtn" class="btn" style="background: #dc3545; padding: 5px 10px; font-size: 12px;">Tout décocher</button>
+              </div>
+            </div>
+            <div id="playerCheckboxList" style="max-height: 300px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px;">
+              <!-- Player checkboxes will be inserted here -->
+            </div>
+            <div id="selectedCount" style="margin-top: 10px; font-size: 14px; color: #666;">
+              <strong><span id="checkedCount">0</span></strong> joueur(s) sélectionné(s) pour l'envoi
+            </div>
+          </div>
+
+          <button class="btn" id="sendConvocationsBtn" style="background: #17a2b8;">
+            ✉️ Envoyer les convocations
+          </button>
+          <div id="emailProgress" style="display: none; margin-top: 15px;">
+            <div style="background: #e9ecef; border-radius: 4px; overflow: hidden;">
+              <div id="emailProgressBar" style="height: 8px; background: #17a2b8; width: 0%; transition: width 0.3s;"></div>
+            </div>
+            <p id="emailProgressText" style="color: #666; margin-top: 10px;"></p>
+          </div>
+          <div id="emailResults" style="display: none; margin-top: 15px; text-align: left;"></div>
+        </div>
+
         <div class="action-buttons" style="justify-content: center;">
           <button class="btn" id="backToStep3Btn" style="background: #6c757d;">Retour à l'aperçu</button>
           <button class="btn" id="newGenerationBtn">Nouvelle génération</button>
@@ -1202,6 +1242,9 @@
             headers: { 'Authorization': `Bearer ${token}` }
           });
 
+          // Fetch player emails for email convocations
+          fetchPlayerEmails(matchingTournoi.tournoi_id);
+
           if (inscriptionsResponse.ok) {
             const inscriptions = await inscriptionsResponse.json();
 
@@ -1705,7 +1748,18 @@
           a.remove();
           window.URL.revokeObjectURL(url);
 
+          // Store data for email functionality
+          storeGenerationData({
+            poules: poules,
+            tournamentDate: matchingTournoi?.debut || null,
+            locations: [
+              location1 ? { ...location1, startTime: startTime1, locationNum: '1' } : null,
+              location2 ? { ...location2, startTime: startTime2, locationNum: '2' } : null
+            ].filter(Boolean)
+          });
+
           goToStep(4);
+          updateEmailStats();
         } else {
           const error = await response.json();
           document.getElementById('errorMessage').textContent = error.error || 'Erreur lors de la génération';
@@ -1809,6 +1863,222 @@
 
       renderPlayerLists();
     });
+
+    // ==========================================
+    // EMAIL CONVOCATIONS FUNCTIONALITY
+    // ==========================================
+
+    // Store player emails from inscriptions
+    let playerEmails = {};
+    let lastGeneratedData = null;
+
+    // Update email stats and populate checkbox list when reaching step 4
+    function updateEmailStats() {
+      const checkboxList = document.getElementById('playerCheckboxList');
+      checkboxList.innerHTML = '';
+
+      let emailableCount = 0;
+      const playersWithEmailInfo = selectedPlayers.map(p => {
+        const email = p.email || playerEmails[p.licence?.replace(/\s/g, '')];
+        const hasEmail = email && email.includes('@');
+        if (hasEmail) emailableCount++;
+        return { ...p, email, hasEmail };
+      });
+
+      // Sort: players with email first
+      playersWithEmailInfo.sort((a, b) => {
+        if (a.hasEmail && !b.hasEmail) return -1;
+        if (!a.hasEmail && b.hasEmail) return 1;
+        return (a.last_name || '').localeCompare(b.last_name || '');
+      });
+
+      // Create checkboxes for each player
+      playersWithEmailInfo.forEach(p => {
+        const div = document.createElement('div');
+        div.style.cssText = 'display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #eee;';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `player_${p.licence?.replace(/\s/g, '')}`;
+        checkbox.dataset.licence = p.licence?.replace(/\s/g, '');
+        checkbox.checked = p.hasEmail; // Checked by default if has email
+        checkbox.disabled = !p.hasEmail; // Disabled if no email
+        checkbox.style.cssText = 'width: 18px; height: 18px; margin-right: 10px; cursor: pointer;';
+        checkbox.addEventListener('change', updateCheckedCount);
+
+        const label = document.createElement('label');
+        label.htmlFor = checkbox.id;
+        label.style.cssText = `flex: 1; cursor: pointer; ${!p.hasEmail ? 'color: #999;' : ''}`;
+        label.innerHTML = `<strong>${p.last_name || ''} ${p.first_name || ''}</strong> - ${p.hasEmail ? p.email : '<em>Pas d\'email</em>'}`;
+
+        div.appendChild(checkbox);
+        div.appendChild(label);
+        checkboxList.appendChild(div);
+      });
+
+      document.getElementById('emailableCount').textContent = emailableCount;
+      document.getElementById('totalPlayersCount').textContent = selectedPlayers.length;
+      updateCheckedCount();
+
+      // Disable button if no emails
+      document.getElementById('sendConvocationsBtn').disabled = emailableCount === 0;
+    }
+
+    // Update checked count display
+    function updateCheckedCount() {
+      const checkboxes = document.querySelectorAll('#playerCheckboxList input[type="checkbox"]:checked');
+      document.getElementById('checkedCount').textContent = checkboxes.length;
+      document.getElementById('sendConvocationsBtn').disabled = checkboxes.length === 0;
+    }
+
+    // Select all / Deselect all buttons
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+      document.querySelectorAll('#playerCheckboxList input[type="checkbox"]:not(:disabled)').forEach(cb => cb.checked = true);
+      updateCheckedCount();
+    });
+
+    document.getElementById('deselectAllBtn').addEventListener('click', () => {
+      document.querySelectorAll('#playerCheckboxList input[type="checkbox"]').forEach(cb => cb.checked = false);
+      updateCheckedCount();
+    });
+
+    // Store the data used for generation so we can use it for emails
+    function storeGenerationData(data) {
+      lastGeneratedData = data;
+    }
+
+    // Send convocations
+    document.getElementById('sendConvocationsBtn').addEventListener('click', async () => {
+      if (!lastGeneratedData) {
+        alert('Veuillez d\'abord générer le fichier Excel');
+        return;
+      }
+
+      const btn = document.getElementById('sendConvocationsBtn');
+      const progress = document.getElementById('emailProgress');
+      const progressBar = document.getElementById('emailProgressBar');
+      const progressText = document.getElementById('emailProgressText');
+      const results = document.getElementById('emailResults');
+
+      // Get selected players from checkboxes
+      const checkedLicences = [];
+      document.querySelectorAll('#playerCheckboxList input[type="checkbox"]:checked').forEach(cb => {
+        checkedLicences.push(cb.dataset.licence);
+      });
+
+      if (checkedLicences.length === 0) {
+        alert('Veuillez sélectionner au moins un joueur');
+        return;
+      }
+
+      // Confirm
+      if (!confirm(`Envoyer les convocations à ${checkedLicences.length} joueur(s) sélectionné(s) ?`)) {
+        return;
+      }
+
+      // Disable button and show progress
+      btn.disabled = true;
+      btn.textContent = 'Envoi en cours...';
+      progress.style.display = 'block';
+      results.style.display = 'none';
+      progressBar.style.width = '10%';
+      progressText.textContent = 'Préparation des emails...';
+
+      try {
+        // Filter to only checked players and add emails
+        const playersWithEmails = selectedPlayers
+          .filter(p => checkedLicences.includes(p.licence?.replace(/\s/g, '')))
+          .map(p => {
+            const email = p.email || playerEmails[p.licence?.replace(/\s/g, '')];
+            return { ...p, email };
+          });
+
+        progressBar.style.width = '30%';
+        progressText.textContent = 'Envoi des convocations...';
+
+        const response = await fetch(`${API_URL}/email/send-convocations`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            players: playersWithEmails,
+            poules: lastGeneratedData.poules,
+            category: currentCategory,
+            season: currentSeason,
+            tournament: currentTournament,
+            tournamentDate: lastGeneratedData.tournamentDate,
+            locations: lastGeneratedData.locations
+          })
+        });
+
+        progressBar.style.width = '100%';
+
+        const result = await response.json();
+
+        if (response.ok) {
+          progressText.textContent = `Emails envoyés: ${result.results.sent.length}, Échecs: ${result.results.failed.length}, Ignorés: ${result.results.skipped.length}`;
+          progressText.style.color = '#28a745';
+
+          // Show results
+          results.style.display = 'block';
+          results.innerHTML = '';
+
+          if (result.results.sent.length > 0) {
+            results.innerHTML += `<div style="background: #d4edda; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+              <strong>✅ Envoyés (${result.results.sent.length}):</strong>
+              <ul style="margin: 5px 0 0 20px;">${result.results.sent.map(s => `<li>${s.name} - ${s.email}</li>`).join('')}</ul>
+            </div>`;
+          }
+
+          if (result.results.failed.length > 0) {
+            results.innerHTML += `<div style="background: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+              <strong>❌ Échecs (${result.results.failed.length}):</strong>
+              <ul style="margin: 5px 0 0 20px;">${result.results.failed.map(f => `<li>${f.name} - ${f.error}</li>`).join('')}</ul>
+            </div>`;
+          }
+
+          if (result.results.skipped.length > 0) {
+            results.innerHTML += `<div style="background: #fff3cd; padding: 10px; border-radius: 4px;">
+              <strong>⚠️ Ignorés (${result.results.skipped.length}):</strong>
+              <ul style="margin: 5px 0 0 20px;">${result.results.skipped.map(s => `<li>${s.name} - ${s.reason}</li>`).join('')}</ul>
+            </div>`;
+          }
+        } else {
+          progressText.textContent = `Erreur: ${result.error}`;
+          progressText.style.color = '#dc3545';
+        }
+      } catch (error) {
+        console.error('Error sending emails:', error);
+        progressBar.style.width = '100%';
+        progressText.textContent = `Erreur: ${error.message}`;
+        progressText.style.color = '#dc3545';
+      }
+
+      // Re-enable button
+      btn.disabled = false;
+      btn.textContent = '✉️ Envoyer les convocations';
+    });
+
+    // Fetch player emails from inscriptions when loading
+    async function fetchPlayerEmails(tournoiId) {
+      try {
+        const response = await fetch(`${API_URL}/inscriptions/tournoi/${tournoiId}/inscriptions`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const inscriptions = await response.json();
+          inscriptions.forEach(i => {
+            if (i.licence && i.email) {
+              playerEmails[i.licence.replace(/\s/g, '')] = i.email;
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching player emails:', error);
+      }
+    }
   </script>
 </body>
 </html>
