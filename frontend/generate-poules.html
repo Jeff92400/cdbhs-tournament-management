@@ -472,6 +472,30 @@
         </div>
       </div>
 
+      <!-- Game Parameters Section -->
+      <div id="gameParamsSection" style="display: none; margin: 20px 0; padding: 15px; background: #e7f3ff; border-left: 4px solid #1F4788; border-radius: 4px;">
+        <h4 style="margin: 0 0 15px 0; color: #1F4788;">Paramètres de l'épreuve</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+          <div>
+            <label style="display: block; font-weight: 500; margin-bottom: 5px;">Distance :</label>
+            <select id="distanceSelect" style="width: 100%; padding: 10px; border: 1px solid #1F4788; border-radius: 4px; font-size: 14px;">
+              <option value="normale">Distance Normale</option>
+            </select>
+          </div>
+          <div>
+            <span style="display: block; font-weight: 500; margin-bottom: 5px;">Coin :</span>
+            <span id="gameParamCoin" style="display: inline-block; padding: 8px 15px; border-radius: 4px; background: #17a2b8; color: white; font-weight: bold;">-</span>
+          </div>
+          <div>
+            <span style="display: block; font-weight: 500; margin-bottom: 5px;">Reprises max :</span>
+            <span id="gameParamReprises" style="font-size: 18px; font-weight: bold; color: #1F4788;">-</span>
+          </div>
+        </div>
+        <p id="gameParamMoyenne" style="margin: 15px 0 0 0; padding: 10px; background: #fff; border-radius: 4px; font-size: 13px; color: #666;">
+          -
+        </p>
+      </div>
+
       <h4>Aperçu des Poules (Distribution Serpentine)</h4>
       <div class="poule-preview" id="poulePreview">
         <!-- Poules will be rendered here -->
@@ -763,6 +787,7 @@
     let matchingTournoi = null;
     let selectedLastMinutePlayer = null;
     let clubs = [];
+    let currentGameParams = null;
 
     // Poule configuration based on number of players
     const POULE_CONFIG = {
@@ -1574,8 +1599,61 @@
       document.getElementById('addLocation2Btn').style.display = 'inline-block';
       document.getElementById('locationSelect2').value = '';
 
+      // Load game parameters for this category
+      loadGameParameters();
+
       goToStep(3);
     });
+
+    // Load and display game parameters for the current category
+    async function loadGameParameters() {
+      if (!currentCategory) {
+        document.getElementById('gameParamsSection').style.display = 'none';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/settings/game-parameters/${currentCategory.game_type}/${currentCategory.level}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          document.getElementById('gameParamsSection').style.display = 'none';
+          currentGameParams = null;
+          return;
+        }
+
+        currentGameParams = await response.json();
+
+        // Show the game parameters section
+        document.getElementById('gameParamsSection').style.display = 'block';
+
+        // Update distance selector
+        const distanceSelect = document.getElementById('distanceSelect');
+        distanceSelect.innerHTML = `<option value="normale">${currentGameParams.distance_normale} points (Distance normale)</option>`;
+        if (currentGameParams.distance_reduite) {
+          distanceSelect.innerHTML += `<option value="reduite">${currentGameParams.distance_reduite} points (Distance réduite)</option>`;
+        }
+
+        // Update coin display
+        const coinSpan = document.getElementById('gameParamCoin');
+        coinSpan.textContent = currentGameParams.coin === 'GC' ? 'Grand Coin' : 'Petit Coin';
+        coinSpan.style.background = currentGameParams.coin === 'GC' ? '#ffc107' : '#17a2b8';
+        coinSpan.style.color = currentGameParams.coin === 'GC' ? '#000' : '#fff';
+
+        // Update reprises
+        document.getElementById('gameParamReprises').textContent = currentGameParams.reprises;
+
+        // Update moyenne info
+        document.getElementById('gameParamMoyenne').textContent =
+          `La moyenne qualificative pour cette catégorie est entre ${parseFloat(currentGameParams.moyenne_mini).toFixed(3)} et ${parseFloat(currentGameParams.moyenne_maxi).toFixed(3)}`;
+
+      } catch (error) {
+        console.error('Error loading game parameters:', error);
+        document.getElementById('gameParamsSection').style.display = 'none';
+        currentGameParams = null;
+      }
+    }
 
     // Store current poules globally for manipulation
     let currentPoules = [];
@@ -1762,13 +1840,16 @@
           window.URL.revokeObjectURL(url);
 
           // Store data for email functionality
+          const selectedDistance = document.getElementById('distanceSelect')?.value || 'normale';
           storeGenerationData({
             poules: poules,
             tournamentDate: matchingTournoi?.debut || null,
             locations: [
               location1 ? { ...location1, startTime: startTime1, locationNum: '1' } : null,
               location2 ? { ...location2, startTime: startTime2, locationNum: '2' } : null
-            ].filter(Boolean)
+            ].filter(Boolean),
+            gameParams: currentGameParams,
+            selectedDistance: selectedDistance
           });
 
           goToStep(4);
@@ -2077,7 +2158,9 @@
             tournament: currentTournament,
             tournamentDate: lastGeneratedData.tournamentDate,
             locations: lastGeneratedData.locations,
-            specialNote: document.getElementById('specialNoteField').value.trim()
+            specialNote: document.getElementById('specialNoteField').value.trim(),
+            gameParams: lastGeneratedData.gameParams,
+            selectedDistance: lastGeneratedData.selectedDistance
           })
         });
 

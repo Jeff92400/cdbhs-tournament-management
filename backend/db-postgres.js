@@ -216,6 +216,23 @@ async function initializeDatabase() {
       )
     `);
 
+    // Game parameters table - stores rules for each mode/category combination
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS game_parameters (
+        id SERIAL PRIMARY KEY,
+        mode TEXT NOT NULL,
+        categorie TEXT NOT NULL,
+        coin TEXT NOT NULL DEFAULT 'PC',
+        distance_normale INTEGER NOT NULL,
+        distance_reduite INTEGER,
+        reprises INTEGER NOT NULL,
+        moyenne_mini DECIMAL(6,3) NOT NULL,
+        moyenne_maxi DECIMAL(6,3) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(mode, categorie)
+      )
+    `);
+
     await client.query('COMMIT');
 
     // Initialize default admin (legacy)
@@ -304,6 +321,39 @@ async function initializeDatabase() {
       );
     }
     console.log('Mode mappings initialized');
+
+    // Initialize game parameters (if empty)
+    const gameParamsResult = await client.query('SELECT COUNT(*) as count FROM game_parameters');
+    if (gameParamsResult.rows[0].count == 0) {
+      const gameParams = [
+        // LIBRE
+        { mode: 'LIBRE', categorie: 'N3', coin: 'GC', distance_normale: 150, distance_reduite: null, reprises: 25, moyenne_mini: 6.000, moyenne_maxi: 8.990 },
+        { mode: 'LIBRE', categorie: 'R1', coin: 'PC', distance_normale: 120, distance_reduite: null, reprises: 30, moyenne_mini: 4.000, moyenne_maxi: 5.990 },
+        { mode: 'LIBRE', categorie: 'R2', coin: 'PC', distance_normale: 80, distance_reduite: null, reprises: 30, moyenne_mini: 2.300, moyenne_maxi: 3.990 },
+        { mode: 'LIBRE', categorie: 'R3', coin: 'PC', distance_normale: 60, distance_reduite: null, reprises: 30, moyenne_mini: 1.200, moyenne_maxi: 2.290 },
+        { mode: 'LIBRE', categorie: 'R4', coin: 'PC', distance_normale: 40, distance_reduite: null, reprises: 40, moyenne_mini: 0.000, moyenne_maxi: 1.200 },
+        // CADRE
+        { mode: 'CADRE', categorie: 'N3', coin: 'PC', distance_normale: 120, distance_reduite: null, reprises: 25, moyenne_mini: 4.500, moyenne_maxi: 7.490 },
+        { mode: 'CADRE', categorie: 'R1', coin: 'PC', distance_normale: 80, distance_reduite: null, reprises: 25, moyenne_mini: 0.000, moyenne_maxi: 4.490 },
+        // BANDE
+        { mode: 'BANDE', categorie: 'N3', coin: 'PC', distance_normale: 60, distance_reduite: null, reprises: 30, moyenne_mini: 1.800, moyenne_maxi: 2.570 },
+        { mode: 'BANDE', categorie: 'R1', coin: 'PC', distance_normale: 50, distance_reduite: null, reprises: 30, moyenne_mini: 1.100, moyenne_maxi: 1.790 },
+        { mode: 'BANDE', categorie: 'R2', coin: 'PC', distance_normale: 30, distance_reduite: null, reprises: 30, moyenne_mini: 0.000, moyenne_maxi: 1.090 },
+        // 3 BANDES
+        { mode: '3BANDES', categorie: 'N3', coin: 'PC', distance_normale: 25, distance_reduite: 20, reprises: 60, moyenne_mini: 0.400, moyenne_maxi: 0.580 },
+        { mode: '3BANDES', categorie: 'R1', coin: 'PC', distance_normale: 20, distance_reduite: 15, reprises: 60, moyenne_mini: 0.250, moyenne_maxi: 0.399 },
+        { mode: '3BANDES', categorie: 'R2', coin: 'PC', distance_normale: 15, distance_reduite: null, reprises: 60, moyenne_mini: 0.000, moyenne_maxi: 0.250 }
+      ];
+
+      for (const param of gameParams) {
+        await client.query(
+          `INSERT INTO game_parameters (mode, categorie, coin, distance_normale, distance_reduite, reprises, moyenne_mini, moyenne_maxi)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (mode, categorie) DO NOTHING`,
+          [param.mode, param.categorie, param.coin, param.distance_normale, param.distance_reduite, param.reprises, param.moyenne_mini, param.moyenne_maxi]
+        );
+      }
+      console.log('Game parameters initialized');
+    }
 
     // Initialize default clubs
     const clubResult = await client.query('SELECT COUNT(*) as count FROM clubs');

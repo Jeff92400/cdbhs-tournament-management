@@ -17,7 +17,7 @@ const getResend = () => {
 };
 
 // Generate PDF convocation for a specific player - includes ALL poules
-async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, locations) {
+async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, locations, gameParams, selectedDistance) {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({
@@ -82,7 +82,27 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
       doc.rect(40, y, pageWidth, 30).fill(secondaryColor);
       doc.fillColor('white').fontSize(14).font('Helvetica-Bold')
          .text(tournamentInfo.categoryName, 40, y + 8, { width: pageWidth, align: 'center' });
-      y += 40;
+      y += 35;
+
+      // Game parameters info (if available)
+      if (gameParams) {
+        const distance = selectedDistance === 'reduite' && gameParams.distance_reduite
+          ? gameParams.distance_reduite
+          : gameParams.distance_normale;
+        const coinLabel = gameParams.coin === 'GC' ? 'Grand Coin' : 'Petit Coin';
+
+        // Line 1: Distance / Coin / Reprises
+        doc.fillColor('#333333').fontSize(10).font('Helvetica-Bold')
+           .text(`${distance} points  /  ${coinLabel}  /  en ${gameParams.reprises} reprises`, 40, y, { width: pageWidth, align: 'center' });
+        y += 15;
+
+        // Line 2: Moyenne qualificative
+        doc.fillColor('#666666').fontSize(9).font('Helvetica-Oblique')
+           .text(`La moyenne qualificative pour cette categorie est entre ${parseFloat(gameParams.moyenne_mini).toFixed(3)} et ${parseFloat(gameParams.moyenne_maxi).toFixed(3)}`, 40, y, { width: pageWidth, align: 'center' });
+        y += 20;
+      } else {
+        y += 5;
+      }
 
       // Player info box - highlight their assignment
       doc.rect(40, y, pageWidth, 35).fill('#E3F2FD');
@@ -178,7 +198,7 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
 
 // Send convocation emails
 router.post('/send-convocations', authenticateToken, async (req, res) => {
-  const { players, poules, category, season, tournament, tournamentDate, locations, sendToAll, specialNote } = req.body;
+  const { players, poules, category, season, tournament, tournamentDate, locations, sendToAll, specialNote, gameParams, selectedDistance } = req.body;
 
   const resend = getResend();
   if (!resend) {
@@ -247,7 +267,9 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
           date: tournamentDate
         },
         poules,
-        locations
+        locations,
+        gameParams,
+        selectedDistance
       );
 
       const base64Content = pdfBuffer.toString('base64');

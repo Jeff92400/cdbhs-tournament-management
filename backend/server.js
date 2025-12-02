@@ -23,6 +23,7 @@ const clubsRoutes = require('./routes/clubs');
 const backupRoutes = require('./routes/backup');
 const inscriptionsRoutes = require('./routes/inscriptions');
 const emailRoutes = require('./routes/email');
+const settingsRoutes = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,6 +52,7 @@ app.use('/api/clubs', clubsRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/inscriptions', inscriptionsRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Serve frontend pages
 app.get('/', (req, res) => {
