@@ -196,6 +196,56 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
   });
 }
 
+// Default email template (fallback)
+const DEFAULT_EMAIL_TEMPLATE = {
+  subject: 'Convocation {category} - {tournament} - {date}',
+  body: `Bonjour {player_name},
+
+Le CDBHS a le plaisir de vous convier au tournoi suivant.
+
+Veuillez trouver en attachement votre convocation detaillee avec la composition de toutes les poules du tournoi.
+
+En cas d'empechement, merci d'informer des que possible l'equipe en charge du sportif a l'adresse ci-dessous.
+
+Vous aurez noté un changement significatif quant au processus d'invitation et sommes a votre ecoute si vous avez des remarques ou des suggestions.
+
+Nous vous souhaitons une excellente competition.
+
+Cordialement,
+Comite Departemental Billard Hauts-de-Seine`
+};
+
+// Fetch email template from database
+async function getEmailTemplate() {
+  const db = require('../db-loader');
+
+  return new Promise((resolve) => {
+    db.get(
+      'SELECT * FROM email_templates WHERE template_key = $1',
+      ['convocation'],
+      (err, row) => {
+        if (err || !row) {
+          resolve(DEFAULT_EMAIL_TEMPLATE);
+        } else {
+          resolve({
+            subject: row.subject_template,
+            body: row.body_template
+          });
+        }
+      }
+    );
+  });
+}
+
+// Replace template variables with actual values
+function replaceTemplateVariables(template, variables) {
+  let result = template;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), value || '');
+  }
+  return result;
+}
+
 // Send convocation emails
 router.post('/send-convocations', authenticateToken, async (req, res) => {
   const { players, poules, category, season, tournament, tournamentDate, locations, sendToAll, specialNote, gameParams, selectedDistance } = req.body;
@@ -208,6 +258,9 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
   }
 
   console.log('Using Resend API for email sending');
+
+  // Fetch email template
+  const emailTemplate = await getEmailTemplate();
 
   const results = {
     sent: [],
@@ -286,12 +339,29 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
            </div>`
         : '';
 
+      // Prepare template variables
+      const templateVariables = {
+        player_name: `${player.first_name} ${player.last_name}`,
+        category: category.display_name,
+        tournament: tournamentLabel,
+        date: dateStr,
+        time: playerLocation?.startTime?.replace(':', 'H') || '14H00',
+        location: playerLocation?.name || 'A definir',
+        poule: playerPoule.pouleNumber
+      };
+
+      // Generate subject and body from template
+      const emailSubject = replaceTemplateVariables(emailTemplate.subject, templateVariables);
+      const emailBodyText = replaceTemplateVariables(emailTemplate.body, templateVariables);
+      // Convert newlines to <br> for HTML
+      const emailBodyHtml = emailBodyText.replace(/\n/g, '<br>');
+
       // Send email using Resend
       const emailResult = await resend.emails.send({
         from: 'CDBHS Convocations <convocations@cdbhs.net>',
         to: [player.email],
         cc: ['cdbhs92@gmail.com'],
-        subject: `Convocation ${category.display_name} - ${tournamentLabel} - ${dateStr}`,
+        subject: emailSubject,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
@@ -301,27 +371,19 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
             <div style="padding: 20px; background: #f8f9fa;">
               ${specialNoteHtml}
 
-              <p style="font-size: 16px;">Bonjour <strong>${player.first_name} ${player.last_name}</strong>,</p>
+              <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px; border-left: 4px solid #1F4788;">
+                <p style="margin: 5px 0;"><strong>Categorie :</strong> ${category.display_name}</p>
+                <p style="margin: 5px 0;"><strong>Competition :</strong> ${tournamentLabel}</p>
+                <p style="margin: 5px 0;"><strong>Date :</strong> ${dateStr}</p>
+                <p style="margin: 5px 0;"><strong>Heure :</strong> ${playerLocation?.startTime?.replace(':', 'H') || '14H00'}</p>
+                <p style="margin: 5px 0;"><strong>Lieu :</strong> ${playerLocation?.name || 'A definir'}</p>
+                ${fullAddress ? `<p style="margin: 5px 0; color: #666;">${fullAddress}</p>` : ''}
+                <p style="margin: 5px 0;"><strong>Votre poule :</strong> ${playerPoule.pouleNumber}</p>
+              </div>
 
-              <p>Le CDBHS a le plaisir de vous convier au tournoi suivant :</p>
-
-              <p style="margin: 5px 0;"><strong>Categorie :</strong> ${category.display_name}</p>
-              <p style="margin: 5px 0;"><strong>Competition :</strong> ${tournamentLabel}</p>
-              <p style="margin: 5px 0;"><strong>Date :</strong> ${dateStr}</p>
-              <p style="margin: 5px 0;"><strong>Heure :</strong> ${playerLocation?.startTime?.replace(':', 'H') || '14H00'}</p>
-              <p style="margin: 5px 0;"><strong>Lieu :</strong> ${playerLocation?.name || 'A definir'}</p>
-              ${fullAddress ? `<p style="margin: 5px 0; color: #666;">${fullAddress}</p>` : ''}
-              <p style="margin: 5px 0;"><strong>Votre poule est la :</strong> ${playerPoule.pouleNumber}</p>
-
-              <p style="margin-top: 15px;">Veuillez trouver en attachement votre convocation detaillee avec la composition de toutes les poules du tournoi.</p>
-
-              <p>En cas d'empechement, merci d'informer des que possible l'equipe en charge du sportif a l'adresse ci-dessous.</p>
-
-              <p>Vous aurez noté un changement notable quant au processus d'invitation et sommes a votre ecoute si vous avez des remarques ou des suggestions.</p>
-
-              <p>Nous vous souhaitons une excellente competition.</p>
-
-              <p style="margin-top: 20px;">Cordialement,<br><strong>Comite Departemental Billard Hauts-de-Seine</strong></p>
+              <div style="line-height: 1.6;">
+                ${emailBodyHtml}
+              </div>
             </div>
 
             <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">

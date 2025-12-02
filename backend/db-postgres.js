@@ -233,6 +233,17 @@ async function initializeDatabase() {
       )
     `);
 
+    // Email templates table - stores configurable email content
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS email_templates (
+        id SERIAL PRIMARY KEY,
+        template_key TEXT NOT NULL UNIQUE,
+        subject_template TEXT NOT NULL,
+        body_template TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     await client.query('COMMIT');
 
     // Initialize default admin (legacy)
@@ -353,6 +364,32 @@ async function initializeDatabase() {
         );
       }
       console.log('Game parameters initialized');
+    }
+
+    // Initialize default email template
+    const emailTemplateResult = await client.query('SELECT COUNT(*) as count FROM email_templates');
+    if (emailTemplateResult.rows[0].count == 0) {
+      const defaultBodyTemplate = `Bonjour {player_name},
+
+Le CDBHS a le plaisir de vous convier au tournoi suivant.
+
+Veuillez trouver en attachement votre convocation detaillee avec la composition de toutes les poules du tournoi.
+
+En cas d'empechement, merci d'informer des que possible l'equipe en charge du sportif a l'adresse ci-dessous.
+
+Vous aurez noté un changement significatif quant au processus d'invitation et sommes a votre ecoute si vous avez des remarques ou des suggestions.
+
+Nous vous souhaitons une excellente competition.
+
+Cordialement,
+Comite Departemental Billard Hauts-de-Seine`;
+
+      await client.query(
+        `INSERT INTO email_templates (template_key, subject_template, body_template)
+         VALUES ($1, $2, $3) ON CONFLICT (template_key) DO NOTHING`,
+        ['convocation', 'Convocation {category} - {tournament} - {date}', defaultBodyTemplate]
+      );
+      console.log('Default email template initialized');
     }
 
     // Initialize default clubs

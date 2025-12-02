@@ -143,4 +143,73 @@ router.delete('/game-parameters/:id', authenticateToken, requireAdmin, (req, res
   );
 });
 
+// ============= EMAIL TEMPLATES =============
+
+// Get email template by key
+router.get('/email-template/:key', authenticateToken, (req, res) => {
+  const db = getDb();
+  const { key } = req.params;
+
+  db.get(
+    'SELECT * FROM email_templates WHERE template_key = $1',
+    [key],
+    (err, row) => {
+      if (err) {
+        console.error('Error fetching email template:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      if (!row) {
+        // Return default template if not found
+        return res.json({
+          template_key: key,
+          subject_template: 'Convocation {category} - {tournament} - {date}',
+          body_template: `Bonjour {player_name},
+
+Le CDBHS a le plaisir de vous convier au tournoi suivant.
+
+Veuillez trouver en attachement votre convocation detaillee avec la composition de toutes les poules du tournoi.
+
+En cas d'empechement, merci d'informer des que possible l'equipe en charge du sportif a l'adresse ci-dessous.
+
+Vous aurez noté un changement significatif quant au processus d'invitation et sommes a votre ecoute si vous avez des remarques ou des suggestions.
+
+Nous vous souhaitons une excellente competition.
+
+Cordialement,
+Comite Departemental Billard Hauts-de-Seine`
+        });
+      }
+      res.json(row);
+    }
+  );
+});
+
+// Update email template (admin only)
+router.put('/email-template/:key', authenticateToken, requireAdmin, (req, res) => {
+  const db = getDb();
+  const { key } = req.params;
+  const { subject_template, body_template } = req.body;
+
+  if (!subject_template || !body_template) {
+    return res.status(400).json({ error: 'Subject and body templates are required' });
+  }
+
+  db.run(
+    `INSERT INTO email_templates (template_key, subject_template, body_template, updated_at)
+     VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+     ON CONFLICT (template_key) DO UPDATE SET
+       subject_template = EXCLUDED.subject_template,
+       body_template = EXCLUDED.body_template,
+       updated_at = CURRENT_TIMESTAMP`,
+    [key, subject_template, body_template],
+    function(err) {
+      if (err) {
+        console.error('Error updating email template:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({ success: true, message: 'Email template updated' });
+    }
+  );
+});
+
 module.exports = router;
