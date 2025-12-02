@@ -430,4 +430,123 @@ router.post('/test', authenticateToken, async (req, res) => {
   }
 });
 
+// TEMPORARY: Create test data for email testing
+router.post('/create-test-data', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+
+  try {
+    // 1. Create 6 test players
+    const players = [
+      { licence: 'TEST001', first_name: 'John', last_name: 'Doe-1', club: 'Courbevoie' },
+      { licence: 'TEST002', first_name: 'John', last_name: 'Doe-2', club: 'Courbevoie' },
+      { licence: 'TEST003', first_name: 'John', last_name: 'Doe-3', club: 'Clichy' },
+      { licence: 'TEST004', first_name: 'John', last_name: 'Doe-4', club: 'Clichy' },
+      { licence: 'TEST005', first_name: 'John', last_name: 'Doe-5', club: 'Clamart' },
+      { licence: 'TEST006', first_name: 'John', last_name: 'Doe-6', club: 'Clamart' }
+    ];
+
+    for (const p of players) {
+      await new Promise((resolve, reject) => {
+        db.run(`
+          INSERT INTO players (licence, first_name, last_name, club, is_active, rank_libre, rank_cadre, rank_bande, rank_3bandes)
+          VALUES ($1, $2, $3, $4, 1, 'R1', 'NC', 'NC', 'NC')
+          ON CONFLICT (licence) DO UPDATE SET
+            first_name = EXCLUDED.first_name,
+            last_name = EXCLUDED.last_name,
+            club = EXCLUDED.club,
+            rank_libre = EXCLUDED.rank_libre
+        `, [p.licence, p.first_name, p.last_name, p.club], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+
+    // 2. Create test tournament (tournoi_ext)
+    await new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO tournoi_ext (tournoi_id, nom, mode, categorie, debut, fin, lieu, taille)
+        VALUES (9999, 'TOURNOI 1', 'LIBRE', 'R1', '2025-12-06', '2025-12-06', 'Courbevoie', 280)
+        ON CONFLICT (tournoi_id) DO UPDATE SET
+          nom = EXCLUDED.nom,
+          mode = EXCLUDED.mode,
+          categorie = EXCLUDED.categorie,
+          debut = EXCLUDED.debut
+      `, [], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // 3. Create 6 inscriptions
+    const inscriptions = [
+      { id: 2333, licence: 'TEST001', email: 'jeff_rallet@hotmail.com', timestamp: '2025-12-01 19:00:00' },
+      { id: 2334, licence: 'TEST002', email: 'jeanmarc.huibonhoa@gmail.com', timestamp: '2025-12-01 19:10:00' },
+      { id: 2335, licence: 'TEST003', email: 'jeff_rallet@hotmail.com', timestamp: '2025-12-01 19:20:00' },
+      { id: 2336, licence: 'TEST004', email: 'jeanmarc.huibonhoa@gmail.com', timestamp: '2025-12-01 19:30:00' },
+      { id: 2337, licence: 'TEST005', email: 'jeff_rallet@hotmail.com', timestamp: '2025-12-01 19:40:00' },
+      { id: 2338, licence: 'TEST006', email: 'jeanmarc.huibonhoa@gmail.com', timestamp: '2025-12-01 19:50:00' }
+    ];
+
+    for (const i of inscriptions) {
+      await new Promise((resolve, reject) => {
+        db.run(`
+          INSERT INTO inscriptions (inscription_id, tournoi_id, licence, email, convoque, forfait, timestamp)
+          VALUES ($1, 9999, $2, $3, 1, 0, $4)
+          ON CONFLICT (inscription_id) DO UPDATE SET
+            licence = EXCLUDED.licence,
+            email = EXCLUDED.email
+        `, [i.id, i.licence, i.email, i.timestamp], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Test data created: 6 players, 1 tournament (ID 9999), 6 inscriptions',
+      tournament_id: 9999
+    });
+
+  } catch (error) {
+    console.error('Error creating test data:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// TEMPORARY: Delete test data
+router.delete('/delete-test-data', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+
+  try {
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM inscriptions WHERE inscription_id BETWEEN 2333 AND 2338', [], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM tournoi_ext WHERE tournoi_id = 9999', [], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      db.run("DELETE FROM players WHERE licence LIKE 'TEST%'", [], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    res.json({ success: true, message: 'Test data deleted' });
+
+  } catch (error) {
+    console.error('Error deleting test data:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
