@@ -1720,23 +1720,21 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       }
 
       try {
-        // Load tournament details and results
-        const [tournamentRes, resultsRes] = await Promise.all([
-          fetch(`${API_URL}/tournaments/${tournamentId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch(`${API_URL}/emailing/tournament-results/${tournamentId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-        ]);
+        // Load tournament details and results from single endpoint
+        const response = await fetch(`${API_URL}/emailing/tournament-results/${tournamentId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
 
-        if (!tournamentRes.ok || !resultsRes.ok) throw new Error('Failed to load data');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to load data');
+        }
 
-        const tournament = await tournamentRes.json();
-        const resultsData = await resultsRes.json();
+        const data = await response.json();
+        const tournament = data.tournament;
 
         selectedTournamentData = tournament;
-        tournamentResults = resultsData.results || [];
+        tournamentResults = data.results || [];
 
         // Update info section
         document.getElementById('tournamentInfoTitle').textContent = tournament.display_name || '-';
@@ -1745,7 +1743,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         document.getElementById('tournamentInfoMode').textContent = tournament.game_type || '-';
         document.getElementById('tournamentInfoCategory').textContent = tournament.level || '-';
         document.getElementById('tournamentInfoParticipants').textContent = tournamentResults.length;
-        document.getElementById('tournamentInfoEmails').textContent = resultsData.emailCount || 0;
+        document.getElementById('tournamentInfoEmails').textContent = data.emailCount || 0;
 
         infoDiv.style.display = 'block';
 
@@ -1765,7 +1763,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         });
 
         previewDiv.style.display = 'block';
-        sendBtn.disabled = resultsData.emailCount === 0;
+        sendBtn.disabled = data.emailCount === 0;
 
       } catch (error) {
         console.error('Error loading tournament data:', error);
