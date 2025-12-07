@@ -232,10 +232,11 @@
     <div class="navbar">
       <h2><img src="images/billiard-icon.png" alt="icon" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none';"> Emailing</h2>
       <div class="nav-links">
+        <a href="rankings.html">Classements</a>
+        <a href="tournaments-list.html">Tournois joués</a>
+        <a href="generate-poules.html">Tournois à jouer</a>
         <a href="dashboard.html">Accueil</a>
-        <a href="players-list.html">Joueurs</a>
-        <a href="inscriptions-list.html">Inscriptions</a>
-        <a href="#" id="logoutBtn">Deconnexion</a>
+        <a href="#" id="logoutBtn">Déconnexion</a>
       </div>
     </div>
 
@@ -244,10 +245,11 @@
 
     <div class="tabs">
       <div class="tab active" data-tab="compose">Composer</div>
+      <div class="tab" data-tab="results">Résultats Tournoi</div>
       <div class="tab" data-tab="contacts">Gestion Contacts</div>
       <div class="tab" data-tab="templates">Templates</div>
       <div class="tab" data-tab="history">Historique</div>
-      <div class="tab" data-tab="scheduled">Programmes</div>
+      <div class="tab" data-tab="scheduled">Programmés</div>
     </div>
 
     <!-- TAB: Compose Email -->
@@ -365,6 +367,93 @@
       </div>
     </div>
 
+    <!-- TAB: Tournament Results -->
+    <div id="tab-results" class="tab-content">
+      <div class="card">
+        <h3>Envoyer les Résultats d'un Tournoi</h3>
+        <p style="color: #666; margin-bottom: 20px;">
+          Sélectionnez un tournoi importé pour envoyer les résultats à tous les participants par email.
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <!-- Left: Tournament Selection -->
+          <div>
+            <label style="display: block; font-weight: bold; margin-bottom: 10px;">Sélectionner un tournoi importé</label>
+            <select id="resultsTournamentSelect" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+              <option value="">-- Choisir un tournoi --</option>
+            </select>
+
+            <div id="tournamentInfo" style="display: none; margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+              <h4 style="margin: 0 0 10px 0;" id="tournamentInfoTitle">-</h4>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
+                <div><strong>Date:</strong> <span id="tournamentInfoDate">-</span></div>
+                <div><strong>Lieu:</strong> <span id="tournamentInfoLieu">-</span></div>
+                <div><strong>Mode:</strong> <span id="tournamentInfoMode">-</span></div>
+                <div><strong>Catégorie:</strong> <span id="tournamentInfoCategory">-</span></div>
+                <div><strong>Participants:</strong> <span id="tournamentInfoParticipants">-</span></div>
+                <div><strong>Emails disponibles:</strong> <span id="tournamentInfoEmails">-</span></div>
+              </div>
+            </div>
+
+            <div id="tournamentResultsPreview" style="display: none; margin-top: 20px;">
+              <h4>Aperçu des Résultats</h4>
+              <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+                <table style="width: 100%; font-size: 13px;">
+                  <thead style="background: #f8f9fa; position: sticky; top: 0;">
+                    <tr>
+                      <th style="padding: 10px; text-align: left;">Pos</th>
+                      <th style="padding: 10px; text-align: left;">Joueur</th>
+                      <th style="padding: 10px; text-align: center;">Points</th>
+                      <th style="padding: 10px; text-align: center;">Email</th>
+                    </tr>
+                  </thead>
+                  <tbody id="resultsPreviewBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Email Customization -->
+          <div>
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte d'introduction</label>
+              <textarea id="resultsIntroText" rows="4" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;">Bonjour {first_name},
+
+Voici les résultats du tournoi {tournament_name} qui s'est déroulé le {tournament_date} à {tournament_lieu}.
+
+Félicitations à tous les participants !</textarea>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte de conclusion</label>
+              <textarea id="resultsOutroText" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;">Sportivement,
+Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-weight: bold; margin-bottom: 5px;">Image (optionnel) - URL</label>
+              <input type="url" id="resultsImageUrl" placeholder="https://exemple.com/image.jpg" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+
+            <div class="template-vars" style="margin-bottom: 20px;">
+              <strong>Variables disponibles:</strong>
+              <code>{first_name}</code>
+              <code>{last_name}</code>
+              <code>{tournament_name}</code>
+              <code>{tournament_date}</code>
+              <code>{tournament_lieu}</code>
+              <code>{player_position}</code>
+              <code>{player_points}</code>
+            </div>
+
+            <button class="btn" id="sendResultsBtn" style="width: 100%; padding: 15px; font-size: 16px; background: #1F4788;" disabled>
+              Envoyer les Résultats
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB: Contacts Management -->
     <div id="tab-contacts" class="tab-content">
       <div class="card">
@@ -452,23 +541,71 @@
 
     <!-- TAB: Templates -->
     <div id="tab-templates" class="tab-content">
+      <!-- Convocation Template -->
       <div class="card">
-        <h3>Templates d'emails</h3>
+        <h3>Template Convocation</h3>
+        <p style="color: #666; margin-bottom: 15px;">Template utilisé pour les emails de convocation aux tournois.</p>
+
+        <div style="margin-bottom: 15px; padding: 10px; background: #e7f3ff; border-radius: 4px; font-size: 13px;">
+          <strong>Variables disponibles :</strong>
+          <code>{first_name}</code> <code>{last_name}</code> <code>{player_name}</code>
+          <code>{category}</code> <code>{tournament}</code> <code>{date}</code> <code>{lieu}</code>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Objet</label>
+          <input type="text" id="convocationSubject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Corps du message</label>
+          <textarea id="convocationBody" rows="10" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+        </div>
+
+        <button class="btn" id="saveConvocationTemplateBtn" style="background: #28a745;">Enregistrer</button>
+        <button class="btn" id="resetConvocationTemplateBtn" style="background: #6c757d; margin-left: 10px;">Réinitialiser par défaut</button>
+      </div>
+
+      <!-- Results Template -->
+      <div class="card" style="margin-top: 20px;">
+        <h3>Template Résultats Tournoi</h3>
+        <p style="color: #666; margin-bottom: 15px;">Template utilisé pour les emails de résultats après un tournoi.</p>
+
+        <div style="margin-bottom: 15px; padding: 10px; background: #e7f3ff; border-radius: 4px; font-size: 13px;">
+          <strong>Variables disponibles :</strong>
+          <code>{first_name}</code> <code>{last_name}</code> <code>{tournament_name}</code>
+          <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{player_position}</code> <code>{player_points}</code>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte d'introduction</label>
+          <textarea id="resultsIntroTemplate" rows="5" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte de conclusion</label>
+          <textarea id="resultsOutroTemplate" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+        </div>
+
+        <button class="btn" id="saveResultsTemplateBtn" style="background: #28a745;">Enregistrer</button>
+        <button class="btn" id="resetResultsTemplateBtn" style="background: #6c757d; margin-left: 10px;">Réinitialiser par défaut</button>
+      </div>
+
+      <!-- Custom Templates -->
+      <div class="card" style="margin-top: 20px;">
+        <h3>Templates Personnalisés</h3>
 
         <div style="margin-bottom: 20px;">
-          <label style="font-weight: bold;">Selectionner un template:</label>
+          <label style="font-weight: bold;">Sélectionner un template:</label>
           <select id="templateEditSelect" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
             <option value="">-- Choisir --</option>
-            <option value="general">General</option>
-            <option value="information">Information</option>
-            <option value="rappel">Rappel</option>
           </select>
           <button class="btn" id="newTemplateBtn" style="margin-left: 10px; background: #4CAF50;">Nouveau template</button>
         </div>
 
         <div id="templateEditor" style="display: none;">
           <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Cle du template</label>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Clé du template</label>
             <input type="text" id="templateKey" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
           </div>
 
@@ -488,10 +625,9 @@
             <code>{first_name}</code>
             <code>{last_name}</code>
             <code>{club}</code>
-            <code>{message}</code>
           </div>
 
-          <button class="btn" id="saveTemplateBtn" style="margin-top: 15px; background: #1F4788;">Sauvegarder le template</button>
+          <button class="btn" id="saveTemplateBtn" style="margin-top: 15px; background: #1F4788;">Sauvegarder</button>
         </div>
       </div>
     </div>
@@ -588,7 +724,12 @@
         document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
 
         // Load data for specific tabs
+        if (tab.dataset.tab === 'results') loadImportedTournaments();
         if (tab.dataset.tab === 'contacts') loadAllContacts();
+        if (tab.dataset.tab === 'templates') {
+          loadConvocationTemplate();
+          loadResultsTemplate();
+        }
         if (tab.dataset.tab === 'history') loadHistory();
         if (tab.dataset.tab === 'scheduled') loadScheduled();
       });
@@ -1083,6 +1224,155 @@
       }
     });
 
+    // ==================== CONVOCATION & RESULTS TEMPLATES ====================
+
+    const DEFAULT_CONVOCATION_TEMPLATE = {
+      subject: 'Convocation {category} - {tournament} - {date}',
+      body: `Bonjour {player_name},
+
+Le CDBHS a le plaisir de vous convier au tournoi suivant.
+
+Veuillez trouver en attachement votre convocation détaillée avec la composition de toutes les poules du tournoi.
+
+En cas d'empêchement, merci d'informer dès que possible l'équipe en charge du sportif à l'adresse ci-dessous.
+
+Nous vous souhaitons une excellente compétition.
+
+Cordialement,
+Comité Départemental Billard Hauts-de-Seine`
+    };
+
+    const DEFAULT_RESULTS_TEMPLATE = {
+      intro: `Bonjour {first_name},
+
+Voici les résultats du tournoi {tournament_name} qui s'est déroulé le {tournament_date} à {tournament_lieu}.
+
+Félicitations à tous les participants !`,
+      outro: `Sportivement,
+Le Comité Départemental de Billard des Hauts-de-Seine`
+    };
+
+    async function loadConvocationTemplate() {
+      try {
+        const response = await fetch(`${API_URL}/settings/email-template/convocation`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const template = await response.json();
+          document.getElementById('convocationSubject').value = template.subject_template || DEFAULT_CONVOCATION_TEMPLATE.subject;
+          document.getElementById('convocationBody').value = template.body_template || DEFAULT_CONVOCATION_TEMPLATE.body;
+        } else {
+          document.getElementById('convocationSubject').value = DEFAULT_CONVOCATION_TEMPLATE.subject;
+          document.getElementById('convocationBody').value = DEFAULT_CONVOCATION_TEMPLATE.body;
+        }
+      } catch (error) {
+        document.getElementById('convocationSubject').value = DEFAULT_CONVOCATION_TEMPLATE.subject;
+        document.getElementById('convocationBody').value = DEFAULT_CONVOCATION_TEMPLATE.body;
+      }
+    }
+
+    async function loadResultsTemplate() {
+      try {
+        const response = await fetch(`${API_URL}/emailing/templates/results`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const template = await response.json();
+          // Parse the body which contains intro and outro separated by a delimiter
+          const parts = (template.body_template || '').split('---OUTRO---');
+          document.getElementById('resultsIntroTemplate').value = parts[0] || DEFAULT_RESULTS_TEMPLATE.intro;
+          document.getElementById('resultsOutroTemplate').value = parts[1] || DEFAULT_RESULTS_TEMPLATE.outro;
+        } else {
+          document.getElementById('resultsIntroTemplate').value = DEFAULT_RESULTS_TEMPLATE.intro;
+          document.getElementById('resultsOutroTemplate').value = DEFAULT_RESULTS_TEMPLATE.outro;
+        }
+      } catch (error) {
+        document.getElementById('resultsIntroTemplate').value = DEFAULT_RESULTS_TEMPLATE.intro;
+        document.getElementById('resultsOutroTemplate').value = DEFAULT_RESULTS_TEMPLATE.outro;
+      }
+    }
+
+    document.getElementById('saveConvocationTemplateBtn').addEventListener('click', async () => {
+      const subject = document.getElementById('convocationSubject').value.trim();
+      const body = document.getElementById('convocationBody').value.trim();
+
+      if (!subject || !body) {
+        showError('Tous les champs sont obligatoires.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/settings/email-template/convocation`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            subject_template: subject,
+            body_template: body
+          })
+        });
+
+        if (response.ok) {
+          showSuccess('Template convocation enregistré!');
+        } else {
+          showError('Erreur lors de la sauvegarde.');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    });
+
+    document.getElementById('resetConvocationTemplateBtn').addEventListener('click', () => {
+      document.getElementById('convocationSubject').value = DEFAULT_CONVOCATION_TEMPLATE.subject;
+      document.getElementById('convocationBody').value = DEFAULT_CONVOCATION_TEMPLATE.body;
+      showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
+    });
+
+    document.getElementById('saveResultsTemplateBtn').addEventListener('click', async () => {
+      const intro = document.getElementById('resultsIntroTemplate').value.trim();
+      const outro = document.getElementById('resultsOutroTemplate').value.trim();
+
+      if (!intro || !outro) {
+        showError('Tous les champs sont obligatoires.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/templates/results`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            subject_template: 'Résultats Tournoi',
+            body_template: intro + '---OUTRO---' + outro
+          })
+        });
+
+        if (response.ok) {
+          showSuccess('Template résultats enregistré!');
+          // Also update the Results tab textareas
+          document.getElementById('resultsIntroText').value = intro;
+          document.getElementById('resultsOutroText').value = outro;
+        } else {
+          showError('Erreur lors de la sauvegarde.');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    });
+
+    document.getElementById('resetResultsTemplateBtn').addEventListener('click', () => {
+      document.getElementById('resultsIntroTemplate').value = DEFAULT_RESULTS_TEMPLATE.intro;
+      document.getElementById('resultsOutroTemplate').value = DEFAULT_RESULTS_TEMPLATE.outro;
+      showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
+    });
+
     // ==================== ALL CONTACTS (Management) ====================
 
     async function loadAllContacts() {
@@ -1360,6 +1650,161 @@
       document.getElementById('progressOverlay').style.display = 'none';
     }
 
+    // ==================== TOURNAMENT RESULTS ====================
+
+    let selectedTournamentData = null;
+    let tournamentResults = [];
+
+    async function loadImportedTournaments() {
+      try {
+        const response = await fetch(`${API_URL}/tournaments`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load tournaments');
+
+        const tournaments = await response.json();
+        const select = document.getElementById('resultsTournamentSelect');
+        select.innerHTML = '<option value="">-- Choisir un tournoi --</option>';
+
+        // Group by season
+        const bySeason = {};
+        tournaments.forEach(t => {
+          const season = t.season || 'Autre';
+          if (!bySeason[season]) bySeason[season] = [];
+          bySeason[season].push(t);
+        });
+
+        // Sort seasons descending and add to select
+        Object.keys(bySeason).sort().reverse().forEach(season => {
+          const optgroup = document.createElement('optgroup');
+          optgroup.label = `Saison ${season}`;
+          bySeason[season].forEach(t => {
+            const option = document.createElement('option');
+            option.value = t.id;
+            const date = t.date ? new Date(t.date).toLocaleDateString('fr-FR') : '';
+            option.textContent = `${t.category} - ${date} (${t.player_count} joueurs)`;
+            option.dataset.tournament = JSON.stringify(t);
+            optgroup.appendChild(option);
+          });
+          select.appendChild(optgroup);
+        });
+
+      } catch (error) {
+        console.error('Error loading tournaments:', error);
+      }
+    }
+
+    document.getElementById('resultsTournamentSelect').addEventListener('change', async (e) => {
+      const tournamentId = e.target.value;
+      const infoDiv = document.getElementById('tournamentInfo');
+      const previewDiv = document.getElementById('tournamentResultsPreview');
+      const sendBtn = document.getElementById('sendResultsBtn');
+
+      if (!tournamentId) {
+        infoDiv.style.display = 'none';
+        previewDiv.style.display = 'none';
+        sendBtn.disabled = true;
+        return;
+      }
+
+      try {
+        // Load tournament details and results
+        const [tournamentRes, resultsRes] = await Promise.all([
+          fetch(`${API_URL}/tournaments/${tournamentId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${API_URL}/emailing/tournament-results/${tournamentId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
+
+        if (!tournamentRes.ok || !resultsRes.ok) throw new Error('Failed to load data');
+
+        const tournament = await tournamentRes.json();
+        const resultsData = await resultsRes.json();
+
+        selectedTournamentData = tournament;
+        tournamentResults = resultsData.results || [];
+
+        // Update info section
+        document.getElementById('tournamentInfoTitle').textContent = tournament.category;
+        document.getElementById('tournamentInfoDate').textContent = tournament.date ? new Date(tournament.date).toLocaleDateString('fr-FR') : '-';
+        document.getElementById('tournamentInfoLieu').textContent = tournament.location || '-';
+        document.getElementById('tournamentInfoMode').textContent = tournament.mode || '-';
+        document.getElementById('tournamentInfoCategory').textContent = tournament.category_level || '-';
+        document.getElementById('tournamentInfoParticipants').textContent = tournamentResults.length;
+        document.getElementById('tournamentInfoEmails').textContent = resultsData.emailCount || 0;
+
+        infoDiv.style.display = 'block';
+
+        // Update results preview
+        const tbody = document.getElementById('resultsPreviewBody');
+        tbody.innerHTML = '';
+
+        tournamentResults.forEach((r, idx) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td style="padding: 8px;">${idx + 1}</td>
+            <td style="padding: 8px;">${r.player_name}</td>
+            <td style="padding: 8px; text-align: center;">${r.points || '-'}</td>
+            <td style="padding: 8px; text-align: center;">${r.email ? '✅' : '❌'}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        previewDiv.style.display = 'block';
+        sendBtn.disabled = resultsData.emailCount === 0;
+
+      } catch (error) {
+        console.error('Error loading tournament data:', error);
+        showError('Erreur lors du chargement des données du tournoi');
+      }
+    });
+
+    document.getElementById('sendResultsBtn').addEventListener('click', async () => {
+      if (!selectedTournamentData || tournamentResults.length === 0) {
+        showError('Veuillez sélectionner un tournoi');
+        return;
+      }
+
+      const emailCount = tournamentResults.filter(r => r.email).length;
+      if (!confirm(`Envoyer les résultats à ${emailCount} participant(s) ?`)) {
+        return;
+      }
+
+      showProgress('Envoi des résultats en cours...');
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/send-results`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            tournamentId: selectedTournamentData.id,
+            introText: document.getElementById('resultsIntroText').value,
+            outroText: document.getElementById('resultsOutroText').value,
+            imageUrl: document.getElementById('resultsImageUrl').value || null
+          })
+        });
+
+        const result = await response.json();
+        hideProgress();
+
+        if (response.ok) {
+          showSuccess(result.message);
+        } else {
+          showError(result.error || 'Erreur lors de l\'envoi');
+        }
+
+      } catch (error) {
+        hideProgress();
+        showError('Erreur: ' + error.message);
+      }
+    });
+
     // ==================== INIT ====================
 
     async function initialize() {
@@ -1367,6 +1812,7 @@
       await loadTournois();
       await loadContacts();
       await loadTemplates();
+      await loadImportedTournaments();
     }
 
     initialize();

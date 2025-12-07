@@ -736,6 +736,330 @@ router.post('/process-scheduled', async (req, res) => {
   }
 });
 
+// ==================== TOURNAMENT RESULTS EMAILS ====================
+
+// Get tournament results with participant emails
+router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { id } = req.params;
+
+  try {
+    // Get tournament details
+    const tournament = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM tournaments WHERE id = $1', [id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournoi non trouvé' });
+    }
+
+    // Get tournament results with emails from player_contacts
+    // Join tournament_results with player_contacts to get emails
+    const results = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT tr.*,
+               pc.email,
+               pc.first_name as contact_first_name,
+               pc.last_name as contact_last_name
+        FROM tournament_results tr
+        LEFT JOIN player_contacts pc ON REPLACE(tr.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+        WHERE tr.tournament_id = $1
+        ORDER BY tr.position ASC
+      `, [id], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    // Get ranking data for this mode/category
+    const rankings = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT r.*, pc.email
+        FROM rankings r
+        LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+        WHERE r.season = $1 AND r.category = $2
+        ORDER BY r.total_points DESC
+      `, [tournament.season, tournament.category], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    const emailCount = results.filter(r => r.email && r.email.includes('@')).length;
+
+    res.json({
+      tournament,
+      results: results.map(r => ({
+        position: r.position,
+        player_name: r.player_name,
+        licence: r.licence,
+        points: r.points,
+        email: r.email
+      })),
+      rankings: rankings.map((r, idx) => ({
+        position: idx + 1,
+        player_name: r.player_name,
+        licence: r.licence,
+        total_points: r.total_points,
+        email: r.email
+      })),
+      emailCount
+    });
+
+  } catch (error) {
+    console.error('Error fetching tournament results:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Send tournament results email to all participants
+router.post('/send-results', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { tournamentId, introText, outroText, imageUrl } = req.body;
+
+  const resend = getResend();
+  if (!resend) {
+    return res.status(500).json({
+      error: 'Email non configuré. Veuillez définir RESEND_API_KEY.'
+    });
+  }
+
+  try {
+    // Get tournament details
+    const tournament = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM tournaments WHERE id = $1', [tournamentId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournoi non trouvé' });
+    }
+
+    // Get tournament results with emails
+    const results = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT tr.*, pc.email, pc.first_name, pc.last_name
+        FROM tournament_results tr
+        LEFT JOIN player_contacts pc ON REPLACE(tr.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+        WHERE tr.tournament_id = $1
+        ORDER BY tr.position ASC
+      `, [tournamentId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    // Get general rankings for this category
+    const rankings = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT r.*, pc.email
+        FROM rankings r
+        LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+        WHERE r.season = $1 AND r.category = $2
+        ORDER BY r.total_points DESC
+      `, [tournament.season, tournament.category], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    // Build results HTML table
+    const resultsTableHtml = `
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+        <thead>
+          <tr style="background: #1F4788; color: white;">
+            <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Pos</th>
+            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Joueur</th>
+            <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{RESULTS_ROWS}}
+        </tbody>
+      </table>
+    `;
+
+    // Build rankings HTML table
+    const rankingsTableHtml = `
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+        <thead>
+          <tr style="background: #28a745; color: white;">
+            <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Pos</th>
+            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Joueur</th>
+            <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">Total Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{RANKINGS_ROWS}}
+        </tbody>
+      </table>
+    `;
+
+    const sentResults = { sent: [], failed: [], skipped: [] };
+    const tournamentDate = tournament.date ? new Date(tournament.date).toLocaleDateString('fr-FR') : '';
+
+    // Create campaign record
+    const campaignId = await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, status)
+         VALUES ($1, $2, 'tournament_results', $3, 'sending')`,
+        [`Résultats - ${tournament.category}`, introText, results.filter(r => r.email).length],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.lastID);
+        }
+      );
+    });
+
+    // Send email to each participant with email
+    for (const participant of results) {
+      if (!participant.email || !participant.email.includes('@')) {
+        sentResults.skipped.push({
+          name: participant.player_name,
+          reason: 'Email invalide ou manquant'
+        });
+        continue;
+      }
+
+      try {
+        // Build personalized results table (highlight current player)
+        const resultsRows = results.map(r => {
+          const isCurrentPlayer = r.licence === participant.licence;
+          const bgColor = isCurrentPlayer ? '#FFF3CD' : (r.position % 2 === 0 ? '#f8f9fa' : 'white');
+          const fontWeight = isCurrentPlayer ? 'bold' : 'normal';
+          const arrow = isCurrentPlayer ? '▶ ' : '';
+          return `
+            <tr style="background: ${bgColor};">
+              <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${r.position}</td>
+              <td style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: ${fontWeight};">${arrow}${r.player_name}</td>
+              <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${r.points || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        // Build personalized rankings table (highlight current player)
+        const rankingsRows = rankings.map((r, idx) => {
+          const isCurrentPlayer = r.licence === participant.licence;
+          const bgColor = isCurrentPlayer ? '#FFF3CD' : ((idx + 1) % 2 === 0 ? '#f8f9fa' : 'white');
+          const fontWeight = isCurrentPlayer ? 'bold' : 'normal';
+          const arrow = isCurrentPlayer ? '▶ ' : '';
+          return `
+            <tr style="background: ${bgColor};">
+              <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${idx + 1}</td>
+              <td style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: ${fontWeight};">${arrow}${r.player_name}</td>
+              <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${r.total_points || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        // Find player position in rankings
+        const playerRankingPosition = rankings.findIndex(r => r.licence === participant.licence) + 1;
+
+        // Replace template variables
+        const personalizedIntro = introText
+          .replace(/\{first_name\}/g, participant.first_name || participant.player_name.split(' ')[0] || '')
+          .replace(/\{last_name\}/g, participant.last_name || '')
+          .replace(/\{tournament_name\}/g, tournament.category)
+          .replace(/\{tournament_date\}/g, tournamentDate)
+          .replace(/\{tournament_lieu\}/g, tournament.location || '')
+          .replace(/\{player_position\}/g, participant.position)
+          .replace(/\{player_points\}/g, participant.points || '-')
+          .replace(/\{ranking_position\}/g, playerRankingPosition || '-');
+
+        const personalizedOutro = outroText
+          .replace(/\{first_name\}/g, participant.first_name || '')
+          .replace(/\{last_name\}/g, participant.last_name || '');
+
+        // Build optional image HTML
+        const imageHtml = imageUrl ? `<div style="text-align: center; margin: 20px 0;"><img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px;"></div>` : '';
+
+        // Build final email HTML
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+            <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
+              <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <h1 style="margin: 0; font-size: 24px;">Résultats - ${tournament.category}</h1>
+              <p style="margin: 10px 0 0 0; opacity: 0.9;">${tournamentDate}${tournament.location ? ' - ' + tournament.location : ''}</p>
+            </div>
+            <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
+              ${imageHtml}
+              <p>${personalizedIntro.replace(/\n/g, '<br>')}</p>
+
+              <h3 style="color: #1F4788; margin-top: 30px;">Résultats du Tournoi</h3>
+              ${resultsTableHtml.replace('{{RESULTS_ROWS}}', resultsRows)}
+
+              <h3 style="color: #28a745; margin-top: 30px;">Classement Général ${tournament.category}</h3>
+              ${rankingsTableHtml.replace('{{RANKINGS_ROWS}}', rankingsRows)}
+
+              <p style="margin-top: 30px;">${personalizedOutro.replace(/\n/g, '<br>')}</p>
+            </div>
+            <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
+              <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+            </div>
+          </div>
+        `;
+
+        await resend.emails.send({
+          from: 'CDBHS <communication@cdbhs.net>',
+          to: [participant.email],
+          subject: `Résultats - ${tournament.category} - ${tournamentDate}`,
+          html: emailHtml
+        });
+
+        sentResults.sent.push({
+          name: participant.player_name,
+          email: participant.email
+        });
+
+        // Update last_contacted
+        await new Promise((resolve) => {
+          db.run(
+            'UPDATE player_contacts SET last_contacted = CURRENT_TIMESTAMP WHERE REPLACE(licence, \' \', \'\') = $1',
+            [participant.licence.replace(/ /g, '')],
+            () => resolve()
+          );
+        });
+
+        await delay(1500);
+
+      } catch (error) {
+        console.error(`Error sending results to ${participant.email}:`, error);
+        sentResults.failed.push({
+          name: participant.player_name,
+          email: participant.email,
+          error: error.message
+        });
+      }
+    }
+
+    // Update campaign record
+    await new Promise((resolve) => {
+      db.run(
+        `UPDATE email_campaigns
+         SET sent_count = $1, failed_count = $2, status = 'completed', sent_at = CURRENT_TIMESTAMP
+         WHERE id = $3`,
+        [sentResults.sent.length, sentResults.failed.length, campaignId],
+        () => resolve()
+      );
+    });
+
+    res.json({
+      success: true,
+      message: `Résultats envoyés: ${sentResults.sent.length}, Échecs: ${sentResults.failed.length}, Ignorés: ${sentResults.skipped.length}`,
+      results: sentResults
+    });
+
+  } catch (error) {
+    console.error('Error sending tournament results:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== CAMPAIGN HISTORY ====================
 
 // Get email campaign history
