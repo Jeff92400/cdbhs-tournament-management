@@ -504,6 +504,28 @@ function recalculateRankings(categoryId, season, callback) {
       return callback(err);
     }
 
+    // Sort results in JavaScript to ensure correct order
+    // (backup in case PostgreSQL ORDER BY doesn't work as expected)
+    results.sort((a, b) => {
+      // 1. Sort by total_match_points DESC
+      if (b.total_match_points !== a.total_match_points) {
+        return b.total_match_points - a.total_match_points;
+      }
+      // 2. Sort by avg_moyenne DESC
+      if (b.avg_moyenne !== a.avg_moyenne) {
+        return b.avg_moyenne - a.avg_moyenne;
+      }
+      // 3. Sort by best_serie DESC
+      return (b.best_serie || 0) - (a.best_serie || 0);
+    });
+
+    console.log('Rankings calculated, first 5:', results.slice(0, 5).map(r => ({
+      licence: r.licence,
+      points: r.total_match_points,
+      moyenne: r.avg_moyenne,
+      serie: r.best_serie
+    })));
+
     // Delete existing rankings
     db.run('DELETE FROM rankings WHERE category_id = ? AND season = ?', [categoryId, season], (err) => {
       if (err) {
