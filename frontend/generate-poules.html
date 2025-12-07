@@ -249,28 +249,10 @@
 <body>
   <div class="container">
     <div class="navbar">
-      <h2><img src="images/billiard-icon.png" alt="🎱" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;">🎱</span> CDBHS Tournois</h2>
+      <h2><img src="images/billiard-icon.png" alt="🎱" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;">🎱</span> Tournois à Jouer</h2>
       <div class="nav-links">
-        <a href="dashboard.html">Accueil</a>
-        <div class="nav-dropdown">
-          <button class="nav-dropdown-btn">Fichiers</button>
-          <div class="nav-dropdown-content">
-            <a href="players-list.html"><span class="nav-icon">👥</span> Joueurs</a>
-            <a href="tournaments-list.html"><span class="nav-icon">🏆</span> Tournois joués</a>
-            <a href="import-external.html"><span class="nav-icon">📋</span> Compétitions & Inscriptions</a>
-            <a href="clubs.html"><span class="nav-icon">🏢</span> Clubs</a>
-          </div>
-        </div>
         <a href="rankings.html">Classements</a>
-        <a href="tournaments-list.html">Tournois joués</a>
-        <a href="generate-poules.html" class="active">Tournois à jouer</a>
-        <div class="nav-dropdown">
-          <button class="nav-dropdown-btn">Paramètres</button>
-          <div class="nav-dropdown-content">
-            <a href="settings.html"><span class="nav-icon">⚙️</span> Configuration</a>
-            <a href="calendar.html"><span class="nav-icon">📅</span> Calendrier</a>
-          </div>
-        </div>
+        <a href="dashboard.html">Accueil</a>
         <a href="#" id="logoutBtn" class="nav-logout">Déconnexion</a>
       </div>
     </div>
@@ -586,6 +568,7 @@
       <div class="action-buttons">
         <button class="btn" id="backToStep2Btn" style="background: #6c757d;">Modifier la liste</button>
         <button class="btn btn-success" id="generateExcelBtn" style="background: #28a745;">Générer le fichier Excel</button>
+        <button class="btn" id="generateSummaryPdfBtn" style="background: #dc3545; color: white;">Générer PDF Récapitulatif</button>
       </div>
     </div>
 
@@ -664,6 +647,14 @@
     const token = localStorage.getItem('token');
     if (!token) {
       window.location.href = 'login.html';
+    }
+
+    // Check user role and show/hide admin elements
+    const userRole = localStorage.getItem('userRole');
+    if (userRole === 'admin') {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+    } else {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
     }
 
     // Logout
@@ -1862,6 +1853,119 @@
       } catch (error) {
         console.error('Error generating Excel:', error);
         document.getElementById('errorMessage').textContent = 'Erreur lors de la génération du fichier';
+        document.getElementById('errorMessage').style.display = 'block';
+      }
+    });
+
+    // Generate Summary PDF (neutral - no personalization)
+    document.getElementById('generateSummaryPdfBtn').addEventListener('click', async () => {
+      const config = getPouleConfig(selectedPlayers.length);
+      const poules = currentPoules.length > 0 ? currentPoules : distributeSerpentine(selectedPlayers, config.poules);
+
+      // Get selected locations and times
+      const location1Select = document.getElementById('locationSelect1');
+      const loc1Option = location1Select.options[location1Select.selectedIndex];
+      const location1 = location1Select.value ? {
+        id: location1Select.value,
+        name: loc1Option.dataset.name,
+        street: loc1Option.dataset.street,
+        city: loc1Option.dataset.city,
+        zip_code: loc1Option.dataset.zipcode
+      } : null;
+
+      const location2Select = document.getElementById('locationSelect2');
+      const loc2Option = location2Select.options[location2Select.selectedIndex];
+      const location2 = location2Select.value ? {
+        id: location2Select.value,
+        name: loc2Option.dataset.name,
+        street: loc2Option.dataset.street,
+        city: loc2Option.dataset.city,
+        zip_code: loc2Option.dataset.zipcode
+      } : null;
+
+      const startTime1 = document.getElementById('startTime1').value || '14:00';
+      const startTime2 = document.getElementById('startTime2').value || '14:00';
+
+      // Get poule location assignments
+      const pouleAssignments = {};
+      document.querySelectorAll('.poule-location').forEach(select => {
+        const pouleNum = select.dataset.poule;
+        pouleAssignments[pouleNum] = select.value;
+      });
+
+      poules.forEach(poule => {
+        poule.locationNum = pouleAssignments[poule.number] || '1';
+      });
+
+      const selectedDistance = document.getElementById('distanceSelect')?.value || 'normale';
+
+      // Check for TEST players and inject mock ranking data
+      const hasTestPlayers = poules.some(p => p.players.some(pl => pl.licence?.startsWith('TEST')));
+      let mockRankingData = null;
+      if (hasTestPlayers) {
+        mockRankingData = {
+          'TEST001': { rank: 1, moyenne: '2.098' },
+          'TEST002': { rank: 2, moyenne: '2.057' },
+          'TEST003': { rank: 3, moyenne: '1.985' },
+          'TEST004': { rank: 4, moyenne: '1.876' },
+          'TEST005': { rank: 5, moyenne: '1.754' },
+          'TEST006': { rank: 6, moyenne: '1.698' },
+          'TEST007': { rank: 7, moyenne: '1.623' },
+          'TEST008': { rank: 8, moyenne: '1.567' },
+          'TEST009': { rank: 9, moyenne: '1.498' },
+          'TEST010': { rank: 10, moyenne: '1.432' },
+          'TEST011': { rank: 11, moyenne: '1.387' },
+          'TEST012': { rank: 12, moyenne: '1.298' }
+        };
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/email/generate-summary-pdf`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            category: currentCategory,
+            season: currentSeason,
+            tournament: currentTournament,
+            poules: poules,
+            tournamentDate: matchingTournoi?.debut || null,
+            locations: [
+              location1 ? { ...location1, startTime: startTime1, locationNum: '1' } : null,
+              location2 ? { ...location2, startTime: startTime2, locationNum: '2' } : null
+            ].filter(Boolean),
+            gameParams: currentGameParams,
+            selectedDistance: selectedDistance,
+            mockRankingData: mockRankingData
+          })
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Convocation_${currentCategory.display_name.replace(/\s+/g, '_')}_T${currentTournament}_${currentSeason}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+
+          document.getElementById('successMessage').textContent = 'PDF récapitulatif téléchargé !';
+          document.getElementById('successMessage').style.display = 'block';
+          setTimeout(() => {
+            document.getElementById('successMessage').style.display = 'none';
+          }, 3000);
+        } else {
+          const error = await response.json();
+          document.getElementById('errorMessage').textContent = error.error || 'Erreur lors de la génération du PDF';
+          document.getElementById('errorMessage').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error generating Summary PDF:', error);
+        document.getElementById('errorMessage').textContent = 'Erreur lors de la génération du PDF';
         document.getElementById('errorMessage').style.display = 'block';
       }
     });

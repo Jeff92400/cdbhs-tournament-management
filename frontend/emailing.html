@@ -340,6 +340,12 @@
               <code>{club}</code>
             </div>
 
+            <div style="margin-top: 15px;">
+              <label>Image (optionnel) - URL</label>
+              <input type="url" id="imageUrl" placeholder="https://exemple.com/image.jpg" style="width: 100%;">
+              <p style="font-size: 11px; color: #666; margin-top: 5px;">L'image sera affichee en haut du message. Utilisez une URL publique (ex: lien vers image hebergee).</p>
+            </div>
+
             <div class="schedule-section">
               <label>
                 <input type="checkbox" id="scheduleCheck"> Programmer l'envoi
@@ -872,7 +878,8 @@
             recipientIds: Array.from(selectedContactIds),
             subject,
             body,
-            templateKey: document.getElementById('templateSelect').value || null
+            templateKey: document.getElementById('templateSelect').value || null,
+            imageUrl: document.getElementById('imageUrl').value || null
           })
         });
 
@@ -884,6 +891,7 @@
           // Clear form
           document.getElementById('emailSubject').value = '';
           document.getElementById('emailBody').value = '';
+          document.getElementById('imageUrl').value = '';
           selectedContactIds.clear();
           updateSelectedCount();
           applyContactFilters();
@@ -929,6 +937,7 @@
             subject,
             body,
             templateKey: document.getElementById('templateSelect').value || null,
+            imageUrl: document.getElementById('imageUrl').value || null,
             scheduledAt
           })
         });
@@ -940,6 +949,7 @@
           // Clear form
           document.getElementById('emailSubject').value = '';
           document.getElementById('emailBody').value = '';
+          document.getElementById('imageUrl').value = '';
           document.getElementById('scheduledAt').value = '';
           document.getElementById('scheduleCheck').checked = false;
           document.getElementById('scheduleOptions').style.display = 'none';

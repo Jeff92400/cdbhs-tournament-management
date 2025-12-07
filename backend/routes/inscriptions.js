@@ -782,6 +782,176 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
       { width: 18 }   // Classement/Poule
     ];
 
+    // ============= SECOND WORKSHEET: CONVOCATION =============
+    const convocationSheet = workbook.addWorksheet('Convocation');
+
+    // Get game parameters for this category
+    let gameParams = null;
+    try {
+      const gameParamsResult = await db.query(
+        'SELECT * FROM game_parameters WHERE mode = $1 AND categorie = $2',
+        [category.mode, category.categorie]
+      );
+      if (gameParamsResult.rows.length > 0) {
+        gameParams = gameParamsResult.rows[0];
+      }
+    } catch (e) {
+      console.log('Could not fetch game parameters:', e.message);
+    }
+
+    // Get ranking data for players
+    let rankingData = {};
+    if (req.body.mockRankingData) {
+      rankingData = req.body.mockRankingData;
+    } else {
+      try {
+        const rankingResult = await db.query(`
+          SELECT r.licence, r.rank_position,
+            COALESCE((SELECT SUM(tr.points) FROM tournament_results tr
+              JOIN tournaments t ON tr.tournament_id = t.id
+              WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
+              AND t.category_id = r.category_id AND t.season = r.season
+              AND t.tournament_number <= 3), 0) as cumulated_points,
+            COALESCE((SELECT SUM(tr.reprises) FROM tournament_results tr
+              JOIN tournaments t ON tr.tournament_id = t.id
+              WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
+              AND t.category_id = r.category_id AND t.season = r.season
+              AND t.tournament_number <= 3), 0) as cumulated_reprises
+          FROM rankings r WHERE r.category_id = $1 AND r.season = $2
+        `, [category.id, season]);
+
+        rankingResult.rows.forEach(row => {
+          const moyenne = row.cumulated_reprises > 0
+            ? (row.cumulated_points / row.cumulated_reprises).toFixed(3)
+            : '-';
+          rankingData[row.licence.replace(/\s/g, '')] = {
+            rank: row.rank_position,
+            moyenne: moyenne
+          };
+        });
+      } catch (e) {
+        console.log('Could not fetch ranking data:', e.message);
+      }
+    }
+
+    let convRow = 1;
+
+    // Title
+    convocationSheet.mergeCells(`A${convRow}:H${convRow}`);
+    convocationSheet.getCell(`A${convRow}`).value = titleText;
+    convocationSheet.getCell(`A${convRow}`).font = { size: 16, bold: true, color: { argb: 'FF1F4788' } };
+    convocationSheet.getCell(`A${convRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+    convocationSheet.getCell(`A${convRow}`).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE7F3FF' }
+    };
+    convocationSheet.getRow(convRow).height = 30;
+    convRow++;
+
+    // Lieu if available
+    if (tournamentLieu) {
+      convocationSheet.mergeCells(`A${convRow}:H${convRow}`);
+      convocationSheet.getCell(`A${convRow}`).value = tournamentLieu;
+      convocationSheet.getCell(`A${convRow}`).font = { size: 11, italic: true, color: { argb: 'FF666666' } };
+      convocationSheet.getCell(`A${convRow}`).alignment = { horizontal: 'center' };
+      convRow++;
+    }
+
+    // Game parameters
+    if (gameParams) {
+      convRow++;
+      const distance = gameParams.distance_reduite || gameParams.distance_normale;
+      const coinLabel = gameParams.coin === 'GC' ? 'Grand Coin' : 'Petit Coin';
+
+      convocationSheet.mergeCells(`A${convRow}:H${convRow}`);
+      convocationSheet.getCell(`A${convRow}`).value = `${distance} points  /  ${coinLabel}  /  en ${gameParams.reprises} reprises`;
+      convocationSheet.getCell(`A${convRow}`).font = { size: 11, bold: true };
+      convocationSheet.getCell(`A${convRow}`).alignment = { horizontal: 'center' };
+      convRow++;
+
+      convocationSheet.mergeCells(`A${convRow}:H${convRow}`);
+      convocationSheet.getCell(`A${convRow}`).value = `La moyenne qualificative pour cette categorie est entre ${parseFloat(gameParams.moyenne_mini).toFixed(3)} et ${parseFloat(gameParams.moyenne_maxi).toFixed(3)}`;
+      convocationSheet.getCell(`A${convRow}`).font = { size: 10, italic: true, color: { argb: 'FF666666' } };
+      convocationSheet.getCell(`A${convRow}`).alignment = { horizontal: 'center' };
+      convRow++;
+
+      convocationSheet.mergeCells(`A${convRow}:H${convRow}`);
+      convocationSheet.getCell(`A${convRow}`).value = `Les colonnes Moyenne et Classement en face du nom de chaque joueur correspondent aux positions cumulees a la suite du dernier tournoi joue`;
+      convocationSheet.getCell(`A${convRow}`).font = { size: 9, italic: true, color: { argb: 'FF666666' } };
+      convocationSheet.getCell(`A${convRow}`).alignment = { horizontal: 'center' };
+      convRow++;
+    }
+
+    convRow++;
+
+    // All Poules
+    poules.forEach((poule) => {
+      // Poule header
+      convocationSheet.mergeCells(`A${convRow}:H${convRow}`);
+      convocationSheet.getCell(`A${convRow}`).value = `POULE ${poule.number}`;
+      convocationSheet.getCell(`A${convRow}`).font = { size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      convocationSheet.getCell(`A${convRow}`).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1F4788' }
+      };
+      convocationSheet.getCell(`A${convRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+      convocationSheet.getRow(convRow).height = 22;
+      convRow++;
+
+      // Column headers
+      const headers = ['#', 'Nom', 'Prénom', 'Club', 'Licence', 'Moy.', 'Class.'];
+      const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+      headerCols.forEach((col, idx) => {
+        convocationSheet.getCell(`${col}${convRow}`).value = headers[idx];
+        convocationSheet.getCell(`${col}${convRow}`).font = { bold: true, size: 10 };
+        convocationSheet.getCell(`${col}${convRow}`).fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE0E0E0' }
+        };
+        convocationSheet.getCell(`${col}${convRow}`).alignment = { horizontal: 'center' };
+      });
+      convRow++;
+
+      // Players in poule
+      poule.players.forEach((player, idx) => {
+        const licenceKey = (player.licence || '').replace(/\s/g, '');
+        const playerRanking = rankingData[licenceKey] || {};
+
+        convocationSheet.getCell(`A${convRow}`).value = idx + 1;
+        convocationSheet.getCell(`B${convRow}`).value = player.last_name;
+        convocationSheet.getCell(`C${convRow}`).value = player.first_name;
+        convocationSheet.getCell(`D${convRow}`).value = player.club || '';
+        convocationSheet.getCell(`E${convRow}`).value = player.licence;
+        convocationSheet.getCell(`F${convRow}`).value = playerRanking.moyenne || '-';
+        convocationSheet.getCell(`G${convRow}`).value = playerRanking.rank ? `#${playerRanking.rank}` : '-';
+
+        // Center align numeric columns
+        ['A', 'F', 'G'].forEach(col => {
+          convocationSheet.getCell(`${col}${convRow}`).alignment = { horizontal: 'center' };
+        });
+
+        convRow++;
+      });
+
+      convRow++; // Space between poules
+    });
+
+    // Set column widths for convocation sheet
+    convocationSheet.columns = [
+      { width: 5 },   // #
+      { width: 18 },  // Nom
+      { width: 15 },  // Prénom
+      { width: 25 },  // Club
+      { width: 12 },  // Licence
+      { width: 10 },  // Moy.
+      { width: 10 }   // Class.
+    ];
+
+    // ============= END CONVOCATION WORKSHEET =============
+
     // Send file
     res.setHeader(
       'Content-Type',

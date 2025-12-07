@@ -366,7 +366,7 @@ router.put('/templates/:key', authenticateToken, async (req, res) => {
 // Send emails immediately
 router.post('/send', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
-  const { recipientIds, subject, body, templateKey } = req.body;
+  const { recipientIds, subject, body, templateKey, imageUrl } = req.body;
 
   const resend = getResend();
   if (!resend) {
@@ -436,6 +436,9 @@ router.post('/send', authenticateToken, async (req, res) => {
         const emailBody = replaceTemplateVariables(body, templateVariables);
         const emailBodyHtml = emailBody.replace(/\n/g, '<br>');
 
+        // Build optional image HTML
+        const imageHtml = imageUrl ? `<div style="text-align: center; margin: 20px 0;"><img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px;"></div>` : '';
+
         await resend.emails.send({
           from: 'CDBHS <communication@cdbhs.net>',
           to: [recipient.email],
@@ -443,13 +446,15 @@ router.post('/send', authenticateToken, async (req, res) => {
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
-                <h1 style="margin: 0; font-size: 24px;">CDBHS</h1>
+                <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+                <h1 style="margin: 0; font-size: 24px;">Comite Departemental Billard Hauts-de-Seine</h1>
               </div>
               <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
+                ${imageHtml}
                 ${emailBodyHtml}
               </div>
               <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-                <p style="margin: 0;">Comite Departemental Billard Hauts-de-Seine - cdbhs92@gmail.com</p>
+                <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
               </div>
             </div>
           `
@@ -511,7 +516,7 @@ router.post('/send', authenticateToken, async (req, res) => {
 // Schedule an email for later
 router.post('/schedule', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
-  const { recipientIds, subject, body, templateKey, scheduledAt } = req.body;
+  const { recipientIds, subject, body, templateKey, imageUrl, scheduledAt } = req.body;
 
   if (!recipientIds || recipientIds.length === 0) {
     return res.status(400).json({ error: 'Aucun destinataire selectionne.' });
@@ -524,9 +529,9 @@ router.post('/schedule', authenticateToken, async (req, res) => {
   try {
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO scheduled_emails (subject, body, template_key, recipient_ids, scheduled_at, status)
-         VALUES ($1, $2, $3, $4, $5, 'pending')`,
-        [subject, body, templateKey || null, JSON.stringify(recipientIds), scheduledAt],
+        `INSERT INTO scheduled_emails (subject, body, template_key, image_url, recipient_ids, scheduled_at, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending')`,
+        [subject, body, templateKey || null, imageUrl || null, JSON.stringify(recipientIds), scheduledAt],
         function(err) {
           if (err) reject(err);
           else resolve(this.lastID);

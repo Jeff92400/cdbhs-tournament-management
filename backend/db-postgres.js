@@ -290,6 +290,7 @@ async function initializeDatabase() {
         subject TEXT NOT NULL,
         body TEXT NOT NULL,
         template_key TEXT,
+        image_url TEXT,
         recipient_ids TEXT NOT NULL,
         scheduled_at TIMESTAMP NOT NULL,
         status TEXT DEFAULT 'pending',
@@ -297,6 +298,13 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Add image_url column if it doesn't exist (migration)
+    try {
+      await client.query(`ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS image_url TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
 
     await client.query('COMMIT');
 

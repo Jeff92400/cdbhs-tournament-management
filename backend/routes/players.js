@@ -210,7 +210,7 @@ router.post('/', authenticateToken, (req, res) => {
 
 // Get player by licence
 router.get('/:licence', authenticateToken, (req, res) => {
-  db.get('SELECT * FROM players WHERE REPLACE(licence, " ", "") = REPLACE(?, " ", "")', [req.params.licence], (err, row) => {
+  db.get("SELECT * FROM players WHERE REPLACE(licence, ' ', '') = REPLACE(?, ' ', '')", [req.params.licence], (err, row) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }

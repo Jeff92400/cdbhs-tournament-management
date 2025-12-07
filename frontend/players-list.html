@@ -53,13 +53,9 @@
     <div class="navbar">
       <h2><img src="images/billiard-icon.png" alt="🎱" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;">🎱</span> Liste des Joueurs</h2>
       <div class="nav-links">
+        <a href="import-players.html" class="admin-only">Import Joueurs</a>
         <a href="dashboard.html">Accueil</a>
-        <a href="players-list.html">Joueurs</a>
-        <a href="import-players.html">Import Joueurs</a>
-        <a href="import-tournament.html">Import Tournoi</a>
-        <a href="rankings.html">Classements</a>
-        <a href="calendar.html">Calendrier</a>
-        <a href="#" id="logoutBtn">Déconnexion</a>
+        <a href="#" id="logoutBtn" class="nav-logout">Déconnexion</a>
       </div>
     </div>
 
@@ -200,9 +196,8 @@
 
     // Hide admin-only elements for non-admin users
     if (!isAdmin) {
-      // Hide clear all players button
-      const clearBtn = document.getElementById('clearPlayersBtn');
-      if (clearBtn) clearBtn.style.display = 'none';
+      // Hide all admin-only elements (including nav links)
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
 
       // Hide Actions column header
       const actionsHeader = document.querySelector('thead th:last-child');

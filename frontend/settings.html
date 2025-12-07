@@ -211,6 +211,8 @@
 
       <div style="margin-bottom: 15px; padding: 10px; background: #e7f3ff; border-radius: 4px; font-size: 13px;">
         <strong>Variables disponibles :</strong><br>
+        <code>{first_name}</code> - Prénom du joueur<br>
+        <code>{last_name}</code> - Nom de famille du joueur<br>
         <code>{player_name}</code> - Nom complet du joueur<br>
         <code>{category}</code> - Catégorie (ex: LIBRE R1)<br>
         <code>{tournament}</code> - Numéro du tournoi<br>
@@ -426,13 +428,56 @@
       }
     }
 
-    // Reset user password
-    async function resetUserPassword(userId, username) {
-      const newPassword = prompt(`Nouveau mot de passe pour "${username}" (min. 6 caractères) :`);
-      if (!newPassword) return;
+    // Reset user password - Open modal
+    function resetUserPassword(userId, username) {
+      document.getElementById('resetPasswordUserId').value = userId;
+      document.getElementById('resetPasswordUsername').textContent = username;
+      document.getElementById('resetPasswordInput').value = '';
+      document.getElementById('resetPasswordInput').type = 'password';
+      document.getElementById('resetPasswordError').style.display = 'none';
+
+      // Reset the eye icon
+      const eyeBtn = document.querySelector('#resetPasswordModal .toggle-password');
+      if (eyeBtn) eyeBtn.textContent = '👁️';
+
+      document.getElementById('resetPasswordModal').style.display = 'flex';
+      document.getElementById('resetPasswordInput').focus();
+    }
+
+    // Toggle password visibility in modal
+    function togglePasswordModal() {
+      const input = document.getElementById('resetPasswordInput');
+      const btn = document.querySelector('#resetPasswordModal .toggle-password');
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
+    }
+
+    // Close reset password modal
+    function closeResetPasswordModal() {
+      document.getElementById('resetPasswordModal').style.display = 'none';
+    }
+
+    // Submit password reset
+    async function submitPasswordReset() {
+      const userId = document.getElementById('resetPasswordUserId').value;
+      const username = document.getElementById('resetPasswordUsername').textContent;
+      const newPassword = document.getElementById('resetPasswordInput').value;
+      const errorDiv = document.getElementById('resetPasswordError');
+
+      if (!newPassword) {
+        errorDiv.textContent = 'Veuillez entrer un mot de passe';
+        errorDiv.style.display = 'block';
+        return;
+      }
 
       if (newPassword.length < 6) {
-        alert('Le mot de passe doit contenir au moins 6 caractères');
+        errorDiv.textContent = 'Le mot de passe doit contenir au moins 6 caracteres';
+        errorDiv.style.display = 'block';
         return;
       }
 
@@ -451,14 +496,15 @@
           throw new Error(data.error || 'Erreur lors de la modification');
         }
 
-        document.getElementById('successMessage').textContent = `Mot de passe de "${username}" modifié avec succès !`;
+        closeResetPasswordModal();
+        document.getElementById('successMessage').textContent = `Mot de passe de "${username}" modifie avec succes !`;
         document.getElementById('successMessage').style.display = 'block';
         document.getElementById('errorMessage').style.display = 'none';
 
       } catch (error) {
         console.error('Error resetting password:', error);
-        document.getElementById('errorMessage').textContent = error.message;
-        document.getElementById('errorMessage').style.display = 'block';
+        errorDiv.textContent = error.message;
+        errorDiv.style.display = 'block';
       }
     }
 
@@ -1138,6 +1184,32 @@ Comite Departemental Billard Hauts-de-Seine`
       <div style="display: flex; gap: 10px; margin-top: 25px;">
         <button onclick="saveGameParameter()" class="btn" style="flex: 1; background: #28a745; padding: 12px; font-size: 14px;">Enregistrer</button>
         <button onclick="closeEditParamModal()" class="btn" style="flex: 1; background: #6c757d; padding: 12px; font-size: 14px;">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Password Modal -->
+  <div id="resetPasswordModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+      <h3 style="margin: 0 0 20px 0; color: #1F4788;">Reinitialiser le mot de passe</h3>
+      <p id="resetPasswordUsername" style="margin: 0 0 20px 0; color: #333; background: #f8f9fa; padding: 10px; border-radius: 6px; text-align: center; font-weight: bold;"></p>
+
+      <input type="hidden" id="resetPasswordUserId">
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">Nouveau mot de passe *</label>
+        <div class="password-wrapper" style="position: relative;">
+          <input type="password" id="resetPasswordInput" minlength="6" placeholder="Min. 6 caracteres" style="width: 100%; padding: 12px; padding-right: 45px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+          <button type="button" class="toggle-password" onclick="togglePasswordModal()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; color: #666;">👁️</button>
+        </div>
+        <small style="color: #666; display: block; margin-top: 5px;">Le mot de passe doit contenir au moins 6 caracteres</small>
+      </div>
+
+      <div id="resetPasswordError" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8d7da; color: #721c24; border-radius: 4px; font-size: 13px;"></div>
+
+      <div style="display: flex; gap: 10px;">
+        <button onclick="submitPasswordReset()" class="btn" style="flex: 1; background: #28a745; padding: 12px; font-size: 14px;">Enregistrer</button>
+        <button onclick="closeResetPasswordModal()" class="btn" style="flex: 1; background: #6c757d; padding: 12px; font-size: 14px;">Annuler</button>
       </div>
     </div>
   </div>

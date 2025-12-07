@@ -121,13 +121,19 @@ async function processScheduledEmails() {
             .replace(/\{first_name\}/g, recipient.first_name || '')
             .replace(/\{last_name\}/g, recipient.last_name || '');
 
+          // Build optional image HTML
+          const imageHtml = scheduled.image_url ? `<div style="text-align: center; margin: 20px 0;"><img src="${scheduled.image_url}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px;"></div>` : '';
+
           await resend.emails.send({
             from: 'CDBHS <communication@cdbhs.net>',
             to: [recipient.email],
             subject: emailSubject,
             html: `<div style="font-family: Arial; max-width: 600px; margin: 0 auto;">
-              <div style="background: #1F4788; color: white; padding: 20px; text-align: center;"><h1>CDBHS</h1></div>
-              <div style="padding: 20px; background: #f8f9fa;">${emailBody.replace(/\n/g, '<br>')}</div>
+              <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
+                <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+                <h1 style="margin: 0; font-size: 24px;">Comite Departemental Billard Hauts-de-Seine</h1>
+              </div>
+              <div style="padding: 20px; background: #f8f9fa;">${imageHtml}${emailBody.replace(/\n/g, '<br>')}</div>
               <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">CDBHS - cdbhs92@gmail.com</div>
             </div>`
           });

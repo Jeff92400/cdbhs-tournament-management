@@ -147,7 +147,12 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
         // Line 2: Moyenne qualificative
         doc.fillColor('#666666').fontSize(9).font('Helvetica-Oblique')
            .text(`La moyenne qualificative pour cette categorie est entre ${parseFloat(gameParams.moyenne_mini).toFixed(3)} et ${parseFloat(gameParams.moyenne_maxi).toFixed(3)}`, 40, y, { width: pageWidth, align: 'center' });
-        y += 20;
+        y += 12;
+
+        // Line 3: Explanation of Moyenne and Classement columns
+        doc.fillColor('#666666').fontSize(8).font('Helvetica-Oblique')
+           .text(`Les colonnes Moyenne et Classement en face du nom de chaque joueur correspondent aux positions cumulees a la suite du dernier tournoi joue`, 40, y, { width: pageWidth, align: 'center' });
+        y += 15;
       } else {
         y += 5;
       }
@@ -224,6 +229,182 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
           doc.font('Helvetica').fontSize(7).text(p.club || '', 320, y + 6, { width: 120 });
           // Moyenne and Classement columns
           doc.font(isCurrentPlayer ? 'Helvetica-Bold' : 'Helvetica').fontSize(8);
+          doc.text(playerRanking.moyenne || '-', 445, y + 5, { width: 40, align: 'center' });
+          doc.text(playerRanking.rank ? String(playerRanking.rank) : '-', 490, y + 5, { width: 40, align: 'center' });
+          y += 20;
+        });
+
+        y += 15;
+      }
+
+      // Note at the bottom
+      if (y + 60 > doc.page.height - 40) {
+        doc.addPage();
+        y = 40;
+      }
+
+      doc.fillColor('#666666').fontSize(9).font('Helvetica-Oblique')
+         .text("Les joueurs d'un meme club jouent ensemble au 1er tour", 40, y, { width: pageWidth, align: 'center' });
+      y += 25;
+
+      // Footer
+      doc.fillColor('#999999').fontSize(9).font('Helvetica-Oblique')
+         .text(`Comite Departemental Billard Hauts-de-Seine - ${new Date().toLocaleDateString('fr-FR')}`,
+                40, y, { width: pageWidth, align: 'center' });
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+// Generate NEUTRAL/SUMMARY PDF (no personalization) - for printing/sharing
+async function generateSummaryConvocationPDF(tournamentInfo, allPoules, locations, gameParams, selectedDistance, rankingData = {}) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margin: 40,
+        bufferPages: true
+      });
+
+      const chunks = [];
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // Colors
+      const primaryColor = '#1F4788';
+      const secondaryColor = '#667EEA';
+      const accentColor = '#FFC107';
+      const redColor = '#DC3545';
+      const lightGray = '#F8F9FA';
+
+      // Helper to get location for a poule
+      const getLocationForPoule = (poule) => {
+        const locNum = poule.locationNum || '1';
+        return locations.find(l => l.locationNum === locNum) || locations[0] || { name: 'A definir', startTime: '14:00' };
+      };
+
+      const pageWidth = doc.page.width - 80;
+      let y = 40;
+
+      // Header - CONVOCATION
+      const tournamentLabel = tournamentInfo.tournamentNum === '4' ? 'FINALE DEPARTEMENTALE' : `TOURNOI N${tournamentInfo.tournamentNum}`;
+      doc.rect(40, y, pageWidth, 45).fill(primaryColor);
+      doc.fillColor('white').fontSize(22).font('Helvetica-Bold')
+         .text(`CONVOCATION ${tournamentLabel}`, 40, y + 12, { width: pageWidth, align: 'center' });
+      y += 50;
+
+      // Season
+      doc.rect(40, y, pageWidth, 30).fill(secondaryColor);
+      doc.fillColor('white').fontSize(14).font('Helvetica-Bold')
+         .text(`SAISON ${tournamentInfo.season}`, 40, y + 8, { width: pageWidth, align: 'center' });
+      y += 40;
+
+      // Date - prominent in red
+      const dateStr = tournamentInfo.date
+        ? new Date(tournamentInfo.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()
+        : 'DATE A DEFINIR';
+      doc.fillColor(redColor).fontSize(16).font('Helvetica-Bold')
+         .text(dateStr, 40, y, { width: pageWidth, align: 'center' });
+      y += 30;
+
+      // Category
+      doc.rect(40, y, pageWidth, 30).fill(secondaryColor);
+      doc.fillColor('white').fontSize(14).font('Helvetica-Bold')
+         .text(tournamentInfo.categoryName, 40, y + 8, { width: pageWidth, align: 'center' });
+      y += 35;
+
+      // Game parameters info (if available)
+      if (gameParams) {
+        const distance = selectedDistance === 'reduite' && gameParams.distance_reduite
+          ? gameParams.distance_reduite
+          : gameParams.distance_normale;
+        const coinLabel = gameParams.coin === 'GC' ? 'Grand Coin' : 'Petit Coin';
+
+        // Line 1: Distance / Coin / Reprises
+        doc.fillColor('#333333').fontSize(10).font('Helvetica-Bold')
+           .text(`${distance} points  /  ${coinLabel}  /  en ${gameParams.reprises} reprises`, 40, y, { width: pageWidth, align: 'center' });
+        y += 15;
+
+        // Line 2: Moyenne qualificative
+        doc.fillColor('#666666').fontSize(9).font('Helvetica-Oblique')
+           .text(`La moyenne qualificative pour cette categorie est entre ${parseFloat(gameParams.moyenne_mini).toFixed(3)} et ${parseFloat(gameParams.moyenne_maxi).toFixed(3)}`, 40, y, { width: pageWidth, align: 'center' });
+        y += 12;
+
+        // Line 3: Explanation of Moyenne and Classement columns
+        doc.fillColor('#666666').fontSize(8).font('Helvetica-Oblique')
+           .text(`Les colonnes Moyenne et Classement en face du nom de chaque joueur correspondent aux positions cumulees a la suite du dernier tournoi joue`, 40, y, { width: pageWidth, align: 'center' });
+        y += 20;
+      } else {
+        y += 10;
+      }
+
+      // NO personalized player box - go straight to poules
+
+      // ALL POULES
+      for (const poule of allPoules) {
+        // Check if we need a new page
+        const estimatedHeight = 80 + (poule.players.length * 22);
+        if (y + estimatedHeight > doc.page.height - 60) {
+          doc.addPage();
+          y = 40;
+        }
+
+        const loc = getLocationForPoule(poule);
+        const locName = loc?.name || 'A definir';
+        const locStreet = loc?.street || '';
+        const locZipCode = loc?.zip_code || '';
+        const locCity = loc?.city || '';
+        const fullAddress = [locStreet, locZipCode, locCity].filter(Boolean).join(' ');
+        const locTime = loc?.startTime || '14:00';
+
+        // Location header bar
+        doc.rect(40, y, pageWidth, 24).fill(accentColor);
+        doc.fillColor('#333333').fontSize(10).font('Helvetica-Bold')
+           .text(`${locName.toUpperCase()}`, 50, y + 6);
+        doc.font('Helvetica').text(`${fullAddress}  -  ${locTime.replace(':', 'H')}`,
+           250, y + 6, { width: pageWidth - 220, align: 'right' });
+        y += 28;
+
+        // Poule title
+        doc.rect(40, y, pageWidth, 22).fill(primaryColor);
+        doc.fillColor('white').fontSize(11).font('Helvetica-Bold')
+           .text(`POULE ${poule.number}`, 50, y + 5);
+        y += 26;
+
+        // Table headers - with ranking columns
+        doc.rect(40, y, pageWidth, 20).fill(secondaryColor);
+        doc.fillColor('white').fontSize(8).font('Helvetica-Bold');
+        doc.text('#', 45, y + 5, { width: 20 });
+        doc.text('Licence', 65, y + 5, { width: 60 });
+        doc.text('Nom', 130, y + 5, { width: 100 });
+        doc.text('Prenom', 235, y + 5, { width: 80 });
+        doc.text('Club', 320, y + 5, { width: 120 });
+        doc.text('Moy.', 445, y + 5, { width: 40, align: 'center' });
+        doc.text('Class.', 490, y + 5, { width: 40, align: 'center' });
+        y += 22;
+
+        // Players
+        poule.players.forEach((p, pIndex) => {
+          const isEven = pIndex % 2 === 0;
+          const rowColor = isEven ? '#FFFFFF' : lightGray;
+
+          // Get ranking info for this player
+          const normLicence = (p.licence || '').replace(/\s+/g, '');
+          const playerRanking = rankingData[normLicence] || {};
+
+          doc.rect(40, y, pageWidth, 20).fill(rowColor);
+          doc.fillColor('#333333').fontSize(8).font('Helvetica');
+          doc.text(String(pIndex + 1), 45, y + 5, { width: 20 });
+          doc.text(p.licence || '', 65, y + 5, { width: 60 });
+          doc.text((p.last_name || '').toUpperCase(), 130, y + 5, { width: 100 });
+          doc.text(p.first_name || '', 235, y + 5, { width: 80 });
+          doc.fontSize(7).text(p.club || '', 320, y + 6, { width: 120 });
+          // Moyenne and Classement columns
+          doc.fontSize(8);
           doc.text(playerRanking.moyenne || '-', 445, y + 5, { width: 40, align: 'center' });
           doc.text(playerRanking.rank ? String(playerRanking.rank) : '-', 490, y + 5, { width: 40, align: 'center' });
           y += 20;
@@ -413,6 +594,8 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
       // Prepare template variables
       const templateVariables = {
         player_name: `${player.first_name} ${player.last_name}`,
+        first_name: player.first_name,
+        last_name: player.last_name,
         category: category.display_name,
         tournament: tournamentLabel,
         date: dateStr,
@@ -653,6 +836,51 @@ router.delete('/delete-test-data', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error deleting test data:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Generate summary/neutral PDF (for printing - no personalization)
+router.post('/generate-summary-pdf', authenticateToken, async (req, res) => {
+  const { poules, category, season, tournament, tournamentDate, locations, gameParams, selectedDistance, mockRankingData } = req.body;
+
+  try {
+    const db = require('../db-loader');
+
+    // Build tournament info
+    const tournamentInfo = {
+      categoryName: category.display_name,
+      tournamentNum: tournament,
+      season: season,
+      date: tournamentDate
+    };
+
+    // Get ranking data
+    let rankingData = {};
+    if (mockRankingData) {
+      rankingData = mockRankingData;
+    } else if (category.id) {
+      rankingData = await getRankingDataForCategory(category.id, season);
+    }
+
+    // Generate PDF
+    const pdfBuffer = await generateSummaryConvocationPDF(
+      tournamentInfo,
+      poules,
+      locations || [],
+      gameParams,
+      selectedDistance,
+      rankingData
+    );
+
+    // Send PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    const filename = `Convocation_${category.display_name.replace(/\s+/g, '_')}_T${tournament}_${season}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error('Error generating summary PDF:', error);
     res.status(500).json({ error: error.message });
   }
 });
