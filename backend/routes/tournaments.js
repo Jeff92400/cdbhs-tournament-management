@@ -555,6 +555,22 @@ function recalculateRankings(categoryId, season, callback) {
   });
 }
 
+// Recalculate rankings for a category/season (without reimporting)
+router.post('/recalculate-rankings', authenticateToken, (req, res) => {
+  const { categoryId, season } = req.body;
+
+  if (!categoryId || !season) {
+    return res.status(400).json({ error: 'categoryId and season required' });
+  }
+
+  recalculateRankings(categoryId, season, (err) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ message: 'Rankings recalculated successfully' });
+  });
+});
+
 // Get all tournaments
 router.get('/', authenticateToken, (req, res) => {
   console.log('GET /api/tournaments called, season:', req.query.season);
