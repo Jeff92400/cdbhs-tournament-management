@@ -780,7 +780,7 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
       });
     });
 
-    // Get ranking data for this mode/category (sorted by total_match_points, then by avg_moyenne for tiebreaker)
+    // Get ranking data for this mode/category (use stored rank_position)
     const rankings = await new Promise((resolve, reject) => {
       db.all(`
         SELECT r.*, p.first_name, p.last_name,
@@ -790,7 +790,7 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
         LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
         LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
         WHERE r.season = $1 AND r.category_id = $2
-        ORDER BY r.total_match_points DESC, r.avg_moyenne DESC
+        ORDER BY r.rank_position ASC
       `, [tournament.season, tournament.category_id], (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
@@ -808,8 +808,8 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
         points: r.points,
         email: r.email
       })),
-      rankings: rankings.map((r, idx) => ({
-        position: idx + 1,
+      rankings: rankings.map(r => ({
+        position: r.rank_position,
         player_name: r.player_name,
         licence: r.licence,
         total_points: r.total_match_points,
@@ -874,7 +874,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
       });
     });
 
-    // Get general rankings for this category (sorted by total_match_points, then by avg_moyenne for tiebreaker)
+    // Get general rankings for this category (use stored rank_position)
     const rankings = await new Promise((resolve, reject) => {
       db.all(`
         SELECT r.*, p.first_name as rank_first_name, p.last_name as rank_last_name,
@@ -884,7 +884,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
         LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
         LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
         WHERE r.season = $1 AND r.category_id = $2
-        ORDER BY r.total_match_points DESC, r.avg_moyenne DESC
+        ORDER BY r.rank_position ASC
       `, [tournament.season, tournament.category_id], (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
@@ -978,15 +978,15 @@ router.post('/send-results', authenticateToken, async (req, res) => {
         }).join('');
 
         // Build personalized rankings table (highlight current player)
-        const rankingsRows = rankings.map((r, idx) => {
+        const rankingsRows = rankings.map(r => {
           const isCurrentPlayer = r.licence === participant.licence;
-          const bgColor = isCurrentPlayer ? '#FFF3CD' : ((idx + 1) % 2 === 0 ? '#f8f9fa' : 'white');
+          const bgColor = isCurrentPlayer ? '#FFF3CD' : (r.rank_position % 2 === 0 ? '#f8f9fa' : 'white');
           const fontWeight = isCurrentPlayer ? 'bold' : 'normal';
           const arrow = isCurrentPlayer ? '▶ ' : '';
           const avgMoyenne = r.avg_moyenne ? r.avg_moyenne.toFixed(3) : '-';
           return `
             <tr style="background: ${bgColor};">
-              <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${idx + 1}</td>
+              <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${r.rank_position}</td>
               <td style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: ${fontWeight};">${arrow}${r.player_name}</td>
               <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${r.total_match_points || '-'}</td>
               <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${avgMoyenne}</td>
@@ -994,8 +994,9 @@ router.post('/send-results', authenticateToken, async (req, res) => {
           `;
         }).join('');
 
-        // Find player position in rankings
-        const playerRankingPosition = rankings.findIndex(r => r.licence === participant.licence) + 1;
+        // Find player position in rankings (use stored rank_position)
+        const playerRanking = rankings.find(r => r.licence === participant.licence);
+        const playerRankingPosition = playerRanking ? playerRanking.rank_position : '-';
 
         // Replace template variables
         const personalizedIntro = introText
