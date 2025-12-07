@@ -63,11 +63,11 @@ function replaceTemplateVariables(template, variables) {
 async function syncContacts() {
   const db = require('../db-loader');
 
-  // First, sync all players
+  // First, sync all players (normalize licence by removing spaces)
   await new Promise((resolve, reject) => {
     db.run(`
       INSERT INTO player_contacts (licence, first_name, last_name, club, rank_libre, rank_cadre, rank_bande, rank_3bandes, statut)
-      SELECT p.licence, p.first_name, p.last_name, p.club, p.rank_libre, p.rank_cadre, p.rank_bande, p.rank_3bandes,
+      SELECT REPLACE(p.licence, ' ', ''), p.first_name, p.last_name, p.club, p.rank_libre, p.rank_cadre, p.rank_bande, p.rank_3bandes,
              CASE WHEN p.is_active = 1 THEN 'Actif' ELSE 'Inactif' END
       FROM players p
       ON CONFLICT (licence) DO UPDATE SET
@@ -87,19 +87,20 @@ async function syncContacts() {
   });
 
   // Then, update emails and phones from inscriptions (take the most recent, only if not empty)
+  // Use REPLACE to normalize licence comparison (handle spaces)
   await new Promise((resolve, reject) => {
     db.run(`
       UPDATE player_contacts
       SET email = COALESCE(
         (SELECT i.email FROM inscriptions i
-         WHERE i.licence = player_contacts.licence
+         WHERE REPLACE(i.licence, ' ', '') = REPLACE(player_contacts.licence, ' ', '')
          AND i.email IS NOT NULL AND i.email != '' AND i.email LIKE '%@%'
          ORDER BY i.timestamp DESC LIMIT 1),
         player_contacts.email
       ),
       telephone = COALESCE(
         (SELECT i.telephone FROM inscriptions i
-         WHERE i.licence = player_contacts.licence
+         WHERE REPLACE(i.licence, ' ', '') = REPLACE(player_contacts.licence, ' ', '')
          AND i.telephone IS NOT NULL AND i.telephone != ''
          ORDER BY i.timestamp DESC LIMIT 1),
         player_contacts.telephone
@@ -170,9 +171,9 @@ router.get('/contacts', authenticateToken, async (req, res) => {
     params.push(catUpper);
   }
 
-  // Filter by tournament (players registered)
+  // Filter by tournament (players registered) - normalize licence comparison
   if (tournoiId) {
-    query += ` AND pc.licence IN (SELECT i.licence FROM inscriptions i WHERE i.tournoi_id = $${paramIndex++} AND i.forfait != 1)`;
+    query += ` AND REPLACE(pc.licence, ' ', '') IN (SELECT REPLACE(i.licence, ' ', '') FROM inscriptions i WHERE i.tournoi_id = $${paramIndex++} AND i.forfait != 1)`;
     params.push(parseInt(tournoiId));
   }
 
