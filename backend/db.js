@@ -61,6 +61,8 @@ function initializeDatabase() {
         tournament_number INTEGER NOT NULL,
         season TEXT NOT NULL,
         import_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        tournament_date DATETIME,
+        location TEXT,
         FOREIGN KEY (category_id) REFERENCES categories(id),
         UNIQUE(category_id, tournament_number, season)
       )

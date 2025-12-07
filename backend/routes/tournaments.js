@@ -565,6 +565,7 @@ router.get('/', authenticateToken, (req, res) => {
       t.season,
       t.tournament_date,
       t.import_date,
+      t.location,
       c.id as category_id,
       c.game_type,
       c.level,
@@ -581,7 +582,7 @@ router.get('/', authenticateToken, (req, res) => {
     params.push(season);
   }
 
-  query += ' GROUP BY t.id, t.tournament_number, t.season, t.tournament_date, t.import_date, c.id, c.game_type, c.level, c.display_name ORDER BY t.import_date DESC';
+  query += ' GROUP BY t.id, t.tournament_number, t.season, t.tournament_date, t.import_date, t.location, c.id, c.game_type, c.level, c.display_name ORDER BY t.import_date DESC';
 
   db.all(query, params, (err, rows) => {
     if (err) {
@@ -1052,6 +1053,46 @@ router.post('/recalculate-all-rankings', authenticateToken, async (req, res) => 
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Update tournament (location, date, etc.)
+router.put('/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { location, tournament_date } = req.body;
+
+  // Build update query dynamically
+  const updates = [];
+  const params = [];
+
+  if (location !== undefined) {
+    updates.push('location = ?');
+    params.push(location);
+  }
+  if (tournament_date !== undefined) {
+    updates.push('tournament_date = ?');
+    params.push(tournament_date);
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No fields to update' });
+  }
+
+  params.push(id);
+
+  db.run(
+    `UPDATE tournaments SET ${updates.join(', ')} WHERE id = ?`,
+    params,
+    function(err) {
+      if (err) {
+        console.error('Error updating tournament:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Tournament not found' });
+      }
+      res.json({ success: true, message: 'Tournament updated successfully' });
+    }
+  );
 });
 
 module.exports = router;

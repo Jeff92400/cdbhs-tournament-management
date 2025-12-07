@@ -83,8 +83,14 @@ async function initializeDatabase() {
         season TEXT NOT NULL,
         import_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         tournament_date TIMESTAMP,
+        location TEXT,
         UNIQUE(category_id, tournament_number, season)
       )
+    `);
+
+    // Add location column if it doesn't exist (migration)
+    await client.query(`
+      ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS location TEXT
     `);
 
     // Tournament results table
