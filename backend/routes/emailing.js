@@ -783,12 +783,15 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
     // Get ranking data for this mode/category
     const rankings = await new Promise((resolve, reject) => {
       db.all(`
-        SELECT r.*, pc.email
+        SELECT r.*, p.first_name, p.last_name,
+               COALESCE(p.first_name || ' ' || p.last_name, r.licence) as player_name,
+               pc.email
         FROM rankings r
+        LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
         LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
-        WHERE r.season = $1 AND r.category = $2
-        ORDER BY r.total_points DESC
-      `, [tournament.season, tournament.display_name], (err, rows) => {
+        WHERE r.season = $1 AND r.category_id = $2
+        ORDER BY r.total_match_points DESC
+      `, [tournament.season, tournament.category_id], (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
       });
@@ -809,7 +812,7 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
         position: idx + 1,
         player_name: r.player_name,
         licence: r.licence,
-        total_points: r.total_points,
+        total_points: r.total_match_points,
         email: r.email
       })),
       emailCount
@@ -874,12 +877,15 @@ router.post('/send-results', authenticateToken, async (req, res) => {
     // Get general rankings for this category
     const rankings = await new Promise((resolve, reject) => {
       db.all(`
-        SELECT r.*, pc.email
+        SELECT r.*, p.first_name as rank_first_name, p.last_name as rank_last_name,
+               COALESCE(p.first_name || ' ' || p.last_name, r.licence) as player_name,
+               pc.email
         FROM rankings r
+        LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
         LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
-        WHERE r.season = $1 AND r.category = $2
-        ORDER BY r.total_points DESC
-      `, [tournament.season, tournament.display_name], (err, rows) => {
+        WHERE r.season = $1 AND r.category_id = $2
+        ORDER BY r.total_match_points DESC
+      `, [tournament.season, tournament.category_id], (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
       });
@@ -977,7 +983,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
             <tr style="background: ${bgColor};">
               <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${idx + 1}</td>
               <td style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: ${fontWeight};">${arrow}${r.player_name}</td>
-              <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${r.total_points || '-'}</td>
+              <td style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: ${fontWeight};">${r.total_match_points || '-'}</td>
             </tr>
           `;
         }).join('');
