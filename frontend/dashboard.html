@@ -14,7 +14,7 @@
       <div class="nav-links">
         <a href="dashboard.html" class="active">Accueil</a>
 
-        <div class="nav-dropdown">
+        <div class="nav-dropdown admin-only">
           <button class="nav-dropdown-btn">Fichiers</button>
           <div class="nav-dropdown-content">
             <a href="players-list.html"><span class="nav-icon">👥</span> Joueurs</a>
@@ -22,6 +22,7 @@
             <a href="tournois-list.html"><span class="nav-icon">📋</span> Tournois (IONOS)</a>
             <a href="inscriptions-list.html"><span class="nav-icon">📝</span> Inscriptions (IONOS)</a>
             <a href="clubs.html"><span class="nav-icon">🏢</span> Clubs</a>
+            <a href="emailing.html" class="admin-only"><span class="nav-icon">📧</span> Emailing</a>
             <div class="nav-divider admin-only"></div>
             <a href="import-external.html" class="admin-only"><span class="nav-icon">📤</span> Import Compétitions</a>
             <a href="import-players.html" class="admin-only"><span class="nav-icon">📥</span> Import Joueurs</a>
@@ -33,7 +34,7 @@
         <a href="tournaments-list.html">Tournois joués</a>
         <a href="generate-poules.html">Tournois à jouer</a>
 
-        <div class="nav-dropdown">
+        <div class="nav-dropdown admin-only">
           <button class="nav-dropdown-btn">Paramètres</button>
           <div class="nav-dropdown-content">
             <a href="settings.html"><span class="nav-icon">⚙️</span> Configuration</a>
@@ -54,58 +55,36 @@
         <div class="stat-value" id="activePlayerCount">-</div>
       </div>
       <div class="stat-card">
-        <h4>Total Joueurs</h4>
-        <div class="stat-value" id="totalPlayerCount">-</div>
-      </div>
-      <div class="stat-card">
-        <h4>Compétitions Importées</h4>
+        <h4>Compétitions jouées</h4>
         <div class="stat-value" id="tournamentCount">-</div>
       </div>
       <div class="stat-card">
-        <h4>Catégories</h4>
-        <div class="stat-value">13</div>
+        <h4>Participants cumulés</h4>
+        <div class="stat-value" id="cumulativeParticipants">-</div>
       </div>
     </div>
 
     <div class="card">
       <h3>Actions Rapides</h3>
       <div class="action-buttons">
-        <button class="btn" onclick="window.location.href='players-list.html'">
-          Liste des Joueurs
-        </button>
         <button class="btn btn-success admin-only" onclick="window.location.href='import-tournament.html'">
           Importer un Tournoi
+        </button>
+        <button class="btn" onclick="window.location.href='generate-poules.html'">
+          Tournois à jouer
         </button>
         <button class="btn" onclick="window.location.href='rankings.html'">
           Voir les Classements
         </button>
+        <button class="btn" onclick="window.location.href='calendar.html'">
+          Calendrier
+        </button>
+        <button class="btn" onclick="window.location.href='players-list.html'">
+          Joueurs
+        </button>
       </div>
     </div>
 
-    <div class="card">
-      <h3>Derniers Tournois Importés</h3>
-      <div id="loadingTournaments" class="loading">
-        <div class="spinner"></div>
-        Chargement...
-      </div>
-      <div id="tournamentsTable" style="display: none;">
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Catégorie</th>
-                <th>Tournoi</th>
-                <th>Saison</th>
-                <th>Participants</th>
-                <th>Date du tournoi</th>
-                <th style="width: 120px; text-align: center;">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="tournamentsBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script>
@@ -137,14 +116,11 @@
     // Load dashboard data
     async function loadDashboard() {
       try {
-        // Load player counts (active and total)
+        // Load player counts
         const allPlayersResponse = await fetch(`${API_URL}/players`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        // Check for authentication errors
         if (allPlayersResponse.status === 401 || allPlayersResponse.status === 403) {
           localStorage.removeItem('token');
           window.location.href = 'login.html';
@@ -155,17 +131,13 @@
           const allPlayers = await allPlayersResponse.json();
           const activePlayers = allPlayers.filter(p => p.is_active === 1);
           document.getElementById('activePlayerCount').textContent = activePlayers.length;
-          document.getElementById('totalPlayerCount').textContent = allPlayers.length;
         }
 
         // Load tournaments
         const tournamentsResponse = await fetch(`${API_URL}/tournaments`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        // Check for authentication errors
         if (tournamentsResponse.status === 401 || tournamentsResponse.status === 403) {
           localStorage.removeItem('token');
           window.location.href = 'login.html';
@@ -176,127 +148,12 @@
           const tournaments = await tournamentsResponse.json();
           document.getElementById('tournamentCount').textContent = tournaments.length;
 
-          // Sort tournaments by import date (newest first)
-          tournaments.sort((a, b) => {
-            const dateA = new Date(a.tournament_date || a.import_date);
-            const dateB = new Date(b.tournament_date || b.import_date);
-            return dateB - dateA; // Descending order (newest first)
-          });
-
-          // Get the 5 most recent tournaments
-          const recentTournaments = tournaments.slice(0, 5);
-          const tbody = document.getElementById('tournamentsBody');
-          tbody.innerHTML = '';
-
-          if (recentTournaments.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Aucun tournoi importé</td></tr>';
-          } else {
-            // Display the 5 most recent tournaments
-            recentTournaments.forEach(tournament => {
-              const row = document.createElement('tr');
-              const tournamentLabel = tournament.tournament_number === 4 ? 'Finale Départementale' : `Tournoi ${tournament.tournament_number}`;
-              const deleteBtn = userRole === 'admin'
-                ? `<button class="btn-delete" data-tournament-id="${tournament.id}" data-tournament-name="${tournament.display_name} - T${tournament.tournament_number} - ${tournament.season}" title="Supprimer ce tournoi" style="background: #dc3545; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 16px;">🗑️</button>`
-                : '';
-              row.innerHTML = `
-                <td class="tournament-cell">${tournament.display_name}</td>
-                <td class="tournament-cell">${tournamentLabel}</td>
-                <td class="tournament-cell">${tournament.season}</td>
-                <td class="tournament-cell">${tournament.player_count}</td>
-                <td class="tournament-cell">${tournament.tournament_date ? new Date(tournament.tournament_date).toLocaleDateString('fr-FR') : 'N/A'}</td>
-                <td style="text-align: center; padding: 8px;">
-                  <button class="btn-view" data-tournament-id="${tournament.id}" title="Voir les resultats" style="background: #28a745; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 4px; font-size: 14px; margin-right: 5px;">Voir</button>
-                  ${deleteBtn}
-                </td>
-              `;
-
-              // Make cells clickable for navigation (but not delete button)
-              const cells = row.querySelectorAll('.tournament-cell');
-              cells.forEach(cell => {
-                cell.style.cursor = 'pointer';
-                cell.onclick = () => {
-                  window.location.href = `rankings.html?categoryId=${tournament.category_id}&season=${encodeURIComponent(tournament.season)}`;
-                };
-                cell.onmouseover = () => row.style.background = '#f5f5f5';
-                cell.onmouseout = () => row.style.background = '';
-              });
-
-              // Handle view button click
-              const viewBtn = row.querySelector('.btn-view');
-              viewBtn.onclick = (e) => {
-                e.stopPropagation();
-                window.location.href = `tournament-results.html?id=${tournament.id}`;
-              };
-
-              // Handle delete button click (only for admin)
-              const deleteBtnEl = row.querySelector('.btn-delete');
-              if (deleteBtnEl) {
-                deleteBtnEl.onclick = async (e) => {
-                  e.stopPropagation();
-                  const tournamentName = deleteBtnEl.getAttribute('data-tournament-name');
-                  if (confirm(`Êtes-vous sûr de vouloir supprimer le tournoi "${tournamentName}" ?\n\nCette action supprimera tous les résultats et recalculera les classements.`)) {
-                    await deleteTournament(tournament.id);
-                  }
-                };
-              }
-
-              tbody.appendChild(row);
-            });
-          }
-
-          document.getElementById('loadingTournaments').style.display = 'none';
-          document.getElementById('tournamentsTable').style.display = 'block';
+          // Calculate cumulative participants (sum of all player_count from tournaments)
+          const cumulativeParticipants = tournaments.reduce((sum, t) => sum + (parseInt(t.player_count, 10) || 0), 0);
+          document.getElementById('cumulativeParticipants').textContent = cumulativeParticipants;
         }
       } catch (error) {
         console.error('Error loading dashboard:', error);
-        document.getElementById('loadingTournaments').innerHTML = '<p style="color: red;">Erreur de chargement des données</p>';
-      }
-    }
-
-    // Delete tournament function
-    async function deleteTournament(tournamentId) {
-      try {
-        console.log('Deleting tournament:', tournamentId);
-        console.log('URL:', `${API_URL}/tournaments/${tournamentId}`);
-
-        const response = await fetch(`${API_URL}/tournaments/${tournamentId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        console.log('Delete response status:', response.status);
-
-        if (response.ok) {
-          // Show success message
-          const successDiv = document.getElementById('successMessage');
-          successDiv.textContent = 'Tournoi supprimé avec succès ! Les classements ont été recalculés.';
-          successDiv.style.display = 'block';
-
-          // Hide success message after 3 seconds
-          setTimeout(() => {
-            successDiv.style.display = 'none';
-          }, 3000);
-
-          // Reload dashboard to show updated list
-          loadDashboard();
-        } else {
-          const errorText = await response.text();
-          console.error('Error response:', errorText);
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch (e) {
-            errorData = { error: errorText };
-          }
-          alert(`Erreur lors de la suppression: ${errorData.error || 'Erreur inconnue'}`);
-        }
-      } catch (error) {
-        console.error('Error deleting tournament:', error);
-        console.error('Error details:', error.message, error.stack);
-        alert(`Erreur de connexion lors de la suppression du tournoi: ${error.message}`);
       }
     }
 

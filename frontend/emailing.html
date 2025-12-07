@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emailing - CDBHS</title>
+  <link rel="icon" type="image/png" href="images/billiard-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .emailing-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 1200px) {
+      .emailing-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    .contacts-list {
+      max-height: 500px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 15px;
+      border-bottom: 1px solid #eee;
+      gap: 10px;
+    }
+    .contact-item:last-child {
+      border-bottom: none;
+    }
+    .contact-item:hover {
+      background: #f5f5f5;
+    }
+    .contact-item.selected {
+      background: #e3f2fd;
+    }
+    .contact-info {
+      flex: 1;
+    }
+    .contact-name {
+      font-weight: bold;
+      color: #333;
+    }
+    .contact-details {
+      font-size: 12px;
+      color: #666;
+    }
+    .filter-bar {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar input, .filter-bar select {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .filter-bar input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+    }
+    .selection-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .selection-actions button {
+      padding: 8px 15px;
+      font-size: 12px;
+    }
+    .compose-area {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .compose-area label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      display: block;
+    }
+    .compose-area input, .compose-area textarea, .compose-area select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    .compose-area textarea {
+      min-height: 200px;
+      resize: vertical;
+    }
+    .template-vars {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #666;
+    }
+    .template-vars code {
+      background: #e9ecef;
+      padding: 2px 5px;
+      border-radius: 3px;
+      margin: 0 3px;
+    }
+    .schedule-section {
+      background: #fff3e0;
+      padding: 15px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .schedule-section input[type="datetime-local"] {
+      width: auto;
+    }
+    .send-actions {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .send-actions button {
+      flex: 1;
+      padding: 15px;
+      font-size: 16px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .badge-actif { background: #e8f5e9; color: #2e7d32; }
+    .badge-inactif { background: #ffebee; color: #c62828; }
+    .badge-optin { background: #e3f2fd; color: #1565c0; }
+    .badge-optout { background: #fff3e0; color: #e65100; }
+    .stats-mini {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 15px;
+    }
+    .stat-mini {
+      padding: 10px 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .stat-mini .value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #1F4788;
+    }
+    .stat-mini .label {
+      font-size: 12px;
+      color: #666;
+    }
+    .history-table {
+      font-size: 14px;
+    }
+    .history-table th, .history-table td {
+      padding: 10px;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #ddd;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      color: #666;
+    }
+    .tab:hover {
+      color: #1F4788;
+    }
+    .tab.active {
+      color: #1F4788;
+      border-bottom-color: #1F4788;
+      font-weight: bold;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .progress-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .progress-box {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 400px;
+    }
+    .progress-box h3 {
+      margin-top: 0;
+    }
+    .scheduled-list {
+      margin-top: 20px;
+    }
+    .scheduled-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="navbar">
+      <h2><img src="images/billiard-icon.png" alt="icon" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none';"> Emailing</h2>
+      <div class="nav-links">
+        <a href="dashboard.html">Accueil</a>
+        <a href="players-list.html">Joueurs</a>
+        <a href="inscriptions-list.html">Inscriptions</a>
+        <a href="#" id="logoutBtn">Deconnexion</a>
+      </div>
+    </div>
+
+    <div id="errorMessage" class="error" style="display: none;"></div>
+    <div id="successMessage" class="success" style="display: none;"></div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="compose">Composer</div>
+      <div class="tab" data-tab="contacts">Gestion Contacts</div>
+      <div class="tab" data-tab="templates">Templates</div>
+      <div class="tab" data-tab="history">Historique</div>
+      <div class="tab" data-tab="scheduled">Programmes</div>
+    </div>
+
+    <!-- TAB: Compose Email -->
+    <div id="tab-compose" class="tab-content active">
+      <div class="stats-mini">
+        <div class="stat-mini">
+          <div class="value" id="totalContacts">-</div>
+          <div class="label">Contacts</div>
+        </div>
+        <div class="stat-mini">
+          <div class="value" id="selectedCount">0</div>
+          <div class="label">Selectionnes</div>
+        </div>
+        <div class="stat-mini">
+          <div class="value" id="optinCount">-</div>
+          <div class="label">Opt-in</div>
+        </div>
+      </div>
+
+      <div class="emailing-container">
+        <!-- Left: Contact Selection -->
+        <div class="card">
+          <h3>Destinataires</h3>
+
+          <div class="filter-bar" style="flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 5px; white-space: nowrap;">
+              <input type="checkbox" id="activeOnlyFilter" checked> Actifs seulement
+            </label>
+            <select id="clubFilter">
+              <option value="">Tous les clubs</option>
+            </select>
+            <select id="modeFilter">
+              <option value="">Tous les modes</option>
+              <option value="LIBRE">LIBRE</option>
+              <option value="CADRE">CADRE</option>
+              <option value="BANDE">BANDE</option>
+              <option value="3BANDES">3 BANDES</option>
+            </select>
+            <select id="categoryFilter" disabled>
+              <option value="">Toutes categories</option>
+            </select>
+            <select id="tournoiFilter">
+              <option value="">Tous les joueurs</option>
+            </select>
+          </div>
+          <div class="filter-bar">
+            <input type="text" id="contactSearch" placeholder="Rechercher par nom, email, club..." style="flex: 1;">
+          </div>
+
+          <div class="selection-actions">
+            <button class="btn" id="selectAllBtn" style="background: #4CAF50;">Tout selectionner</button>
+            <button class="btn" id="deselectAllBtn" style="background: #999;">Tout deselectionner</button>
+          </div>
+
+          <div id="loadingContacts" class="loading">
+            <div class="spinner"></div>
+            Chargement des contacts...
+          </div>
+
+          <div class="contacts-list" id="contactsList" style="display: none;"></div>
+        </div>
+
+        <!-- Right: Compose -->
+        <div class="card">
+          <h3>Message</h3>
+
+          <div class="compose-area">
+            <div>
+              <label>Template (optionnel)</label>
+              <select id="templateSelect">
+                <option value="">-- Aucun template --</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Sujet *</label>
+              <input type="text" id="emailSubject" placeholder="Objet de l'email" required>
+            </div>
+
+            <div>
+              <label>Message *</label>
+              <textarea id="emailBody" placeholder="Contenu de l'email..."></textarea>
+            </div>
+
+            <div class="template-vars">
+              <strong>Variables disponibles:</strong>
+              <code>{player_name}</code>
+              <code>{first_name}</code>
+              <code>{last_name}</code>
+              <code>{club}</code>
+            </div>
+
+            <div class="schedule-section">
+              <label>
+                <input type="checkbox" id="scheduleCheck"> Programmer l'envoi
+              </label>
+              <div id="scheduleOptions" style="display: none; margin-top: 10px;">
+                <label>Date et heure d'envoi:</label>
+                <input type="datetime-local" id="scheduledAt">
+              </div>
+            </div>
+
+            <div class="send-actions">
+              <button class="btn" id="sendNowBtn" style="background: #1F4788;">Envoyer maintenant</button>
+              <button class="btn" id="scheduleBtn" style="background: #FF9800; display: none;">Programmer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Contacts Management -->
+    <div id="tab-contacts" class="tab-content">
+      <div class="card">
+        <h3>Gestion des Contacts</h3>
+
+        <div style="margin-bottom: 20px;">
+          <button class="btn" id="syncContactsBtn" style="background: #4CAF50;">
+            Synchroniser avec les joueurs/inscriptions
+          </button>
+          <p style="color: #666; font-size: 12px; margin-top: 5px;">
+            Importe les donnees de la table Joueurs et met a jour les emails depuis les Inscriptions.
+          </p>
+        </div>
+
+        <div id="loadingAllContacts" class="loading" style="display: none;">
+          <div class="spinner"></div>
+          Chargement...
+        </div>
+
+        <div class="table-container">
+          <table id="allContactsTable">
+            <thead>
+              <tr>
+                <th>Licence</th>
+                <th>Nom</th>
+                <th>Prenom</th>
+                <th>Club</th>
+                <th>Email</th>
+                <th>Telephone</th>
+                <th>Statut</th>
+                <th>Opt-in</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="allContactsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Edit Contact Modal -->
+      <div id="editContactModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; max-height: 80vh; overflow-y: auto;">
+          <h3 style="margin-top: 0;">Modifier le contact</h3>
+          <form id="editContactForm">
+            <input type="hidden" id="edit_contact_id">
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Email</label>
+              <input type="email" id="edit_contact_email" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Telephone</label>
+              <input type="text" id="edit_contact_telephone" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Statut</label>
+              <select id="edit_contact_statut" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="Actif">Actif</option>
+                <option value="Inactif">Inactif</option>
+                <option value="Suspendu">Suspendu</option>
+              </select>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Commentaires</label>
+              <textarea id="edit_contact_comments" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label>
+                <input type="checkbox" id="edit_contact_optin"> Accepte les emails (opt-in)
+              </label>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+              <button type="submit" class="btn" style="flex: 1; background: #4CAF50;">Enregistrer</button>
+              <button type="button" id="cancelEditContactBtn" class="btn" style="flex: 1; background: #999;">Annuler</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Templates -->
+    <div id="tab-templates" class="tab-content">
+      <div class="card">
+        <h3>Templates d'emails</h3>
+
+        <div style="margin-bottom: 20px;">
+          <label style="font-weight: bold;">Selectionner un template:</label>
+          <select id="templateEditSelect" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
+            <option value="">-- Choisir --</option>
+            <option value="general">General</option>
+            <option value="information">Information</option>
+            <option value="rappel">Rappel</option>
+          </select>
+          <button class="btn" id="newTemplateBtn" style="margin-left: 10px; background: #4CAF50;">Nouveau template</button>
+        </div>
+
+        <div id="templateEditor" style="display: none;">
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Cle du template</label>
+            <input type="text" id="templateKey" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Sujet</label>
+            <input type="text" id="templateSubject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Corps du message</label>
+            <textarea id="templateBody" rows="10" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+          </div>
+
+          <div class="template-vars">
+            <strong>Variables disponibles:</strong>
+            <code>{player_name}</code>
+            <code>{first_name}</code>
+            <code>{last_name}</code>
+            <code>{club}</code>
+            <code>{message}</code>
+          </div>
+
+          <button class="btn" id="saveTemplateBtn" style="margin-top: 15px; background: #1F4788;">Sauvegarder le template</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: History -->
+    <div id="tab-history" class="tab-content">
+      <div class="card">
+        <h3>Historique des campagnes</h3>
+
+        <div id="loadingHistory" class="loading" style="display: none;">
+          <div class="spinner"></div>
+          Chargement...
+        </div>
+
+        <div class="table-container">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Sujet</th>
+                <th>Destinataires</th>
+                <th>Envoyes</th>
+                <th>Echecs</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Scheduled -->
+    <div id="tab-scheduled" class="tab-content">
+      <div class="card">
+        <h3>Emails programmes</h3>
+
+        <div id="loadingScheduled" class="loading" style="display: none;">
+          <div class="spinner"></div>
+          Chargement...
+        </div>
+
+        <div id="scheduledList" class="scheduled-list"></div>
+        <div id="noScheduled" style="text-align: center; color: #666; padding: 40px; display: none;">
+          Aucun email programme.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress Overlay -->
+  <div class="progress-overlay" id="progressOverlay">
+    <div class="progress-box">
+      <h3>Envoi en cours...</h3>
+      <div class="spinner" style="margin: 20px auto;"></div>
+      <p id="progressText">Preparation...</p>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = '/api';
+
+    // Check authentication
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    // Get user role
+    let userRole = 'viewer';
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      userRole = payload.role || (payload.admin ? 'admin' : 'viewer');
+    } catch (e) {
+      console.error('Error decoding token:', e);
+    }
+
+    const isAdmin = userRole === 'admin';
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+
+        // Load data for specific tabs
+        if (tab.dataset.tab === 'contacts') loadAllContacts();
+        if (tab.dataset.tab === 'history') loadHistory();
+        if (tab.dataset.tab === 'scheduled') loadScheduled();
+      });
+    });
+
+    let allContacts = [];
+    let selectedContactIds = new Set();
+    let allTournois = [];
+
+    // Categories by mode
+    const categoriesByMode = {
+      'LIBRE': ['N3', 'R1', 'R2', 'R3', 'R4'],
+      'CADRE': ['N3', 'R1'],
+      'BANDE': ['N3', 'R1', 'R2'],
+      '3BANDES': ['N3', 'R1', 'R2']
+    };
+
+    // ==================== CONTACTS ====================
+
+    async function loadContacts() {
+      try {
+        // Build query params from filters
+        const params = new URLSearchParams();
+        if (document.getElementById('activeOnlyFilter').checked) {
+          params.append('activeOnly', 'true');
+        }
+        const club = document.getElementById('clubFilter').value;
+        if (club) params.append('club', club);
+        const mode = document.getElementById('modeFilter').value;
+        if (mode) params.append('mode', mode);
+        const category = document.getElementById('categoryFilter').value;
+        if (category) params.append('category', category);
+        const tournoiId = document.getElementById('tournoiFilter').value;
+        if (tournoiId) params.append('tournoiId', tournoiId);
+
+        const url = `${API_URL}/emailing/contacts${params.toString() ? '?' + params.toString() : ''}`;
+
+        const response = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load contacts');
+
+        allContacts = await response.json();
+
+        // Update stats
+        document.getElementById('totalContacts').textContent = allContacts.length;
+        document.getElementById('optinCount').textContent = allContacts.filter(c => c.email_optin === 1).length;
+
+        displayContacts(allContacts);
+
+        document.getElementById('loadingContacts').style.display = 'none';
+        document.getElementById('contactsList').style.display = 'block';
+
+      } catch (error) {
+        console.error('Error loading contacts:', error);
+        showError('Erreur lors du chargement des contacts');
+      }
+    }
+
+    async function loadClubs() {
+      try {
+        const response = await fetch(`${API_URL}/emailing/clubs`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const clubs = await response.json();
+          const select = document.getElementById('clubFilter');
+          select.innerHTML = '<option value="">Tous les clubs</option>';
+          clubs.forEach(club => {
+            const option = document.createElement('option');
+            option.value = club;
+            option.textContent = club;
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading clubs:', error);
+      }
+    }
+
+    async function loadTournois() {
+      try {
+        const response = await fetch(`${API_URL}/emailing/tournois`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          allTournois = await response.json();
+          const select = document.getElementById('tournoiFilter');
+          select.innerHTML = '<option value="">Tous les joueurs</option>';
+
+          // Group by mode
+          const byMode = {};
+          allTournois.forEach(t => {
+            if (!byMode[t.mode]) byMode[t.mode] = [];
+            byMode[t.mode].push(t);
+          });
+
+          Object.keys(byMode).sort().forEach(mode => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = mode;
+            byMode[mode].forEach(t => {
+              const option = document.createElement('option');
+              option.value = t.tournoi_id;
+              const date = t.debut ? new Date(t.debut).toLocaleDateString('fr-FR') : '';
+              option.textContent = `${t.nom} ${t.categorie} ${date} (${t.nb_inscrits} inscrits)`;
+              optgroup.appendChild(option);
+            });
+            select.appendChild(optgroup);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading tournois:', error);
+      }
+    }
+
+    // Update category dropdown based on selected mode
+    function updateCategoryFilter() {
+      const mode = document.getElementById('modeFilter').value;
+      const categorySelect = document.getElementById('categoryFilter');
+
+      categorySelect.innerHTML = '<option value="">Toutes categories</option>';
+
+      if (mode && categoriesByMode[mode]) {
+        categorySelect.disabled = false;
+        categoriesByMode[mode].forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat;
+          option.textContent = cat;
+          categorySelect.appendChild(option);
+        });
+      } else {
+        categorySelect.disabled = true;
+      }
+    }
+
+    function displayContacts(contacts) {
+      const list = document.getElementById('contactsList');
+      list.innerHTML = '';
+
+      if (contacts.length === 0) {
+        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Aucun contact trouve</div>';
+        return;
+      }
+
+      contacts.forEach(contact => {
+        const div = document.createElement('div');
+        div.className = 'contact-item' + (selectedContactIds.has(contact.id) ? ' selected' : '');
+        div.innerHTML = `
+          <input type="checkbox" class="contact-checkbox" data-id="${contact.id}" ${selectedContactIds.has(contact.id) ? 'checked' : ''}>
+          <div class="contact-info">
+            <div class="contact-name">${contact.last_name} ${contact.first_name}</div>
+            <div class="contact-details">
+              ${contact.email || 'Pas d\'email'} | ${contact.club || '-'}
+            </div>
+          </div>
+          ${contact.statut === 'Actif' ? '<span class="badge badge-actif">Actif</span>' : '<span class="badge badge-inactif">Inactif</span>'}
+        `;
+
+        const checkbox = div.querySelector('.contact-checkbox');
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            selectedContactIds.add(contact.id);
+            div.classList.add('selected');
+          } else {
+            selectedContactIds.delete(contact.id);
+            div.classList.remove('selected');
+          }
+          updateSelectedCount();
+        });
+
+        list.appendChild(div);
+      });
+    }
+
+    function updateSelectedCount() {
+      document.getElementById('selectedCount').textContent = selectedContactIds.size;
+    }
+
+    function applyContactFilters() {
+      const searchTerm = document.getElementById('contactSearch').value.toLowerCase();
+
+      let filtered = allContacts;
+
+      if (searchTerm) {
+        filtered = filtered.filter(c =>
+          (c.first_name || '').toLowerCase().includes(searchTerm) ||
+          (c.last_name || '').toLowerCase().includes(searchTerm) ||
+          (c.email || '').toLowerCase().includes(searchTerm) ||
+          (c.club || '').toLowerCase().includes(searchTerm)
+        );
+      }
+
+      displayContacts(filtered);
+    }
+
+    // Reload contacts when filters change (server-side filtering)
+    async function onFilterChange() {
+      selectedContactIds.clear();
+      updateSelectedCount();
+      document.getElementById('loadingContacts').style.display = 'block';
+      document.getElementById('contactsList').style.display = 'none';
+      await loadContacts();
+    }
+
+    // Filter event listeners
+    document.getElementById('contactSearch').addEventListener('input', applyContactFilters);
+    document.getElementById('activeOnlyFilter').addEventListener('change', onFilterChange);
+    document.getElementById('clubFilter').addEventListener('change', onFilterChange);
+    document.getElementById('modeFilter').addEventListener('change', () => {
+      updateCategoryFilter();
+      onFilterChange();
+    });
+    document.getElementById('categoryFilter').addEventListener('change', onFilterChange);
+    document.getElementById('tournoiFilter').addEventListener('change', onFilterChange);
+
+    // Select all / Deselect all
+    document.getElementById('selectAllBtn').addEventListener('click', () => {
+      const checkboxes = document.querySelectorAll('.contact-checkbox');
+      checkboxes.forEach(cb => {
+        cb.checked = true;
+        selectedContactIds.add(parseInt(cb.dataset.id));
+        cb.closest('.contact-item').classList.add('selected');
+      });
+      updateSelectedCount();
+    });
+
+    document.getElementById('deselectAllBtn').addEventListener('click', () => {
+      const checkboxes = document.querySelectorAll('.contact-checkbox');
+      checkboxes.forEach(cb => {
+        cb.checked = false;
+        cb.closest('.contact-item').classList.remove('selected');
+      });
+      selectedContactIds.clear();
+      updateSelectedCount();
+    });
+
+    // ==================== SEND EMAILS ====================
+
+    document.getElementById('scheduleCheck').addEventListener('change', (e) => {
+      const options = document.getElementById('scheduleOptions');
+      const sendNowBtn = document.getElementById('sendNowBtn');
+      const scheduleBtn = document.getElementById('scheduleBtn');
+
+      if (e.target.checked) {
+        options.style.display = 'block';
+        sendNowBtn.style.display = 'none';
+        scheduleBtn.style.display = 'block';
+      } else {
+        options.style.display = 'none';
+        sendNowBtn.style.display = 'block';
+        scheduleBtn.style.display = 'none';
+      }
+    });
+
+    document.getElementById('sendNowBtn').addEventListener('click', sendEmails);
+    document.getElementById('scheduleBtn').addEventListener('click', scheduleEmail);
+
+    async function sendEmails() {
+      if (selectedContactIds.size === 0) {
+        showError('Veuillez selectionner au moins un destinataire.');
+        return;
+      }
+
+      const subject = document.getElementById('emailSubject').value.trim();
+      const body = document.getElementById('emailBody').value.trim();
+
+      if (!subject || !body) {
+        showError('Le sujet et le message sont obligatoires.');
+        return;
+      }
+
+      if (!confirm(`Envoyer l'email a ${selectedContactIds.size} destinataire(s) ?`)) {
+        return;
+      }
+
+      showProgress('Envoi en cours...');
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            recipientIds: Array.from(selectedContactIds),
+            subject,
+            body,
+            templateKey: document.getElementById('templateSelect').value || null
+          })
+        });
+
+        const result = await response.json();
+        hideProgress();
+
+        if (response.ok) {
+          showSuccess(result.message);
+          // Clear form
+          document.getElementById('emailSubject').value = '';
+          document.getElementById('emailBody').value = '';
+          selectedContactIds.clear();
+          updateSelectedCount();
+          applyContactFilters();
+        } else {
+          showError(result.error || 'Erreur lors de l\'envoi.');
+        }
+
+      } catch (error) {
+        hideProgress();
+        showError('Erreur: ' + error.message);
+      }
+    }
+
+    async function scheduleEmail() {
+      if (selectedContactIds.size === 0) {
+        showError('Veuillez selectionner au moins un destinataire.');
+        return;
+      }
+
+      const subject = document.getElementById('emailSubject').value.trim();
+      const body = document.getElementById('emailBody').value.trim();
+      const scheduledAt = document.getElementById('scheduledAt').value;
+
+      if (!subject || !body) {
+        showError('Le sujet et le message sont obligatoires.');
+        return;
+      }
+
+      if (!scheduledAt) {
+        showError('Veuillez choisir une date et heure.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/schedule`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            recipientIds: Array.from(selectedContactIds),
+            subject,
+            body,
+            templateKey: document.getElementById('templateSelect').value || null,
+            scheduledAt
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showSuccess(result.message);
+          // Clear form
+          document.getElementById('emailSubject').value = '';
+          document.getElementById('emailBody').value = '';
+          document.getElementById('scheduledAt').value = '';
+          document.getElementById('scheduleCheck').checked = false;
+          document.getElementById('scheduleOptions').style.display = 'none';
+          document.getElementById('sendNowBtn').style.display = 'block';
+          document.getElementById('scheduleBtn').style.display = 'none';
+          selectedContactIds.clear();
+          updateSelectedCount();
+          applyContactFilters();
+        } else {
+          showError(result.error || 'Erreur lors de la programmation.');
+        }
+
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    }
+
+    // ==================== TEMPLATES ====================
+
+    async function loadTemplates() {
+      try {
+        const response = await fetch(`${API_URL}/emailing/templates`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const templates = await response.json();
+          const select = document.getElementById('templateSelect');
+          select.innerHTML = '<option value="">-- Aucun template --</option>';
+          templates.forEach(t => {
+            const option = document.createElement('option');
+            option.value = t.template_key;
+            option.textContent = t.template_key;
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading templates:', error);
+      }
+    }
+
+    document.getElementById('templateSelect').addEventListener('change', async (e) => {
+      if (!e.target.value) return;
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/templates/${e.target.value}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const template = await response.json();
+          document.getElementById('emailSubject').value = template.subject_template;
+          document.getElementById('emailBody').value = template.body_template;
+        }
+      } catch (error) {
+        console.error('Error loading template:', error);
+      }
+    });
+
+    document.getElementById('templateEditSelect').addEventListener('change', async (e) => {
+      const key = e.target.value;
+      if (!key) {
+        document.getElementById('templateEditor').style.display = 'none';
+        return;
+      }
+
+      document.getElementById('templateEditor').style.display = 'block';
+      document.getElementById('templateKey').value = key;
+      document.getElementById('templateKey').readOnly = true;
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/templates/${key}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const template = await response.json();
+          document.getElementById('templateSubject').value = template.subject_template;
+          document.getElementById('templateBody').value = template.body_template;
+        } else {
+          // New template
+          document.getElementById('templateSubject').value = '';
+          document.getElementById('templateBody').value = '';
+        }
+      } catch (error) {
+        document.getElementById('templateSubject').value = '';
+        document.getElementById('templateBody').value = '';
+      }
+    });
+
+    document.getElementById('newTemplateBtn').addEventListener('click', () => {
+      document.getElementById('templateEditSelect').value = '';
+      document.getElementById('templateEditor').style.display = 'block';
+      document.getElementById('templateKey').value = '';
+      document.getElementById('templateKey').readOnly = false;
+      document.getElementById('templateSubject').value = '';
+      document.getElementById('templateBody').value = '';
+    });
+
+    document.getElementById('saveTemplateBtn').addEventListener('click', async () => {
+      const key = document.getElementById('templateKey').value.trim();
+      const subject = document.getElementById('templateSubject').value.trim();
+      const body = document.getElementById('templateBody').value.trim();
+
+      if (!key || !subject || !body) {
+        showError('Tous les champs sont obligatoires.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/templates/${key}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            subject_template: subject,
+            body_template: body
+          })
+        });
+
+        if (response.ok) {
+          showSuccess('Template sauvegarde!');
+          loadTemplates();
+        } else {
+          showError('Erreur lors de la sauvegarde.');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    });
+
+    // ==================== ALL CONTACTS (Management) ====================
+
+    async function loadAllContacts() {
+      document.getElementById('loadingAllContacts').style.display = 'block';
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/contacts/all`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load contacts');
+
+        const contacts = await response.json();
+        displayAllContacts(contacts);
+
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      } finally {
+        document.getElementById('loadingAllContacts').style.display = 'none';
+      }
+    }
+
+    function displayAllContacts(contacts) {
+      const tbody = document.getElementById('allContactsBody');
+      tbody.innerHTML = '';
+
+      if (contacts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">Aucun contact. Utilisez le bouton "Synchroniser" pour importer les joueurs.</td></tr>';
+        return;
+      }
+
+      contacts.forEach(c => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${c.licence || '-'}</td>
+          <td>${c.last_name || '-'}</td>
+          <td>${c.first_name || '-'}</td>
+          <td>${c.club || '-'}</td>
+          <td>${c.email || '-'}</td>
+          <td>${c.telephone || '-'}</td>
+          <td><span class="badge badge-${(c.statut || 'Actif').toLowerCase()}">${c.statut || 'Actif'}</span></td>
+          <td>${c.email_optin === 1 ? '<span class="badge badge-optin">Oui</span>' : '<span class="badge badge-optout">Non</span>'}</td>
+          <td>
+            <button class="btn btn-small edit-contact-btn" data-id="${c.id}" style="padding: 5px 10px; font-size: 12px;">Modifier</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      // Add edit button handlers
+      document.querySelectorAll('.edit-contact-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const contact = contacts.find(c => c.id === parseInt(btn.dataset.id));
+          openEditContactModal(contact);
+        });
+      });
+    }
+
+    function openEditContactModal(contact) {
+      document.getElementById('edit_contact_id').value = contact.id;
+      document.getElementById('edit_contact_email').value = contact.email || '';
+      document.getElementById('edit_contact_telephone').value = contact.telephone || '';
+      document.getElementById('edit_contact_statut').value = contact.statut || 'Actif';
+      document.getElementById('edit_contact_comments').value = contact.comments || '';
+      document.getElementById('edit_contact_optin').checked = contact.email_optin === 1;
+
+      document.getElementById('editContactModal').style.display = 'flex';
+    }
+
+    document.getElementById('cancelEditContactBtn').addEventListener('click', () => {
+      document.getElementById('editContactModal').style.display = 'none';
+    });
+
+    document.getElementById('editContactForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const id = document.getElementById('edit_contact_id').value;
+      const data = {
+        email: document.getElementById('edit_contact_email').value || null,
+        telephone: document.getElementById('edit_contact_telephone').value || null,
+        statut: document.getElementById('edit_contact_statut').value,
+        comments: document.getElementById('edit_contact_comments').value || null,
+        email_optin: document.getElementById('edit_contact_optin').checked ? 1 : 0
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/contacts/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+          document.getElementById('editContactModal').style.display = 'none';
+          showSuccess('Contact mis a jour!');
+          loadAllContacts();
+          loadContacts(); // Refresh the contacts list in compose tab
+        } else {
+          showError('Erreur lors de la mise a jour.');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    });
+
+    document.getElementById('syncContactsBtn').addEventListener('click', async () => {
+      if (!confirm('Synchroniser les contacts avec les donnees joueurs/inscriptions ?')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/contacts/sync`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showSuccess(result.message);
+          loadAllContacts();
+          loadContacts();
+        } else {
+          showError(result.error || 'Erreur lors de la synchronisation.');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    });
+
+    // ==================== HISTORY ====================
+
+    async function loadHistory() {
+      document.getElementById('loadingHistory').style.display = 'block';
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/history`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load history');
+
+        const history = await response.json();
+        displayHistory(history);
+
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      } finally {
+        document.getElementById('loadingHistory').style.display = 'none';
+      }
+    }
+
+    function displayHistory(history) {
+      const tbody = document.getElementById('historyBody');
+      tbody.innerHTML = '';
+
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Aucune campagne.</td></tr>';
+        return;
+      }
+
+      history.forEach(h => {
+        const row = document.createElement('tr');
+        const date = h.sent_at ? new Date(h.sent_at).toLocaleString('fr-FR') : new Date(h.created_at).toLocaleString('fr-FR');
+        row.innerHTML = `
+          <td>${date}</td>
+          <td>${h.subject}</td>
+          <td>${h.recipients_count}</td>
+          <td style="color: green;">${h.sent_count}</td>
+          <td style="color: red;">${h.failed_count}</td>
+          <td><span class="badge badge-${h.status === 'completed' ? 'actif' : 'inactif'}">${h.status}</span></td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // ==================== SCHEDULED ====================
+
+    async function loadScheduled() {
+      document.getElementById('loadingScheduled').style.display = 'block';
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/scheduled`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load scheduled');
+
+        const scheduled = await response.json();
+        displayScheduled(scheduled);
+
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      } finally {
+        document.getElementById('loadingScheduled').style.display = 'none';
+      }
+    }
+
+    function displayScheduled(scheduled) {
+      const list = document.getElementById('scheduledList');
+      const noScheduled = document.getElementById('noScheduled');
+      list.innerHTML = '';
+
+      if (scheduled.length === 0) {
+        noScheduled.style.display = 'block';
+        return;
+      }
+
+      noScheduled.style.display = 'none';
+
+      scheduled.forEach(s => {
+        const date = new Date(s.scheduled_at).toLocaleString('fr-FR');
+        const recipientIds = JSON.parse(s.recipient_ids);
+
+        const div = document.createElement('div');
+        div.className = 'scheduled-item';
+        div.innerHTML = `
+          <div>
+            <strong>${s.subject}</strong>
+            <div style="font-size: 12px; color: #666;">
+              ${date} - ${recipientIds.length} destinataire(s)
+            </div>
+          </div>
+          <button class="btn cancel-scheduled-btn" data-id="${s.id}" style="background: #dc3545; padding: 8px 15px;">Annuler</button>
+        `;
+        list.appendChild(div);
+      });
+
+      document.querySelectorAll('.cancel-scheduled-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Annuler cet email programme ?')) return;
+
+          try {
+            const response = await fetch(`${API_URL}/emailing/scheduled/${btn.dataset.id}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+              showSuccess('Email annule.');
+              loadScheduled();
+            }
+          } catch (error) {
+            showError('Erreur: ' + error.message);
+          }
+        });
+      });
+    }
+
+    // ==================== HELPERS ====================
+
+    function showError(message) {
+      const el = document.getElementById('errorMessage');
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+
+    function showSuccess(message) {
+      const el = document.getElementById('successMessage');
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+
+    function showProgress(text) {
+      document.getElementById('progressText').textContent = text;
+      document.getElementById('progressOverlay').style.display = 'flex';
+    }
+
+    function hideProgress() {
+      document.getElementById('progressOverlay').style.display = 'none';
+    }
+
+    // ==================== INIT ====================
+
+    async function initialize() {
+      await loadClubs();
+      await loadTournois();
+      await loadContacts();
+      await loadTemplates();
+    }
+
+    initialize();
+  </script>
+</body>
+</html>

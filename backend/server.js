@@ -24,6 +24,7 @@ const backupRoutes = require('./routes/backup');
 const inscriptionsRoutes = require('./routes/inscriptions');
 const emailRoutes = require('./routes/email');
 const settingsRoutes = require('./routes/settings');
+const emailingRoutes = require('./routes/emailing');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,11 +54,107 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/inscriptions', inscriptionsRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/emailing', emailingRoutes);
 
 // Serve frontend pages
 app.get('/', (req, res) => {
   res.sendFile(path.join(frontendPath, 'login.html'));
 });
+
+// Email scheduler - check and send scheduled emails every minute
+async function processScheduledEmails() {
+  const { Resend } = require('resend');
+  const db = require('./db-loader');
+
+  if (!process.env.RESEND_API_KEY) return;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  try {
+    // Get emails that are due
+    const scheduledEmails = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM scheduled_emails WHERE status = 'pending' AND scheduled_at <= CURRENT_TIMESTAMP`,
+        [],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    if (scheduledEmails.length === 0) return;
+
+    console.log(`[Email Scheduler] Processing ${scheduledEmails.length} scheduled email(s)`);
+
+    for (const scheduled of scheduledEmails) {
+      const recipientIds = JSON.parse(scheduled.recipient_ids);
+
+      // Get recipients
+      const placeholders = recipientIds.map((_, i) => `$${i + 1}`).join(',');
+      const recipients = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT * FROM player_contacts WHERE id IN (${placeholders})`,
+          recipientIds,
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+
+      let sentCount = 0;
+
+      for (const recipient of recipients) {
+        if (!recipient.email || !recipient.email.includes('@')) continue;
+
+        try {
+          const emailBody = scheduled.body
+            .replace(/\{player_name\}/g, `${recipient.first_name} ${recipient.last_name}`)
+            .replace(/\{first_name\}/g, recipient.first_name || '')
+            .replace(/\{last_name\}/g, recipient.last_name || '')
+            .replace(/\{club\}/g, recipient.club || '');
+
+          const emailSubject = scheduled.subject
+            .replace(/\{player_name\}/g, `${recipient.first_name} ${recipient.last_name}`)
+            .replace(/\{first_name\}/g, recipient.first_name || '')
+            .replace(/\{last_name\}/g, recipient.last_name || '');
+
+          await resend.emails.send({
+            from: 'CDBHS <communication@cdbhs.net>',
+            to: [recipient.email],
+            subject: emailSubject,
+            html: `<div style="font-family: Arial; max-width: 600px; margin: 0 auto;">
+              <div style="background: #1F4788; color: white; padding: 20px; text-align: center;"><h1>CDBHS</h1></div>
+              <div style="padding: 20px; background: #f8f9fa;">${emailBody.replace(/\n/g, '<br>')}</div>
+              <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">CDBHS - cdbhs92@gmail.com</div>
+            </div>`
+          });
+
+          sentCount++;
+          await delay(1500);
+        } catch (error) {
+          console.error(`[Email Scheduler] Error sending to ${recipient.email}:`, error.message);
+        }
+      }
+
+      // Update scheduled email status
+      await new Promise((resolve) => {
+        db.run(
+          `UPDATE scheduled_emails SET status = 'completed', sent_at = CURRENT_TIMESTAMP WHERE id = $1`,
+          [scheduled.id],
+          () => resolve()
+        );
+      });
+
+      console.log(`[Email Scheduler] Sent ${sentCount}/${recipientIds.length} emails for scheduled ID ${scheduled.id}`);
+    }
+
+  } catch (error) {
+    console.error('[Email Scheduler] Error:', error.message);
+  }
+}
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
@@ -83,6 +180,21 @@ app.listen(PORT, '0.0.0.0', () => {
 ║  - Network: http://${localIP}:${PORT}${' '.repeat(Math.max(0, 10 - localIP.length))} ║
 ╚════════════════════════════════════════════╝
   `);
+
+  // Start email scheduler (check every minute)
+  setInterval(processScheduledEmails, 60000);
+  console.log('[Email Scheduler] Started - checking for scheduled emails every minute');
+
+  // Auto-sync contacts on startup (after a short delay to ensure DB is ready)
+  setTimeout(async () => {
+    try {
+      const { syncContacts } = require('./routes/emailing');
+      await syncContacts();
+      console.log('[Contacts] Auto-sync completed on startup');
+    } catch (error) {
+      console.error('[Contacts] Auto-sync failed:', error.message);
+    }
+  }, 5000);
 });
 
 module.exports = app;

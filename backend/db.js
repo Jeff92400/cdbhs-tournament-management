@@ -127,6 +127,60 @@ function initializeDatabase() {
       });
     });
 
+    // Player contacts table - centralized contact information
+    db.run(`
+      CREATE TABLE IF NOT EXISTS player_contacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        licence TEXT UNIQUE,
+        first_name TEXT,
+        last_name TEXT,
+        club TEXT,
+        email TEXT,
+        telephone TEXT,
+        rank_libre TEXT,
+        rank_cadre TEXT,
+        rank_bande TEXT,
+        rank_3bandes TEXT,
+        statut TEXT DEFAULT 'Actif',
+        comments TEXT,
+        email_optin INTEGER DEFAULT 1,
+        last_contacted DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Email campaigns table - history of sent emails
+    db.run(`
+      CREATE TABLE IF NOT EXISTS email_campaigns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        template_key TEXT,
+        recipients_count INTEGER DEFAULT 0,
+        sent_count INTEGER DEFAULT 0,
+        failed_count INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'draft',
+        sent_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Scheduled emails table - for future email sending
+    db.run(`
+      CREATE TABLE IF NOT EXISTS scheduled_emails (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        template_key TEXT,
+        recipient_ids TEXT NOT NULL,
+        scheduled_at DATETIME NOT NULL,
+        status TEXT DEFAULT 'pending',
+        sent_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Initialize default admin password (admin123 - should be changed)
     db.get('SELECT COUNT(*) as count FROM admin', [], (err, row) => {
       if (!err && row.count === 0) {

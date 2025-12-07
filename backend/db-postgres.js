@@ -244,6 +244,60 @@ async function initializeDatabase() {
       )
     `);
 
+    // Player contacts table - centralized contact information
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS player_contacts (
+        id SERIAL PRIMARY KEY,
+        licence TEXT UNIQUE,
+        first_name TEXT,
+        last_name TEXT,
+        club TEXT,
+        email TEXT,
+        telephone TEXT,
+        rank_libre TEXT,
+        rank_cadre TEXT,
+        rank_bande TEXT,
+        rank_3bandes TEXT,
+        statut TEXT DEFAULT 'Actif',
+        comments TEXT,
+        email_optin INTEGER DEFAULT 1,
+        last_contacted TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Email campaigns table - history of sent emails
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS email_campaigns (
+        id SERIAL PRIMARY KEY,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        template_key TEXT,
+        recipients_count INTEGER DEFAULT 0,
+        sent_count INTEGER DEFAULT 0,
+        failed_count INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'draft',
+        sent_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Scheduled emails table - for future email sending
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS scheduled_emails (
+        id SERIAL PRIMARY KEY,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        template_key TEXT,
+        recipient_ids TEXT NOT NULL,
+        scheduled_at TIMESTAMP NOT NULL,
+        status TEXT DEFAULT 'pending',
+        sent_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     await client.query('COMMIT');
 
     // Initialize default admin (legacy)
@@ -366,7 +420,7 @@ async function initializeDatabase() {
       console.log('Game parameters initialized');
     }
 
-    // Initialize default email template
+    // Initialize default email templates
     const emailTemplateResult = await client.query('SELECT COUNT(*) as count FROM email_templates');
     if (emailTemplateResult.rows[0].count == 0) {
       const defaultBodyTemplate = `Bonjour {player_name},
@@ -389,7 +443,58 @@ Comite Departemental Billard Hauts-de-Seine`;
          VALUES ($1, $2, $3) ON CONFLICT (template_key) DO NOTHING`,
         ['convocation', 'Convocation {category} - {tournament} - {date}', defaultBodyTemplate]
       );
-      console.log('Default email template initialized');
+
+      // General email template
+      const generalBodyTemplate = `Bonjour {player_name},
+
+{message}
+
+Cordialement,
+Comite Departemental Billard Hauts-de-Seine`;
+
+      await client.query(
+        `INSERT INTO email_templates (template_key, subject_template, body_template)
+         VALUES ($1, $2, $3) ON CONFLICT (template_key) DO NOTHING`,
+        ['general', 'Information CDBHS', generalBodyTemplate]
+      );
+
+      // Information template
+      const infoBodyTemplate = `Bonjour {player_name},
+
+Nous souhaitons vous informer de la nouvelle suivante:
+
+{message}
+
+Pour toute question, n'hesitez pas a nous contacter.
+
+Cordialement,
+Comite Departemental Billard Hauts-de-Seine`;
+
+      await client.query(
+        `INSERT INTO email_templates (template_key, subject_template, body_template)
+         VALUES ($1, $2, $3) ON CONFLICT (template_key) DO NOTHING`,
+        ['information', 'Information importante - CDBHS', infoBodyTemplate]
+      );
+
+      // Reminder template
+      const rappelBodyTemplate = `Bonjour {player_name},
+
+Ceci est un rappel concernant:
+
+{message}
+
+Merci de votre attention.
+
+Cordialement,
+Comite Departemental Billard Hauts-de-Seine`;
+
+      await client.query(
+        `INSERT INTO email_templates (template_key, subject_template, body_template)
+         VALUES ($1, $2, $3) ON CONFLICT (template_key) DO NOTHING`,
+        ['rappel', 'Rappel - CDBHS', rappelBodyTemplate]
+      );
+
+      console.log('Default email templates initialized');
     }
 
     // Initialize default clubs
