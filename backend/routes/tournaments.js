@@ -492,7 +492,10 @@ function recalculateRankings(categoryId, season, callback) {
     JOIN tournaments t ON tr.tournament_id = t.id
     WHERE t.category_id = ? AND t.season = ? AND t.tournament_number <= 3
     GROUP BY REPLACE(tr.licence, ' ', '')
-    ORDER BY total_match_points DESC, avg_moyenne DESC, best_serie DESC
+    ORDER BY
+      SUM(tr.match_points) DESC,
+      CASE WHEN SUM(tr.reprises) > 0 THEN CAST(SUM(tr.points) AS FLOAT) / CAST(SUM(tr.reprises) AS FLOAT) ELSE 0 END DESC,
+      MAX(tr.serie) DESC
   `;
 
   db.all(query, [categoryId, season], (err, results) => {
