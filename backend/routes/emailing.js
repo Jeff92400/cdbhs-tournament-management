@@ -827,7 +827,7 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
 // Send tournament results email to all participants
 router.post('/send-results', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
-  const { tournamentId, introText, outroText, imageUrl, testMode, testEmail } = req.body;
+  const { tournamentId, introText, outroText, imageUrl, testMode, testEmail, ccEmail } = req.body;
 
   const resend = getResend();
   if (!resend) {
@@ -1043,12 +1043,19 @@ router.post('/send-results', authenticateToken, async (req, res) => {
           </div>
         `;
 
-        await resend.emails.send({
+        const emailOptions = {
           from: 'CDBHS <communication@cdbhs.net>',
           to: [participant.email],
           subject: `Résultats - ${tournament.display_name} - ${tournamentDate}`,
           html: emailHtml
-        });
+        };
+
+        // Add CC if provided (not in test mode)
+        if (ccEmail && ccEmail.includes('@') && !testMode) {
+          emailOptions.cc = [ccEmail];
+        }
+
+        await resend.emails.send(emailOptions);
 
         sentResults.sent.push({
           name: participant.player_name,

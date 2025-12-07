@@ -446,6 +446,18 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
               <code>{player_points}</code>
             </div>
 
+            <!-- CC Option -->
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="ccCheck" checked style="width: 18px; height: 18px;">
+                <strong>Copie (CC)</strong> - Envoyer une copie à :
+              </label>
+              <div id="ccEmailInput" style="margin-top: 10px;">
+                <input type="email" id="ccEmail" value="cdbhs92@gmail.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <button type="button" id="saveCcEmailBtn" style="margin-top: 5px; padding: 5px 10px; font-size: 12px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Sauvegarder par défaut</button>
+              </div>
+            </div>
+
             <!-- Test Mode -->
             <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
               <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
@@ -1771,6 +1783,60 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       }
     });
 
+    // CC checkbox toggle
+    document.getElementById('ccCheck').addEventListener('change', (e) => {
+      document.getElementById('ccEmailInput').style.opacity = e.target.checked ? '1' : '0.5';
+      document.getElementById('ccEmail').disabled = !e.target.checked;
+    });
+
+    // Load saved CC email
+    async function loadCcEmail() {
+      try {
+        const response = await fetch(`${API_URL}/emailing/templates/results_cc_email`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.subject_template) {
+            document.getElementById('ccEmail').value = data.subject_template;
+          }
+        }
+      } catch (error) {
+        console.log('Using default CC email');
+      }
+    }
+
+    // Save CC email as default
+    document.getElementById('saveCcEmailBtn').addEventListener('click', async () => {
+      const ccEmail = document.getElementById('ccEmail').value.trim();
+      if (!ccEmail || !ccEmail.includes('@')) {
+        showError('Veuillez entrer une adresse email valide');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/templates/results_cc_email`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            subject_template: ccEmail,
+            body_template: 'CC email for tournament results'
+          })
+        });
+
+        if (response.ok) {
+          showSuccess('Adresse CC sauvegardée par défaut');
+        } else {
+          showError('Erreur lors de la sauvegarde');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    });
+
     // Test mode toggle
     document.getElementById('testModeCheck').addEventListener('change', (e) => {
       const testEmailInput = document.getElementById('testEmailInput');
@@ -1826,7 +1892,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             outroText: document.getElementById('resultsOutroText').value,
             imageUrl: document.getElementById('resultsImageUrl').value || null,
             testMode: isTestMode,
-            testEmail: isTestMode ? testEmail : null
+            testEmail: isTestMode ? testEmail : null,
+            ccEmail: document.getElementById('ccCheck').checked ? document.getElementById('ccEmail').value.trim() : null
           })
         });
 
@@ -1853,6 +1920,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       await loadContacts();
       await loadTemplates();
       await loadImportedTournaments();
+      await loadCcEmail();
     }
 
     initialize();
