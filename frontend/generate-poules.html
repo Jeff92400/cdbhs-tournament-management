@@ -1028,12 +1028,26 @@
         'CADRE': 'CADRE'
       };
 
+      // Mapping from IONOS levels to internal levels
+      const levelMapping = {
+        'N1': 'NATIONALE 1',
+        'N2': 'NATIONALE 2',
+        'N3': 'NATIONALE 3',
+        'R1': 'REGIONALE 1',
+        'R2': 'REGIONALE 2',
+        'R3': 'REGIONALE 3',
+        'D1': 'DEPARTEMENTALE 1',
+        'D2': 'DEPARTEMENTALE 2',
+        'D3': 'DEPARTEMENTALE 3'
+      };
+
       const gameType = modeToGameType[mode.toUpperCase()] || modeToGameType[modeNormalized] || mode.toUpperCase();
+      const normalizedLevel = levelMapping[categorie.toUpperCase()] || categorie.toUpperCase();
 
       // Find matching category
       const matchingCategory = categories.find(c =>
         c.game_type.toUpperCase() === gameType &&
-        c.level.toUpperCase() === categorie.toUpperCase()
+        (c.level.toUpperCase() === normalizedLevel || c.level.toUpperCase() === categorie.toUpperCase())
       );
 
       if (matchingCategory) {
