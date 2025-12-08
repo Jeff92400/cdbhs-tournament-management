@@ -1001,13 +1001,28 @@ router.post('/send-results', authenticateToken, async (req, res) => {
         // Rule: < 9 players → 4 qualified, >= 9 players → 9 qualified
         const qualifiedCount = rankings.length < 9 ? 4 : 9;
         const isQualified = playerRanking && playerRanking.rank_position <= qualifiedCount;
-        const qualificationMessage = isQualified
-          ? `<p style="margin-top: 20px; padding: 15px; background: #d4edda; border-left: 4px solid #28a745; color: #155724;">
-              ✅ <strong>Vous êtes à ce stade de la compétition éligible pour la finale départementale.</strong>
-            </p>`
-          : `<p style="margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; color: #856404;">
-              Malheureusement, vous n'êtes pas, à ce stade de la compétition, éligible pour la finale départementale.
-            </p>`;
+        const isFinalTournament = tournament.tournament_number === 3;
+
+        let qualificationMessage;
+        if (isFinalTournament) {
+          // After T3: definitive selection
+          qualificationMessage = isQualified
+            ? `<p style="margin-top: 20px; padding: 15px; background: #d4edda; border-left: 4px solid #28a745; color: #155724;">
+                🎉 <strong>Félicitations ! Vous êtes sélectionné(e) pour la finale départementale !</strong>
+              </p>`
+            : `<p style="margin-top: 20px; padding: 15px; background: #f8d7da; border-left: 4px solid #dc3545; color: #721c24;">
+                Malheureusement, vous n'êtes pas sélectionné(e) pour la finale départementale.
+              </p>`;
+        } else {
+          // After T1 or T2: provisional status
+          qualificationMessage = isQualified
+            ? `<p style="margin-top: 20px; padding: 15px; background: #d4edda; border-left: 4px solid #28a745; color: #155724;">
+                ✅ <strong>Vous êtes à ce stade de la compétition éligible pour la finale départementale.</strong>
+              </p>`
+            : `<p style="margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; color: #856404;">
+                Malheureusement, vous n'êtes pas, à ce stade de la compétition, éligible pour la finale départementale.
+              </p>`;
+        }
 
         // Replace template variables
         const personalizedIntro = introText
