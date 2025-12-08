@@ -781,7 +781,7 @@ router.get('/:id/export', authenticateToken, async (req, res) => {
             const worksheet = workbook.addWorksheet('Résultats');
 
             // Add billiard ball image
-            const imagePath = path.join(__dirname, '../frontend/images/billiard-icon.png');
+            const imagePath = path.join(__dirname, '../../frontend/images/billiard-icon.png');
 
             try {
               const imageId = workbook.addImage({
