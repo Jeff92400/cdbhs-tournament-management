@@ -327,31 +327,28 @@ router.get('/export', authenticateToken, async (req, res) => {
           row.best_serie || 0
         ]);
 
-        // Green highlighting for qualified players
+        // Green highlighting for qualified players (only columns 1-14)
         if (row.rank_position <= qualifiedCount) {
-          // Light green background for qualified players
-          excelRow.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFE8F5E9' }  // Light green
-          };
-          excelRow.font = { bold: true, size: 11 };
+          // Light green background for qualified players - apply to each cell individually
+          for (let col = 1; col <= 14; col++) {
+            excelRow.getCell(col).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8F5E9' }  // Light green
+            };
+            excelRow.getCell(col).font = { bold: true, size: 11 };
+          }
           // Green position number
           excelRow.getCell(1).font = { bold: true, size: 11, color: { argb: 'FF2E7D32' } };
           excelRow.getCell(1).value = `✓ ${row.rank_position}`;
         } else {
-          // Alternate row colors for non-qualified
-          if (index % 2 === 0) {
-            excelRow.fill = {
+          // Alternate row colors for non-qualified (only columns 1-14)
+          const bgColor = index % 2 === 0 ? 'FFF8F9FA' : 'FFFFFFFF';
+          for (let col = 1; col <= 14; col++) {
+            excelRow.getCell(col).fill = {
               type: 'pattern',
               pattern: 'solid',
-              fgColor: { argb: 'FFF8F9FA' }
-            };
-          } else {
-            excelRow.fill = {
-              type: 'pattern',
-              pattern: 'solid',
-              fgColor: { argb: 'FFFFFFFF' }
+              fgColor: { argb: bgColor }
             };
           }
         }
