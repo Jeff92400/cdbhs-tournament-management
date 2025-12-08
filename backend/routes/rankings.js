@@ -52,13 +52,14 @@ router.get('/', authenticateToken, (req, res) => {
 
     // Use LEFT JOIN for players to include ranked players even if not in players table
     // Get player name from tournament_results as fallback
+    // Use club_aliases to resolve variant club names to canonical names
     const query = `
       SELECT
         r.rank_position,
         r.licence,
         COALESCE(p.first_name, (SELECT MAX(tr.player_name) FROM tournament_results tr WHERE REPLACE(tr.licence, ' ', '') = r.licence)) as first_name,
         COALESCE(p.last_name, '') as last_name,
-        COALESCE(p.club, 'Non renseigné') as club,
+        COALESCE(ca.canonical_name, p.club, 'Non renseigné') as club,
         r.total_match_points,
         r.avg_moyenne,
         r.best_serie,
@@ -85,7 +86,10 @@ router.get('/', authenticateToken, (req, res) => {
       FROM rankings r
       LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
       JOIN categories c ON r.category_id = c.id
-      LEFT JOIN clubs ON REPLACE(REPLACE(REPLACE(UPPER(COALESCE(p.club, '')), ' ', ''), '.', ''), '-', '') = REPLACE(REPLACE(REPLACE(UPPER(clubs.name), ' ', ''), '.', ''), '-', '')
+      LEFT JOIN club_aliases ca ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, ''), ' ', ''), '.', ''), '-', ''))
+                                 = UPPER(REPLACE(REPLACE(REPLACE(ca.alias, ' ', ''), '.', ''), '-', ''))
+      LEFT JOIN clubs ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(ca.canonical_name, p.club, ''), ' ', ''), '.', ''), '-', ''))
+                       = UPPER(REPLACE(REPLACE(REPLACE(clubs.name, ' ', ''), '.', ''), '-', ''))
       WHERE r.category_id = ? AND r.season = ?
       ORDER BY r.rank_position
     `;
@@ -141,13 +145,14 @@ router.get('/export', authenticateToken, async (req, res) => {
   };
 
   // Use LEFT JOIN for players to include ranked players even if not in players table
+  // Use club_aliases to resolve variant club names to canonical names
   const query = `
     SELECT
       r.rank_position,
       r.licence,
       COALESCE(p.first_name, (SELECT MAX(tr.player_name) FROM tournament_results tr WHERE REPLACE(tr.licence, ' ', '') = r.licence)) as first_name,
       COALESCE(p.last_name, '') as last_name,
-      COALESCE(p.club, 'Non renseigné') as club,
+      COALESCE(ca.canonical_name, p.club, 'Non renseigné') as club,
       r.total_match_points,
       r.avg_moyenne,
       r.best_serie,
@@ -173,7 +178,10 @@ router.get('/export', authenticateToken, async (req, res) => {
     FROM rankings r
     LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     JOIN categories c ON r.category_id = c.id
-    LEFT JOIN clubs ON REPLACE(REPLACE(REPLACE(UPPER(COALESCE(p.club, '')), ' ', ''), '.', ''), '-', '') = REPLACE(REPLACE(REPLACE(UPPER(clubs.name), ' ', ''), '.', ''), '-', '')
+    LEFT JOIN club_aliases ca ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, ''), ' ', ''), '.', ''), '-', ''))
+                               = UPPER(REPLACE(REPLACE(REPLACE(ca.alias, ' ', ''), '.', ''), '-', ''))
+    LEFT JOIN clubs ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(ca.canonical_name, p.club, ''), ' ', ''), '.', ''), '-', ''))
+                     = UPPER(REPLACE(REPLACE(REPLACE(clubs.name, ' ', ''), '.', ''), '-', ''))
     WHERE r.category_id = ? AND r.season = ?
     ORDER BY r.rank_position
   `;

@@ -160,6 +160,16 @@ async function initializeDatabase() {
       }
     }
 
+    // Club aliases table - maps variant names to canonical club names
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS club_aliases (
+        id SERIAL PRIMARY KEY,
+        alias TEXT NOT NULL UNIQUE,
+        canonical_name TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // External tournament definitions table (from CDBHS external DB)
     await client.query(`
       CREATE TABLE IF NOT EXISTS tournoi_ext (

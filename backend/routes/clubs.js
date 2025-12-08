@@ -183,4 +183,90 @@ router.delete('/:id', authenticateToken, (req, res) => {
   });
 });
 
+// ==================== CLUB ALIASES ====================
+
+// Get all aliases
+router.get('/aliases/list', authenticateToken, (req, res) => {
+  db.all('SELECT * FROM club_aliases ORDER BY alias', [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows || []);
+  });
+});
+
+// Get all aliases with club info
+router.get('/aliases/with-clubs', authenticateToken, (req, res) => {
+  db.all(`
+    SELECT ca.*, c.display_name, c.logo_filename
+    FROM club_aliases ca
+    LEFT JOIN clubs c ON UPPER(REPLACE(REPLACE(REPLACE(ca.canonical_name, ' ', ''), '.', ''), '-', ''))
+                       = UPPER(REPLACE(REPLACE(REPLACE(c.name, ' ', ''), '.', ''), '-', ''))
+    ORDER BY ca.alias
+  `, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows || []);
+  });
+});
+
+// Add new alias
+router.post('/aliases', authenticateToken, (req, res) => {
+  const { alias, canonical_name } = req.body;
+
+  if (!alias || !canonical_name) {
+    return res.status(400).json({ error: 'Alias and canonical_name are required' });
+  }
+
+  db.run(
+    'INSERT INTO club_aliases (alias, canonical_name) VALUES ($1, $2)',
+    [alias.trim(), canonical_name.trim()],
+    function(err) {
+      if (err) {
+        if (err.message && err.message.includes('UNIQUE')) {
+          return res.status(400).json({ error: 'This alias already exists' });
+        }
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({
+        id: this.lastID,
+        alias: alias.trim(),
+        canonical_name: canonical_name.trim()
+      });
+    }
+  );
+});
+
+// Delete alias
+router.delete('/aliases/:id', authenticateToken, (req, res) => {
+  db.run('DELETE FROM club_aliases WHERE id = $1', [req.params.id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ success: true, message: 'Alias deleted' });
+  });
+});
+
+// Resolve club name - returns canonical name if alias exists
+router.get('/resolve/:name', authenticateToken, (req, res) => {
+  const clubName = req.params.name;
+
+  // First check if it's an alias
+  db.get(
+    'SELECT canonical_name FROM club_aliases WHERE UPPER(REPLACE(REPLACE(REPLACE(alias, \' \', \'\'), \'.\', \'\'), \'-\', \'\')) = UPPER(REPLACE(REPLACE(REPLACE($1, \' \', \'\'), \'.\', \'\'), \'-\', \'\'))',
+    [clubName],
+    (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({
+        original: clubName,
+        resolved: row ? row.canonical_name : clubName,
+        isAlias: !!row
+      });
+    }
+  );
+});
+
 module.exports = router;
