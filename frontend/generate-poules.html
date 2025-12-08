@@ -1044,10 +1044,13 @@
       const gameType = modeToGameType[mode.toUpperCase()] || modeToGameType[modeNormalized] || mode.toUpperCase();
       const normalizedLevel = levelMapping[categorie.toUpperCase()] || categorie.toUpperCase();
 
-      // Find matching category
+      // Find matching category (use startsWith for flexible matching with suffixes like "GC")
       const matchingCategory = categories.find(c =>
         c.game_type.toUpperCase() === gameType &&
-        (c.level.toUpperCase() === normalizedLevel || c.level.toUpperCase() === categorie.toUpperCase())
+        (c.level.toUpperCase() === normalizedLevel ||
+         c.level.toUpperCase() === categorie.toUpperCase() ||
+         c.level.toUpperCase().startsWith(normalizedLevel) ||
+         c.level.toUpperCase().startsWith(categorie.toUpperCase()))
       );
 
       if (matchingCategory) {
