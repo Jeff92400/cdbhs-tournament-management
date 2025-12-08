@@ -1250,7 +1250,8 @@
           });
 
           if (rankingResponse.ok) {
-            const rankings = await rankingResponse.json();
+            const data = await rankingResponse.json();
+            const rankings = data.rankings || [];
             rankedPlayers = rankings.map((r, index) => ({
               licence: r.licence,
               first_name: r.first_name,
