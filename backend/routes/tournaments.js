@@ -469,6 +469,8 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
 
 // Recalculate rankings for a category and season
 function recalculateRankings(categoryId, season, callback) {
+  console.log(`[RANKING] Starting recalculation for category ${categoryId}, season ${season}`);
+
   // Get all tournament results for this category and season
   // Exclude finale (tournament_number = 4) from ranking calculation
   // Ranking order: 1) match points DESC, 2) cumulative moyenne DESC, 3) best serie DESC
@@ -496,16 +498,28 @@ function recalculateRankings(categoryId, season, callback) {
 
   db.all(query, [categoryId, season], (err, results) => {
     if (err) {
-      console.error('Error calculating rankings:', err);
+      console.error(`[RANKING] Error calculating rankings for category ${categoryId}:`, err);
       return callback(err);
     }
 
+    console.log(`[RANKING] Found ${results.length} players to rank for category ${categoryId}`);
+
+    if (results.length === 0) {
+      console.log(`[RANKING] No players found, skipping ranking update`);
+      return callback(null);
+    }
+
+    // Log top 3 for verification
+    console.log(`[RANKING] Top 3: ${results.slice(0, 3).map(r => `${r.licence}(${r.total_match_points}pts)`).join(', ')}`);
+
     // Delete existing rankings
-    db.run('DELETE FROM rankings WHERE category_id = ? AND season = ?', [categoryId, season], (err) => {
+    db.run('DELETE FROM rankings WHERE category_id = ? AND season = ?', [categoryId, season], function(err) {
       if (err) {
-        console.error('Error deleting old rankings:', err);
+        console.error(`[RANKING] Error deleting old rankings:`, err);
         return callback(err);
       }
+
+      console.log(`[RANKING] Deleted ${this.changes} old ranking entries`);
 
       // Insert new rankings with positions
       const stmt = db.prepare(`
@@ -516,12 +530,8 @@ function recalculateRankings(categoryId, season, callback) {
       `);
 
       let insertCount = 0;
-      let insertError = null;
-
-      if (results.length === 0) {
-        stmt.finalize(() => callback(null));
-        return;
-      }
+      let successCount = 0;
+      let insertErrors = [];
 
       results.forEach((result, index) => {
         stmt.run(
@@ -536,16 +546,41 @@ function recalculateRankings(categoryId, season, callback) {
           result.t2_points,
           result.t3_points,
           (err) => {
-            if (err && !insertError) {
-              insertError = err;
-              console.error('Error inserting ranking:', err);
-            }
             insertCount++;
 
-            // After all inserts are done, finalize
+            if (err) {
+              insertErrors.push({ licence: result.licence, error: err.message });
+              console.error(`[RANKING] Error inserting ranking for ${result.licence}:`, err.message);
+            } else {
+              successCount++;
+            }
+
+            // After all inserts are done, finalize and verify
             if (insertCount === results.length) {
               stmt.finalize((finalizeErr) => {
-                callback(insertError || finalizeErr);
+                if (finalizeErr) {
+                  console.error(`[RANKING] Error finalizing:`, finalizeErr);
+                }
+
+                // Verification log
+                console.log(`[RANKING] Completed: ${successCount}/${results.length} players inserted successfully`);
+
+                if (insertErrors.length > 0) {
+                  console.error(`[RANKING] Failed insertions:`, insertErrors);
+                }
+
+                // Verify count in database
+                db.get('SELECT COUNT(*) as count FROM rankings WHERE category_id = ? AND season = ?',
+                  [categoryId, season], (err, row) => {
+                    if (!err && row) {
+                      console.log(`[RANKING] Verification: ${row.count} entries in rankings table`);
+                      if (row.count !== results.length) {
+                        console.error(`[RANKING] WARNING: Expected ${results.length} but found ${row.count} in database!`);
+                      }
+                    }
+                    callback(insertErrors.length > 0 ? new Error(`${insertErrors.length} insertions failed`) : finalizeErr);
+                  }
+                );
               });
             }
           }

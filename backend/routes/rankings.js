@@ -33,13 +33,15 @@ router.get('/', authenticateToken, (req, res) => {
     return res.status(400).json({ error: 'Category ID and season required' });
   }
 
+  // Use LEFT JOIN for players to include ranked players even if not in players table
+  // Get player name from tournament_results as fallback
   const query = `
     SELECT
       r.rank_position,
       r.licence,
-      p.first_name,
-      p.last_name,
-      p.club,
+      COALESCE(p.first_name, (SELECT MAX(tr.player_name) FROM tournament_results tr WHERE REPLACE(tr.licence, ' ', '') = r.licence)) as first_name,
+      COALESCE(p.last_name, '') as last_name,
+      COALESCE(p.club, 'Non renseigné') as club,
       r.total_match_points,
       r.avg_moyenne,
       r.best_serie,
@@ -61,11 +63,12 @@ router.get('/', authenticateToken, (req, res) => {
                 WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
                 AND t.category_id = r.category_id
                 AND t.season = r.season
-                AND t.tournament_number <= 3), 0) as cumulated_reprises
+                AND t.tournament_number <= 3), 0) as cumulated_reprises,
+      CASE WHEN p.licence IS NULL THEN 1 ELSE 0 END as missing_from_players
     FROM rankings r
-    JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+    LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     JOIN categories c ON r.category_id = c.id
-    LEFT JOIN clubs ON REPLACE(REPLACE(REPLACE(UPPER(p.club), ' ', ''), '.', ''), '-', '') = REPLACE(REPLACE(REPLACE(UPPER(clubs.name), ' ', ''), '.', ''), '-', '')
+    LEFT JOIN clubs ON REPLACE(REPLACE(REPLACE(UPPER(COALESCE(p.club, '')), ' ', ''), '.', ''), '-', '') = REPLACE(REPLACE(REPLACE(UPPER(clubs.name), ' ', ''), '.', ''), '-', '')
     WHERE r.category_id = ? AND r.season = ?
     ORDER BY r.rank_position
   `;
@@ -96,13 +99,14 @@ router.get('/export', authenticateToken, async (req, res) => {
     return res.status(400).json({ error: 'Category ID and season required' });
   }
 
+  // Use LEFT JOIN for players to include ranked players even if not in players table
   const query = `
     SELECT
       r.rank_position,
       r.licence,
-      p.first_name,
-      p.last_name,
-      p.club,
+      COALESCE(p.first_name, (SELECT MAX(tr.player_name) FROM tournament_results tr WHERE REPLACE(tr.licence, ' ', '') = r.licence)) as first_name,
+      COALESCE(p.last_name, '') as last_name,
+      COALESCE(p.club, 'Non renseigné') as club,
       r.total_match_points,
       r.avg_moyenne,
       r.best_serie,
@@ -126,9 +130,9 @@ router.get('/export', authenticateToken, async (req, res) => {
                 AND t.season = r.season
                 AND t.tournament_number <= 3), 0) as cumulated_reprises
     FROM rankings r
-    JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+    LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     JOIN categories c ON r.category_id = c.id
-    LEFT JOIN clubs ON REPLACE(REPLACE(REPLACE(UPPER(p.club), ' ', ''), '.', ''), '-', '') = REPLACE(REPLACE(REPLACE(UPPER(clubs.name), ' ', ''), '.', ''), '-', '')
+    LEFT JOIN clubs ON REPLACE(REPLACE(REPLACE(UPPER(COALESCE(p.club, '')), ' ', ''), '.', ''), '-', '') = REPLACE(REPLACE(REPLACE(UPPER(clubs.name), ' ', ''), '.', ''), '-', '')
     WHERE r.category_id = ? AND r.season = ?
     ORDER BY r.rank_position
   `;
