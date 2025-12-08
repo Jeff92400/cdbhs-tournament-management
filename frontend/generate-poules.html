@@ -1195,8 +1195,19 @@
       const category = categories.find(c => c.id == categoryId);
       if (!category) return;
 
+      // Reverse mapping: convert internal level names to IONOS short codes
+      const levelToIONOS = {
+        'NATIONALE 1': 'N1', 'NATIONALE 2': 'N2', 'NATIONALE 3': 'N3',
+        'REGIONALE 1': 'R1', 'REGIONALE 2': 'R2', 'REGIONALE 3': 'R3',
+        'DEPARTEMENTALE 1': 'D1', 'DEPARTEMENTALE 2': 'D2', 'DEPARTEMENTALE 3': 'D3'
+      };
+
+      // Extract base level (remove suffixes like "GC")
+      const baseLevel = category.level.toUpperCase().replace(/\s+(GC|HC|JC|SC).*$/i, '').trim();
+      const ionosLevel = levelToIONOS[baseLevel] || category.level;
+
       try {
-        const response = await fetch(`${API_URL}/inscriptions/tournoi?mode=${category.game_type}&categorie=${category.level}`, {
+        const response = await fetch(`${API_URL}/inscriptions/tournoi?mode=${category.game_type}&categorie=${ionosLevel}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
