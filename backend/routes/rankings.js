@@ -261,18 +261,21 @@ router.get('/export', authenticateToken, async (req, res) => {
         'Meilleure Série'
       ];
 
-      // Style headers with gradient-like effect
-      worksheet.getRow(4).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-      worksheet.getRow(4).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF1F4788' }
-      };
-      worksheet.getRow(4).alignment = { horizontal: 'center', vertical: 'middle' };
+      // Style headers (only columns 1-14)
       worksheet.getRow(4).height = 28;
-      worksheet.getRow(4).border = {
-        bottom: { style: 'medium', color: { argb: 'FF1F4788' } }
-      };
+      for (let col = 1; col <= 14; col++) {
+        const cell = worksheet.getRow(4).getCell(col);
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1F4788' }
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          bottom: { style: 'medium', color: { argb: 'FF1F4788' } }
+        };
+      }
 
       // Helper to format tournament points:
       // - Tournament not played → "-"
