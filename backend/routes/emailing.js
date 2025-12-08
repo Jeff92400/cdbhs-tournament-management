@@ -1079,10 +1079,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
           html: emailHtml
         };
 
-        // Add CC if provided (not in test mode)
-        if (ccEmail && ccEmail.includes('@') && !testMode) {
-          emailOptions.cc = [ccEmail];
-        }
+        // CC removed from individual emails - summary email sent at the end instead
 
         await resend.emails.send(emailOptions);
 
@@ -1123,9 +1120,105 @@ router.post('/send-results', authenticateToken, async (req, res) => {
       );
     });
 
+    // Send summary email to CC address (if provided and not in test mode)
+    if (ccEmail && ccEmail.includes('@') && !testMode && sentResults.sent.length > 0) {
+      try {
+        // Build recipient list HTML
+        const recipientListHtml = sentResults.sent.map((r, idx) =>
+          `<tr style="background: ${idx % 2 === 0 ? 'white' : '#f8f9fa'};">
+            <td style="padding: 8px; border: 1px solid #ddd;">${idx + 1}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${r.name}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${r.email}</td>
+          </tr>`
+        ).join('');
+
+        // Build full results table for summary
+        const fullResultsRows = results.map(r => {
+          const moyenne = r.reprises > 0 ? (r.points / r.reprises).toFixed(3) : '-';
+          return `
+            <tr style="background: ${r.position % 2 === 0 ? '#f8f9fa' : 'white'};">
+              <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${r.position}</td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${r.player_name}</td>
+              <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${r.match_points || '-'}</td>
+              <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${moyenne}</td>
+            </tr>
+          `;
+        }).join('');
+
+        const summaryHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+            <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
+              <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <h1 style="margin: 0; font-size: 24px;">📋 Récapitulatif Envoi Résultats</h1>
+              <p style="margin: 10px 0 0 0; opacity: 0.9;">${tournament.display_name}</p>
+            </div>
+            <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
+              <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin-bottom: 20px;">
+                <strong>✅ Envoi terminé avec succès</strong><br>
+                ${sentResults.sent.length} email(s) envoyé(s) sur ${results.length} participant(s)
+                ${sentResults.failed.length > 0 ? `<br><span style="color: #dc3545;">${sentResults.failed.length} échec(s)</span>` : ''}
+                ${sentResults.skipped.length > 0 ? `<br><span style="color: #856404;">${sentResults.skipped.length} ignoré(s) (pas d'email)</span>` : ''}
+              </div>
+
+              <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
+                <h3 style="margin-top: 0; color: #1F4788;">📍 Informations du Tournoi</h3>
+                <p><strong>Tournoi :</strong> ${tournament.display_name}</p>
+                <p><strong>Date :</strong> ${tournamentDate}</p>
+                <p><strong>Lieu :</strong> ${tournament.location || '-'}</p>
+              </div>
+
+              <h3 style="color: #1F4788;">📧 Liste des Destinataires (${sentResults.sent.length})</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
+                <thead>
+                  <tr style="background: #1F4788; color: white;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">#</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Joueur</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${recipientListHtml}
+                </tbody>
+              </table>
+
+              <h3 style="color: #28a745;">🏆 Résultats du Tournoi</h3>
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                  <tr style="background: #28a745; color: white;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">Pos</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Joueur</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Pts Match</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Moyenne</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${fullResultsRows}
+                </tbody>
+              </table>
+            </div>
+            <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
+              <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+            </div>
+          </div>
+        `;
+
+        await resend.emails.send({
+          from: 'CDBHS <communication@cdbhs.net>',
+          to: [ccEmail],
+          subject: `📋 Récapitulatif - Résultats ${tournament.display_name} - ${tournamentDate}`,
+          html: summaryHtml
+        });
+
+        console.log(`Summary email sent to ${ccEmail}`);
+      } catch (summaryError) {
+        console.error('Error sending summary email:', summaryError);
+        // Don't fail the whole operation if summary email fails
+      }
+    }
+
     const message = testMode
       ? `Email de test envoyé à ${testEmail}`
-      : `Résultats envoyés: ${sentResults.sent.length}, Échecs: ${sentResults.failed.length}, Ignorés: ${sentResults.skipped.length}`;
+      : `Résultats envoyés: ${sentResults.sent.length}, Échecs: ${sentResults.failed.length}, Ignorés: ${sentResults.skipped.length}${ccEmail ? ' + récapitulatif envoyé' : ''}`;
 
     res.json({
       success: true,
@@ -1505,9 +1598,7 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
           html: emailHtml
         };
 
-        if (ccEmail && ccEmail.includes('@') && !testMode) {
-          emailOptions.cc = [ccEmail];
-        }
+        // CC removed from individual emails - summary email sent at the end instead
 
         await resend.emails.send(emailOptions);
 
@@ -1545,9 +1636,104 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
       );
     });
 
+    // Send summary email to CC address (if provided and not in test mode)
+    if (ccEmail && ccEmail.includes('@') && !testMode && sentResults.sent.length > 0) {
+      try {
+        // Build recipient list HTML
+        const recipientListHtml = sentResults.sent.map((r, idx) =>
+          `<tr style="background: ${idx % 2 === 0 ? 'white' : '#f8f9fa'};">
+            <td style="padding: 8px; border: 1px solid #ddd;">${idx + 1}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${r.name}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${r.email}</td>
+          </tr>`
+        ).join('');
+
+        // Build finalists table for summary
+        const finalistsTableRows = finalists.map(f =>
+          `<tr style="background: ${f.rank_position % 2 === 0 ? '#f8f9fa' : 'white'};">
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${f.rank_position}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${f.player_name}</td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${f.total_match_points || '-'}</td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${f.avg_moyenne ? f.avg_moyenne.toFixed(3) : '-'}</td>
+            <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${f.email ? '✅' : '❌'}</td>
+          </tr>`
+        ).join('');
+
+        const summaryHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+            <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
+              <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <h1 style="margin: 0; font-size: 24px;">📋 Récapitulatif Convocations Finale</h1>
+              <p style="margin: 10px 0 0 0; opacity: 0.9;">${category.display_name}</p>
+            </div>
+            <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
+              <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin-bottom: 20px;">
+                <strong>✅ Envoi terminé avec succès</strong><br>
+                ${sentResults.sent.length} convocation(s) envoyée(s) sur ${finalists.length} finaliste(s)
+                ${sentResults.failed.length > 0 ? `<br><span style="color: #dc3545;">${sentResults.failed.length} échec(s)</span>` : ''}
+                ${sentResults.skipped.length > 0 ? `<br><span style="color: #856404;">${sentResults.skipped.length} ignoré(s) (pas d'email)</span>` : ''}
+              </div>
+
+              <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
+                <h3 style="margin-top: 0; color: #1F4788;">📍 Informations de la Finale</h3>
+                <p><strong>Finale :</strong> ${finale.nom}</p>
+                <p><strong>Catégorie :</strong> ${category.display_name}</p>
+                <p><strong>Date :</strong> ${finaleFormattedDate}</p>
+                <p><strong>Lieu :</strong> ${finale.lieu || 'À confirmer'}</p>
+              </div>
+
+              <h3 style="color: #1F4788;">📧 Convocations Envoyées (${sentResults.sent.length})</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
+                <thead>
+                  <tr style="background: #1F4788; color: white;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">#</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Joueur</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${recipientListHtml}
+                </tbody>
+              </table>
+
+              <h3 style="color: #28a745;">🏆 Liste des Finalistes</h3>
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                  <tr style="background: #28a745; color: white;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">Pos</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Joueur</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Pts Match</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Moyenne</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${finalistsTableRows}
+                </tbody>
+              </table>
+            </div>
+            <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
+              <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+            </div>
+          </div>
+        `;
+
+        await resend.emails.send({
+          from: 'CDBHS <communication@cdbhs.net>',
+          to: [ccEmail],
+          subject: `📋 Récapitulatif - Convocations Finale ${category.display_name} - ${finaleFormattedDate}`,
+          html: summaryHtml
+        });
+
+        console.log(`Summary email sent to ${ccEmail}`);
+      } catch (summaryError) {
+        console.error('Error sending summary email:', summaryError);
+      }
+    }
+
     const message = testMode
       ? `Email de test envoyé à ${testEmail}`
-      : `Convocations envoyées: ${sentResults.sent.length}, Échecs: ${sentResults.failed.length}, Ignorés: ${sentResults.skipped.length}`;
+      : `Convocations envoyées: ${sentResults.sent.length}, Échecs: ${sentResults.failed.length}, Ignorés: ${sentResults.skipped.length}${ccEmail ? ' + récapitulatif envoyé' : ''}`;
 
     res.json({
       success: true,
