@@ -627,6 +627,7 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
       // Send email using Resend (no CC - summary email sent at the end)
       const emailResult = await resend.emails.send({
         from: 'CDBHS Convocations <convocations@cdbhs.net>',
+        replyTo: 'cdbhs92@gmail.com',
         to: [player.email],
         subject: emailSubject,
         html: `
@@ -757,6 +758,7 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
 
       await resend.emails.send({
         from: 'CDBHS Convocations <convocations@cdbhs.net>',
+        replyTo: 'cdbhs92@gmail.com',
         to: [summaryEmailAddress],
         subject: `📋 Récapitulatif - Convocations ${category.display_name} - ${tournamentLabel} - ${dateStr}`,
         html: summaryHtml
@@ -790,6 +792,7 @@ router.post('/test', authenticateToken, async (req, res) => {
   try {
     const result = await resend.emails.send({
       from: 'CDBHS Convocations <convocations@cdbhs.net>',
+      replyTo: 'cdbhs92@gmail.com',
       to: [testEmail || 'cdbhs92@gmail.com'],
       subject: 'Test - Configuration Email CDBHS',
       html: `

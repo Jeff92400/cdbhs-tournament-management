@@ -472,6 +472,7 @@ router.post('/send', authenticateToken, async (req, res) => {
 
         await resend.emails.send({
           from: 'CDBHS <communication@cdbhs.net>',
+          replyTo: 'cdbhs92@gmail.com',
           to: [recipient.email],
           subject: emailSubject,
           html: `
@@ -683,6 +684,7 @@ router.post('/process-scheduled', async (req, res) => {
 
           await resend.emails.send({
             from: 'CDBHS <communication@cdbhs.net>',
+            replyTo: 'cdbhs92@gmail.com',
             to: [recipient.email],
             subject: emailSubject,
             html: `
@@ -1088,6 +1090,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
 
         const emailOptions = {
           from: 'CDBHS <communication@cdbhs.net>',
+          replyTo: 'cdbhs92@gmail.com',
           to: [participant.email],
           subject: `Résultats - ${tournament.display_name} - ${tournamentDate}`,
           html: emailHtml
@@ -1218,6 +1221,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
 
         await resend.emails.send({
           from: 'CDBHS <communication@cdbhs.net>',
+          replyTo: 'cdbhs92@gmail.com',
           to: [ccEmail],
           subject: `📋 Récapitulatif - Résultats ${tournament.display_name} - ${tournamentDate}`,
           html: summaryHtml
@@ -1607,6 +1611,7 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
 
         const emailOptions = {
           from: 'CDBHS <communication@cdbhs.net>',
+          replyTo: 'cdbhs92@gmail.com',
           to: [finalist.email],
           subject: `🏆 Convocation Finale - ${category.display_name} - ${finaleFormattedDate}`,
           html: emailHtml
@@ -1734,6 +1739,7 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
 
         await resend.emails.send({
           from: 'CDBHS <communication@cdbhs.net>',
+          replyTo: 'cdbhs92@gmail.com',
           to: [ccEmail],
           subject: `📋 Récapitulatif - Convocations Finale ${category.display_name} - ${finaleFormattedDate}`,
           html: summaryHtml
