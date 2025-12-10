@@ -2124,7 +2124,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             const option = document.createElement('option');
             option.value = f.tournoi_id;
             const date = f.debut ? new Date(f.debut).toLocaleDateString('fr-FR') : '';
-            option.textContent = `${f.nom} - ${f.categorie} - ${date}`;
+            option.textContent = `${f.mode} - ${f.categorie} - ${date}`;
             option.dataset.finale = JSON.stringify(f);
             optgroup.appendChild(option);
           });
