@@ -733,6 +733,32 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
         <button class="btn" id="resetConvocationTemplateBtn" style="background: #6c757d; margin-left: 10px;">Réinitialiser par défaut</button>
       </div>
 
+      <!-- Convocation Finale Template -->
+      <div class="card" style="margin-top: 20px;">
+        <h3>🏆 Template Convocation Finale</h3>
+        <p style="color: #666; margin-bottom: 15px;">Template utilisé pour les emails de convocation aux finales départementales.</p>
+
+        <div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; font-size: 13px;">
+          <strong>Variables disponibles :</strong>
+          <code>{first_name}</code> <code>{last_name}</code> <code>{player_name}</code>
+          <code>{category}</code> <code>{finale_name}</code> <code>{date}</code> <code>{lieu}</code>
+          <code>{mode}</code> <code>{rank_position}</code>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Objet</label>
+          <input type="text" id="finaleConvocationSubject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Corps du message</label>
+          <textarea id="finaleConvocationBody" rows="10" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+        </div>
+
+        <button class="btn" id="saveFinaleConvocationTemplateBtn" style="background: #28a745;">Enregistrer</button>
+        <button class="btn" id="resetFinaleConvocationTemplateBtn" style="background: #6c757d; margin-left: 10px;">Réinitialiser par défaut</button>
+      </div>
+
       <!-- Results Template -->
       <div class="card" style="margin-top: 20px;">
         <h3>Template Résultats Tournoi</h3>
@@ -896,6 +922,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
         if (tab.dataset.tab === 'contacts') loadAllContacts();
         if (tab.dataset.tab === 'templates') {
           loadConvocationTemplate();
+          loadFinaleConvocationTemplate();
           loadResultsTemplate();
         }
         if (tab.dataset.tab === 'history') loadHistory();
@@ -1410,6 +1437,22 @@ Cordialement,
 Comité Départemental Billard Hauts-de-Seine`
     };
 
+    const DEFAULT_FINALE_CONVOCATION_TEMPLATE = {
+      subject: 'Convocation Finale Départementale {mode} - {category} - {date}',
+      body: `Bonjour {player_name},
+
+Suite aux trois tournois de la saison, nous avons le plaisir de vous informer que vous êtes qualifié(e) pour la Finale Départementale {mode} - {category}.
+
+Vous trouverez ci-joint votre convocation avec la liste des finalistes.
+
+En cas d'empêchement, merci de nous prévenir dès que possible à l'adresse ci-dessous.
+
+Nous vous souhaitons une excellente finale !
+
+Sportivement,
+Comité Départemental Billard Hauts-de-Seine`
+    };
+
     const DEFAULT_RESULTS_TEMPLATE = {
       intro: `Bonjour {first_name},
 
@@ -1437,6 +1480,26 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       } catch (error) {
         document.getElementById('convocationSubject').value = DEFAULT_CONVOCATION_TEMPLATE.subject;
         document.getElementById('convocationBody').value = DEFAULT_CONVOCATION_TEMPLATE.body;
+      }
+    }
+
+    async function loadFinaleConvocationTemplate() {
+      try {
+        const response = await fetch(`${API_URL}/settings/email-template/convocation-finale`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const template = await response.json();
+          document.getElementById('finaleConvocationSubject').value = template.subject_template || DEFAULT_FINALE_CONVOCATION_TEMPLATE.subject;
+          document.getElementById('finaleConvocationBody').value = template.body_template || DEFAULT_FINALE_CONVOCATION_TEMPLATE.body;
+        } else {
+          document.getElementById('finaleConvocationSubject').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.subject;
+          document.getElementById('finaleConvocationBody').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.body;
+        }
+      } catch (error) {
+        document.getElementById('finaleConvocationSubject').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.subject;
+        document.getElementById('finaleConvocationBody').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.body;
       }
     }
 
@@ -1506,6 +1569,45 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
     document.getElementById('resetConvocationTemplateBtn').addEventListener('click', () => {
       document.getElementById('convocationSubject').value = DEFAULT_CONVOCATION_TEMPLATE.subject;
       document.getElementById('convocationBody').value = DEFAULT_CONVOCATION_TEMPLATE.body;
+      showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
+    });
+
+    // Finale Convocation Template handlers
+    document.getElementById('saveFinaleConvocationTemplateBtn').addEventListener('click', async () => {
+      const subject = document.getElementById('finaleConvocationSubject').value.trim();
+      const body = document.getElementById('finaleConvocationBody').value.trim();
+
+      if (!subject || !body) {
+        showError('Tous les champs sont obligatoires.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/settings/email-template/convocation-finale`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            subject_template: subject,
+            body_template: body
+          })
+        });
+
+        if (response.ok) {
+          showSuccess('Template convocation finale enregistré!');
+        } else {
+          showError('Erreur lors de la sauvegarde.');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    });
+
+    document.getElementById('resetFinaleConvocationTemplateBtn').addEventListener('click', () => {
+      document.getElementById('finaleConvocationSubject').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.subject;
+      document.getElementById('finaleConvocationBody').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.body;
       showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
     });
 

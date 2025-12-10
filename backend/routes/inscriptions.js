@@ -465,6 +465,7 @@ router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
     FROM tournoi_ext t
     LEFT JOIN inscriptions i ON t.tournoi_id = i.tournoi_id
     WHERE t.debut >= $1 AND t.debut <= $2
+    AND LOWER(t.nom) NOT LIKE '%finale%'
     GROUP BY t.tournoi_id
     ORDER BY t.debut ASC, t.mode, t.categorie
   `;
@@ -476,6 +477,45 @@ router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
     }
 
     console.log(`Found ${(rows || []).length} upcoming tournaments`);
+    res.json(rows || []);
+  });
+});
+
+// Get upcoming finals (within next 4 weeks)
+router.get('/finales/upcoming', authenticateToken, (req, res) => {
+  // Get today's date
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Look 4 weeks ahead for finals
+  const fourWeeksLater = new Date(today);
+  fourWeeksLater.setDate(today.getDate() + 28);
+
+  // Format dates for SQL
+  const startDate = today.toISOString().split('T')[0];
+  const endDate = fourWeeksLater.toISOString().split('T')[0];
+
+  console.log(`Fetching upcoming finals from ${startDate} to ${endDate}`);
+
+  // Finals are identified by name containing "Finale" (case insensitive)
+  const query = `
+    SELECT t.*,
+           COALESCE(COUNT(CASE WHEN i.forfait != 1 OR i.forfait IS NULL THEN 1 END), 0) as inscrit_count
+    FROM tournoi_ext t
+    LEFT JOIN inscriptions i ON t.tournoi_id = i.tournoi_id
+    WHERE t.debut >= $1 AND t.debut <= $2
+    AND LOWER(t.nom) LIKE '%finale%'
+    GROUP BY t.tournoi_id
+    ORDER BY t.debut ASC, t.mode, t.categorie
+  `;
+
+  db.all(query, [startDate, endDate], (err, rows) => {
+    if (err) {
+      console.error('Error fetching upcoming finals:', err);
+      return res.status(500).json({ error: err.message });
+    }
+
+    console.log(`Found ${(rows || []).length} upcoming finals`);
     res.json(rows || []);
   });
 });
@@ -1074,6 +1114,140 @@ router.put('/:id', authenticateToken, (req, res) => {
     }
     res.json({ success: true, message: 'Inscription updated' });
   });
+});
+
+// TEMPORARY: Create test finale data for testing the finale convocation workflow
+router.post('/create-test-finale', authenticateToken, async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  try {
+    // Get the LIBRE R2 category ID
+    const category = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT id FROM categories WHERE UPPER(game_type) = 'LIBRE' AND UPPER(level) = 'R2' LIMIT 1
+      `, [], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    const categoryId = category?.id || 1;
+
+    // Create test finale tournament
+    await new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO tournoi_ext (tournoi_id, nom, mode, categorie, debut, fin, lieu, taille)
+        VALUES (99901, 'Finale Départementale', 'LIBRE', 'R2', '2025-12-15', '2025-12-15', 'Courbevoie', 280)
+        ON CONFLICT (tournoi_id) DO UPDATE SET
+          nom = EXCLUDED.nom,
+          mode = EXCLUDED.mode,
+          categorie = EXCLUDED.categorie,
+          debut = EXCLUDED.debut
+      `, [], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    // Get 6 players - try players with rankings in LIBRE R2 first, then any active players
+    let players = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT DISTINCT p.licence, p.first_name, p.last_name, p.club, r.rank_position
+        FROM players p
+        INNER JOIN rankings r ON REPLACE(p.licence, ' ', '') = REPLACE(r.licence, ' ', '')
+        WHERE r.category_id = $1 AND r.season = '2025-2026'
+        ORDER BY r.rank_position ASC
+        LIMIT 6
+      `, [categoryId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    // Fallback: if no ranked players found, get any active players
+    if (players.length === 0) {
+      players = await new Promise((resolve, reject) => {
+        db.all(`
+          SELECT p.licence, p.first_name, p.last_name, p.club
+          FROM players p
+          WHERE p.is_active = 1
+          LIMIT 6
+        `, [], (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        });
+      });
+    }
+
+    if (players.length === 0) {
+      return res.status(400).json({ error: 'No players found in database to create test finale' });
+    }
+
+    // Create inscriptions for these players
+    let inscriptionId = 999010;
+    for (const p of players) {
+      await new Promise((resolve, reject) => {
+        db.run(`
+          INSERT INTO inscriptions (inscription_id, tournoi_id, licence, email, convoque, forfait, timestamp)
+          VALUES ($1, 99901, $2, 'jeff_rallet@hotmail.com', 1, 0, NOW())
+          ON CONFLICT (inscription_id) DO NOTHING
+        `, [inscriptionId, p.licence], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      inscriptionId++;
+    }
+
+    res.json({
+      success: true,
+      message: `Test finale created (ID: 99901) with ${players.length} inscriptions`,
+      finale: {
+        tournoi_id: 99901,
+        nom: 'Finale Départementale',
+        mode: 'LIBRE',
+        categorie: 'R2',
+        debut: '2025-12-15'
+      },
+      categoryId: categoryId,
+      players: players.map(p => ({ name: `${p.first_name} ${p.last_name}`, licence: p.licence, rank: p.rank_position }))
+    });
+
+  } catch (error) {
+    console.error('Error creating test finale:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// TEMPORARY: Delete test finale data
+router.delete('/delete-test-finale', authenticateToken, async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  try {
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM inscriptions WHERE inscription_id BETWEEN 999010 AND 999020', [], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM tournoi_ext WHERE tournoi_id = 99901', [], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    res.json({ success: true, message: 'Test finale data deleted' });
+
+  } catch (error) {
+    console.error('Error deleting test finale:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;

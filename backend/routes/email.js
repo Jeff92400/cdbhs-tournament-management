@@ -120,9 +120,12 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
       let y = 40;
 
       // Header - CONVOCATION
-      const tournamentLabel = tournamentInfo.tournamentNum === '4' ? 'FINALE DEPARTEMENTALE' : `TOURNOI N${tournamentInfo.tournamentNum}`;
-      doc.rect(40, y, pageWidth, 45).fill(primaryColor);
-      doc.fillColor('white').fontSize(22).font('Helvetica-Bold')
+      const isFinale = tournamentInfo.tournamentNum === '4' || tournamentInfo.tournamentNum === 'Finale' || tournamentInfo.isFinale;
+      const tournamentLabel = isFinale ? 'FINALE DEPARTEMENTALE' : `TOURNOI N°${tournamentInfo.tournamentNum}`;
+      const headerColor = isFinale ? '#D4AF37' : primaryColor; // Gold for finals
+      const headerTextColor = isFinale ? '#1F4788' : 'white';
+      doc.rect(40, y, pageWidth, 45).fill(headerColor);
+      doc.fillColor(headerTextColor).fontSize(22).font('Helvetica-Bold')
          .text(`CONVOCATION ${tournamentLabel}`, 40, y + 12, { width: pageWidth, align: 'center' });
       y += 50;
 
@@ -206,7 +209,15 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
 
         // Poule title
         const pouleColor = isPlayerPoule ? greenColor : primaryColor;
-        const pouleTitle = isPlayerPoule ? `POULE ${poule.number} (VOTRE POULE)` : `POULE ${poule.number}`;
+        const isFinalePoule = tournamentInfo.isFinale && allPoules.length === 1;
+        let pouleTitle;
+        if (isFinalePoule) {
+          pouleTitle = isPlayerPoule ? 'POULE UNIQUE (VOTRE POULE)' : 'POULE UNIQUE';
+        } else if (isPlayerPoule) {
+          pouleTitle = `POULE ${poule.number} (VOTRE POULE)`;
+        } else {
+          pouleTitle = `POULE ${poule.number}`;
+        }
         doc.rect(40, y, pageWidth, 22).fill(pouleColor);
         doc.fillColor('white').fontSize(11).font('Helvetica-Bold')
            .text(pouleTitle, 50, y + 5);
@@ -305,9 +316,12 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
       let y = 40;
 
       // Header - CONVOCATION
-      const tournamentLabel = tournamentInfo.tournamentNum === '4' ? 'FINALE DEPARTEMENTALE' : `TOURNOI N${tournamentInfo.tournamentNum}`;
-      doc.rect(40, y, pageWidth, 45).fill(primaryColor);
-      doc.fillColor('white').fontSize(22).font('Helvetica-Bold')
+      const isFinale = tournamentInfo.tournamentNum === '4' || tournamentInfo.tournamentNum === 'Finale' || tournamentInfo.isFinale;
+      const tournamentLabel = isFinale ? 'FINALE DEPARTEMENTALE' : `TOURNOI N°${tournamentInfo.tournamentNum}`;
+      const headerColor = isFinale ? '#D4AF37' : primaryColor; // Gold for finals
+      const headerTextColor = isFinale ? '#1F4788' : 'white';
+      doc.rect(40, y, pageWidth, 45).fill(headerColor);
+      doc.fillColor(headerTextColor).fontSize(22).font('Helvetica-Bold')
          .text(`CONVOCATION ${tournamentLabel}`, 40, y + 12, { width: pageWidth, align: 'center' });
       y += 50;
 
@@ -384,9 +398,11 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
         y += 28;
 
         // Poule title
+        const isFinalePoule = tournamentInfo.isFinale && allPoules.length === 1;
+        const pouleTitleText = isFinalePoule ? 'POULE UNIQUE' : `POULE ${poule.number}`;
         doc.rect(40, y, pageWidth, 22).fill(primaryColor);
         doc.fillColor('white').fontSize(11).font('Helvetica-Bold')
-           .text(`POULE ${poule.number}`, 50, y + 5);
+           .text(pouleTitleText, 50, y + 5);
         y += 26;
 
         // Table headers - with ranking columns
@@ -468,17 +484,39 @@ Cordialement,
 Comite Departemental Billard Hauts-de-Seine`
 };
 
+// Default finale convocation template (fallback)
+const DEFAULT_FINALE_EMAIL_TEMPLATE = {
+  subject: 'Convocation Finale Départementale {category} - {date}',
+  body: `Bonjour {player_name},
+
+Suite aux trois tournois de la saison, nous avons le plaisir de vous informer que vous êtes qualifié(e) pour la Finale Départementale.
+
+Veuillez trouver en attachement votre convocation detaillee avec la liste des finalistes.
+
+En cas d'empêchement, merci de nous prévenir dès que possible à l'adresse ci-dessous.
+
+Nous vous souhaitons une excellente finale !
+
+Sportivement,
+Comité Départemental Billard Hauts-de-Seine`
+};
+
 // Fetch email template from database
-async function getEmailTemplate() {
+async function getEmailTemplate(templateType = 'convocation') {
   const db = require('../db-loader');
+
+  // Determine which default template to use
+  const defaultTemplate = templateType === 'convocation-finale'
+    ? DEFAULT_FINALE_EMAIL_TEMPLATE
+    : DEFAULT_EMAIL_TEMPLATE;
 
   return new Promise((resolve) => {
     db.get(
       'SELECT * FROM email_templates WHERE template_key = $1',
-      ['convocation'],
+      [templateType],
       (err, row) => {
         if (err || !row) {
-          resolve(DEFAULT_EMAIL_TEMPLATE);
+          resolve(defaultTemplate);
         } else {
           resolve({
             subject: row.subject_template,
@@ -501,7 +539,7 @@ function replaceTemplateVariables(template, variables) {
 
 // Send convocation emails
 router.post('/send-convocations', authenticateToken, async (req, res) => {
-  const { players, poules, category, season, tournament, tournamentDate, locations, sendToAll, specialNote, gameParams, selectedDistance, mockRankingData } = req.body;
+  const { players, poules, category, season, tournament, tournamentDate, locations, sendToAll, specialNote, gameParams, selectedDistance, mockRankingData, isFinale } = req.body;
 
   const resend = getResend();
   if (!resend) {
@@ -511,9 +549,11 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
   }
 
   console.log('Using Resend API for email sending');
+  console.log(`Competition type: ${isFinale ? 'FINALE' : 'TOURNAMENT'}`);
 
-  // Fetch email template
-  const emailTemplate = await getEmailTemplate();
+  // Fetch email template - use finale template if isFinale
+  const templateType = isFinale ? 'convocation-finale' : 'convocation';
+  const emailTemplate = await getEmailTemplate(templateType);
 
   // Fetch ranking data for this category/season (or use mock data for testing)
   let rankingData = {};
@@ -533,7 +573,7 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
     skipped: []
   };
 
-  const tournamentLabel = tournament === '4' ? 'Finale Departementale' : `Tournoi ${tournament}`;
+  const tournamentLabel = (isFinale || tournament === 'Finale' || tournament === '4') ? 'Finale Departementale' : `Tournoi ${tournament}`;
   const dateStr = tournamentDate
     ? new Date(tournamentDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : 'Date a definir';
@@ -582,7 +622,8 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
           categoryName: category.display_name,
           season,
           tournamentNum: tournament,
-          date: tournamentDate
+          date: tournamentDate,
+          isFinale: isFinale
         },
         poules,
         locations,
@@ -943,17 +984,21 @@ router.delete('/delete-test-data', authenticateToken, async (req, res) => {
 
 // Generate summary/neutral PDF (for printing - no personalization)
 router.post('/generate-summary-pdf', authenticateToken, async (req, res) => {
-  const { poules, category, season, tournament, tournamentDate, locations, gameParams, selectedDistance, mockRankingData } = req.body;
+  const { poules, category, season, tournament, tournamentDate, locations, gameParams, selectedDistance, mockRankingData, isFinale } = req.body;
 
   try {
     const db = require('../db-loader');
+
+    // Determine if this is a finale
+    const isFinaleCompetition = isFinale || tournament === 'Finale' || tournament === '4';
 
     // Build tournament info
     const tournamentInfo = {
       categoryName: category.display_name,
       tournamentNum: tournament,
       season: season,
-      date: tournamentDate
+      date: tournamentDate,
+      isFinale: isFinaleCompetition
     };
 
     // Get ranking data

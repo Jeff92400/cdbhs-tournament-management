@@ -285,17 +285,17 @@
       </div>
     </div>
 
-    <!-- Upcoming Tournaments Section -->
+    <!-- Upcoming Competitions Section (Tournaments + Finals) -->
     <div class="card" id="upcomingTournamentsCard" style="display: none;">
-      <h3>🗓️ Tournois à venir</h3>
+      <h3>🗓️ Compétitions à venir</h3>
       <p style="color: #666; margin-bottom: 15px;">
         Cliquez sur un tournoi pour pré-remplir automatiquement la sélection.
       </p>
       <div id="upcomingTournamentsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
-        <!-- Tournaments will be loaded here -->
+        <!-- Tournaments and Finals will be loaded here -->
       </div>
       <div id="noUpcomingTournaments" style="display: none; text-align: center; padding: 20px; color: #666;">
-        <p>Aucun tournoi prévu pour ce weekend.</p>
+        <p>Aucune compétition prévue prochainement.</p>
       </div>
     </div>
 
@@ -340,13 +340,13 @@
           </select>
         </div>
         <div>
-          <label for="tournamentSelect" style="display: block; margin-bottom: 5px; font-weight: 500;">Tournoi à préparer</label>
+          <label for="tournamentSelect" style="display: block; margin-bottom: 5px; font-weight: 500;">Compétition à préparer</label>
           <select id="tournamentSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             <option value="">-- Sélectionner --</option>
             <option value="1">Tournoi 1</option>
             <option value="2">Tournoi 2</option>
             <option value="3">Tournoi 3</option>
-            <option value="4">Finale Départementale</option>
+            <option value="Finale">🏆 Finale Départementale</option>
           </select>
         </div>
       </div>
@@ -392,12 +392,12 @@
         <button class="btn" id="selectRegisteredBtn" style="background: #17a2b8;">Sélectionner les inscrits</button>
       </div>
 
-      <h4>Joueurs classés (du classement actuel)</h4>
+      <h4 id="rankedPlayersTitle">Joueurs classés (du classement actuel)</h4>
       <div class="player-list" id="rankedPlayersList">
         <p style="padding: 20px; color: #666; text-align: center;">Chargement...</p>
       </div>
 
-      <h4 style="margin-top: 20px;">Nouveaux joueurs (inscrits non classés)</h4>
+      <h4 style="margin-top: 20px;" id="newPlayersTitle">Nouveaux joueurs (inscrits non classés)</h4>
       <div class="player-list" id="newPlayersList">
         <p style="padding: 20px; color: #666; text-align: center;">Aucun nouveau joueur</p>
       </div>
@@ -479,7 +479,7 @@
         </p>
       </div>
 
-      <h4>Aperçu des Poules (Distribution Serpentine)</h4>
+      <h4 id="poulePreviewTitle">Aperçu des Poules (Distribution Serpentine)</h4>
       <div class="poule-preview" id="poulePreview">
         <!-- Poules will be rendered here -->
       </div>
@@ -797,6 +797,7 @@
     let selectedLastMinutePlayer = null;
     let clubs = [];
     let currentGameParams = null;
+    let isFinale = false;
 
     // Poule configuration based on number of players
     const POULE_CONFIG = {
@@ -952,72 +953,108 @@
 
     loadCategories();
 
-    // Load upcoming tournaments
+    // Load upcoming competitions (tournaments + finals)
     async function loadUpcomingTournaments() {
       const container = document.getElementById('upcomingTournamentsList');
       const noTournamentsDiv = document.getElementById('noUpcomingTournaments');
       const card = document.getElementById('upcomingTournamentsCard');
 
       // Show loading state
-      container.innerHTML = '<p style="text-align: center; color: #666;">Chargement des tournois...</p>';
+      container.innerHTML = '<p style="text-align: center; color: #666;">Chargement des compétitions...</p>';
       container.style.display = 'block';
       noTournamentsDiv.style.display = 'none';
 
       try {
-        const response = await fetch(`${API_URL}/inscriptions/tournoi/upcoming`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        // Fetch both tournaments and finals
+        const [tournamentsRes, finalesRes] = await Promise.all([
+          fetch(`${API_URL}/inscriptions/tournoi/upcoming`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${API_URL}/inscriptions/finales/upcoming`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).catch(() => ({ ok: false })) // Handle if endpoint doesn't exist yet
+        ]);
+
+        let allCompetitions = [];
+
+        if (tournamentsRes.ok) {
+          const tournaments = await tournamentsRes.json();
+          tournaments.forEach(t => {
+            t.isFinale = false;
+          });
+          allCompetitions = allCompetitions.concat(tournaments);
+        }
+
+        if (finalesRes.ok) {
+          const finales = await finalesRes.json();
+          finales.forEach(f => {
+            f.isFinale = true;
+          });
+          allCompetitions = allCompetitions.concat(finales);
+        }
+
+        // Sort by date
+        allCompetitions.sort((a, b) => {
+          const dateA = a.debut ? new Date(a.debut) : new Date('9999-12-31');
+          const dateB = b.debut ? new Date(b.debut) : new Date('9999-12-31');
+          return dateA - dateB;
         });
 
-        if (response.ok) {
-          const tournaments = await response.json();
+        if (allCompetitions.length === 0) {
+          container.style.display = 'none';
+          noTournamentsDiv.style.display = 'block';
+        } else {
+          container.style.display = 'grid';
+          noTournamentsDiv.style.display = 'none';
 
-          if (tournaments.length === 0) {
-            container.style.display = 'none';
-            noTournamentsDiv.style.display = 'block';
-          } else {
-            container.style.display = 'grid';
-            noTournamentsDiv.style.display = 'none';
+          container.innerHTML = allCompetitions.map(t => {
+            const dateStr = t.debut
+              ? new Date(t.debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+              : 'Date non définie';
 
-            container.innerHTML = tournaments.map(t => {
-              const dateStr = t.debut
-                ? new Date(t.debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-                : 'Date non définie';
+            // Extract tournament number from name (e.g., "TOURNOI 2" -> "2") or "Finale" for finals
+            const tournamentMatch = t.nom.match(/TOURNOI\s*(\d+)/i);
+            const tournamentNum = tournamentMatch ? tournamentMatch[1] : (t.isFinale ? 'Finale' : '');
 
-              // Extract tournament number from name (e.g., "TOURNOI 2" -> "2")
-              const tournamentMatch = t.nom.match(/TOURNOI\s*(\d+)/i);
-              const tournamentNum = tournamentMatch ? tournamentMatch[1] : '';
+            const cardStyle = t.isFinale
+              ? 'border: 2px solid #ffc107; background: linear-gradient(135deg, #fffde7 0%, #fff8e1 100%);'
+              : '';
+            const badgeHtml = t.isFinale
+              ? '<span style="background: #ffc107; color: #333; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; margin-left: 8px;">🏆 FINALE</span>'
+              : '';
 
-              return `
-                <div class="upcoming-tournament-card"
-                     data-mode="${t.mode}"
-                     data-categorie="${t.categorie}"
-                     data-tournament-num="${tournamentNum}"
-                     data-tournoi-id="${t.tournoi_id}"
-                     data-lieu="${t.lieu || ''}"
-                     data-date="${t.debut || ''}">
-                  <div class="tournament-mode">${t.mode} - ${t.categorie}</div>
-                  <div class="tournament-name">${t.nom}</div>
-                  <div class="tournament-details">
-                    <span class="tournament-date">📅 ${dateStr}</span>
-                    <span>📍 ${t.lieu || 'Lieu non défini'}</span>
-                  </div>
-                  <div class="tournament-inscrits">
-                    👥 ${t.inscrit_count || 0} inscrit(s)
-                  </div>
+            return `
+              <div class="upcoming-tournament-card"
+                   style="${cardStyle}"
+                   data-mode="${t.mode}"
+                   data-categorie="${t.categorie}"
+                   data-tournament-num="${tournamentNum}"
+                   data-tournoi-id="${t.tournoi_id}"
+                   data-lieu="${t.lieu || ''}"
+                   data-date="${t.debut || ''}"
+                   data-is-finale="${t.isFinale}">
+                <div class="tournament-mode">${t.mode} - ${t.categorie}${badgeHtml}</div>
+                <div class="tournament-name">${t.isFinale ? 'Finale Départementale' : t.nom}</div>
+                <div class="tournament-details">
+                  <span class="tournament-date">📅 ${dateStr}</span>
+                  <span>📍 ${t.lieu || 'Lieu non défini'}</span>
                 </div>
-              `;
-            }).join('');
+                <div class="tournament-inscrits">
+                  👥 ${t.inscrit_count || 0} inscrit(s)
+                </div>
+              </div>
+            `;
+          }).join('');
 
-            // Add click handlers
-            container.querySelectorAll('.upcoming-tournament-card').forEach(card => {
-              card.addEventListener('click', () => selectUpcomingTournament(card));
-            });
-          }
-
-          card.style.display = 'block';
+          // Add click handlers
+          container.querySelectorAll('.upcoming-tournament-card').forEach(card => {
+            card.addEventListener('click', () => selectUpcomingTournament(card));
+          });
         }
+
+        card.style.display = 'block';
       } catch (error) {
-        console.error('Error loading upcoming tournaments:', error);
+        console.error('Error loading upcoming competitions:', error);
       }
     }
 
@@ -1029,6 +1066,7 @@
       const tournoiId = card.dataset.tournoiId;
       const lieu = card.dataset.lieu;
       const date = card.dataset.date;
+      isFinale = card.dataset.isFinale === 'true';
 
       // Find matching category using mode_mapping logic
       // We need to match the IONOS mode to our internal game_type
@@ -1073,7 +1111,8 @@
       if (matchingCategory) {
         // Set dropdowns
         document.getElementById('categorySelect').value = matchingCategory.id;
-        document.getElementById('tournamentSelect').value = tournamentNum;
+        // For finals, set tournament to "Finale", otherwise use tournament number
+        document.getElementById('tournamentSelect').value = isFinale ? 'Finale' : tournamentNum;
 
         // Store the selected tournament info for later use
         window.selectedUpcomingTournament = {
@@ -1082,7 +1121,8 @@
           date,
           mode,
           categorie,
-          tournamentNum
+          tournamentNum: isFinale ? 'Finale' : tournamentNum,
+          isFinale
         };
 
         // Trigger change event to load tournament info
@@ -1255,6 +1295,42 @@
             document.getElementById('tournamentInfoLieu').textContent = matchingTournoi.lieu || 'Non défini';
             document.getElementById('tournamentInfoInscrits').textContent = `${inscCount} joueurs`;
             document.getElementById('tournamentInfo').style.display = 'block';
+          } else if (window.selectedUpcomingTournament && (tournamentNum === 'Finale' || isFinale)) {
+            // For finals selected from upcoming tournaments card, use stored data
+            const upcomingData = window.selectedUpcomingTournament;
+
+            // Create a pseudo matchingTournoi object for finals
+            matchingTournoi = {
+              tournoi_id: upcomingData.tournoiId,
+              nom: 'Finale Départementale',
+              debut: upcomingData.date,
+              lieu: upcomingData.lieu,
+              isFinale: true
+            };
+
+            // Load inscription count
+            let inscCount = 0;
+            if (upcomingData.tournoiId) {
+              const inscResponse = await fetch(`${API_URL}/inscriptions/tournoi/${upcomingData.tournoiId}/inscriptions`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              if (inscResponse.ok) {
+                const inscriptions = await inscResponse.json();
+                inscCount = inscriptions.filter(i => i.forfait !== 1).length;
+              }
+            }
+
+            // Format date
+            const dateStr = upcomingData.date
+              ? new Date(upcomingData.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+              : 'Non définie';
+
+            document.getElementById('tournamentInfoName').textContent =
+              `${category.display_name} - Finale Départementale`;
+            document.getElementById('tournamentInfoDate').textContent = dateStr;
+            document.getElementById('tournamentInfoLieu').textContent = upcomingData.lieu || 'Non défini';
+            document.getElementById('tournamentInfoInscrits').textContent = `${inscCount} joueurs`;
+            document.getElementById('tournamentInfo').style.display = 'block';
           } else {
             document.getElementById('tournamentInfo').style.display = 'none';
           }
@@ -1279,12 +1355,43 @@
       currentSeason = season;
       currentTournament = tournamentNum;
 
+      // Check if this is a finale
+      const isFinaleCompetition = isFinale || tournamentNum === 'Finale' || tournamentNum === '4';
+
       // Determine which ranking to load based on tournament number
       const previousTournament = parseInt(tournamentNum) - 1;
 
       try {
-        // Load ranking from previous tournament(s)
-        if (previousTournament >= 1) {
+        // For FINALE: Load full rankings and take top 4 or 6 finalists
+        if (isFinaleCompetition) {
+          const rankingResponse = await fetch(`${API_URL}/rankings?categoryId=${categoryId}&season=${season}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (rankingResponse.ok) {
+            const data = await rankingResponse.json();
+            const rankings = data.rankings || [];
+
+            // Determine number of finalists: 6 if enough participants, otherwise 4
+            // Count unique participants across all 3 tournaments
+            const totalParticipants = rankings.length;
+            const numFinalists = totalParticipants >= 10 ? 6 : 4;
+
+            // Take only top N finalists
+            rankedPlayers = rankings.slice(0, numFinalists).map((r, index) => ({
+              licence: r.licence,
+              first_name: r.first_name,
+              last_name: r.last_name,
+              club: r.club,
+              rank: r.rank_position,
+              total_match_points: r.total_match_points,
+              isRanked: true,
+              isFinalist: true
+            }));
+          }
+        }
+        // For regular tournaments (T2, T3): Load ranking from previous tournament(s)
+        else if (previousTournament >= 1) {
           const rankingResponse = await fetch(`${API_URL}/rankings?categoryId=${categoryId}&season=${season}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -1319,41 +1426,62 @@
           if (inscriptionsResponse.ok) {
             const inscriptions = await inscriptionsResponse.json();
 
-            // Find new players (inscribed but not in ranking)
-            const rankedLicences = new Set(rankedPlayers.map(p => p.licence.replace(/\s/g, '')));
+            // For FINALE: Don't show "new players" section - only finalists matter
+            if (isFinaleCompetition) {
+              newPlayers = [];
 
-            newPlayers = inscriptions
-              .filter(i => !rankedLicences.has(i.licence?.replace(/\s/g, '')) && i.forfait !== 1)
-              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-              .map((i, index) => ({
-                licence: i.licence,
-                first_name: i.first_name || 'Inconnu',
-                last_name: i.last_name || 'Inconnu',
-                club: i.club || '',
-                timestamp: i.timestamp,
-                isNew: true,
-                forfait: i.forfait
-              }));
-
-            // Mark ranked players who are inscribed or forfait AND auto-select them
-            rankedPlayers.forEach(p => {
-              const inscription = inscriptions.find(i =>
-                i.licence?.replace(/\s/g, '') === p.licence?.replace(/\s/g, '')
-              );
-              if (inscription) {
-                p.isInscribed = true;
-                p.forfait = inscription.forfait === 1;
-                // Auto-select inscribed players (not forfait)
-                if (!p.forfait) {
-                  p.selected = true;
+              // Mark finalists who have inscribed
+              rankedPlayers.forEach(p => {
+                const inscription = inscriptions.find(i =>
+                  i.licence?.replace(/\s/g, '') === p.licence?.replace(/\s/g, '')
+                );
+                if (inscription) {
+                  p.isInscribed = true;
+                  p.forfait = inscription.forfait === 1;
+                  // Auto-select inscribed finalists (not forfait)
+                  if (!p.forfait) {
+                    p.selected = true;
+                  }
                 }
-              }
-            });
+              });
+            } else {
+              // Regular tournament logic
+              // Find new players (inscribed but not in ranking)
+              const rankedLicences = new Set(rankedPlayers.map(p => p.licence.replace(/\s/g, '')));
 
-            // Auto-select all new players (they are all inscribed by definition)
-            newPlayers.forEach(p => {
-              p.selected = true;
-            });
+              newPlayers = inscriptions
+                .filter(i => !rankedLicences.has(i.licence?.replace(/\s/g, '')) && i.forfait !== 1)
+                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+                .map((i, index) => ({
+                  licence: i.licence,
+                  first_name: i.first_name || 'Inconnu',
+                  last_name: i.last_name || 'Inconnu',
+                  club: i.club || '',
+                  timestamp: i.timestamp,
+                  isNew: true,
+                  forfait: i.forfait
+                }));
+
+              // Mark ranked players who are inscribed or forfait AND auto-select them
+              rankedPlayers.forEach(p => {
+                const inscription = inscriptions.find(i =>
+                  i.licence?.replace(/\s/g, '') === p.licence?.replace(/\s/g, '')
+                );
+                if (inscription) {
+                  p.isInscribed = true;
+                  p.forfait = inscription.forfait === 1;
+                  // Auto-select inscribed players (not forfait)
+                  if (!p.forfait) {
+                    p.selected = true;
+                  }
+                }
+              });
+
+              // Auto-select all new players (they are all inscribed by definition)
+              newPlayers.forEach(p => {
+                p.selected = true;
+              });
+            }
           }
         } else {
           // No matching external tournament found - clear new players
@@ -1390,19 +1518,40 @@
     function renderPlayerLists() {
       const rankedList = document.getElementById('rankedPlayersList');
       const newList = document.getElementById('newPlayersList');
+      const rankedTitle = document.getElementById('rankedPlayersTitle');
+      const newPlayersTitle = document.getElementById('newPlayersTitle');
+      const newPlayersSection = newList.parentElement;
+
+      // Check if this is a finale
+      const isFinaleCompetition = isFinale || currentTournament === 'Finale' || currentTournament === '4';
+
+      // Update titles based on competition type
+      if (isFinaleCompetition) {
+        rankedTitle.textContent = `🏆 Finalistes qualifiés (${rankedPlayers.length} joueurs)`;
+        newPlayersTitle.style.display = 'none';
+        newList.style.display = 'none';
+      } else {
+        rankedTitle.textContent = 'Joueurs classés (du classement actuel)';
+        newPlayersTitle.style.display = 'block';
+        newList.style.display = 'block';
+      }
 
       if (rankedPlayers.length === 0) {
-        rankedList.innerHTML = '<p style="padding: 20px; color: #666; text-align: center;">Aucun classement disponible pour ce tournoi</p>';
+        rankedList.innerHTML = isFinaleCompetition
+          ? '<p style="padding: 20px; color: #666; text-align: center;">Aucun classement disponible - Impossible de déterminer les finalistes</p>'
+          : '<p style="padding: 20px; color: #666; text-align: center;">Aucun classement disponible pour ce tournoi</p>';
       } else {
         rankedList.innerHTML = rankedPlayers.map((p, index) => `
-          <div class="player-item ${p.selected ? 'selected' : ''} ${p.forfait ? 'forfait' : ''}"
-               data-licence="${p.licence}" data-type="ranked" data-index="${index}">
+          <div class="player-item ${p.selected ? 'selected' : ''} ${p.forfait ? 'forfait' : ''} ${!p.isInscribed && isFinaleCompetition ? 'not-inscribed' : ''}"
+               data-licence="${p.licence}" data-type="ranked" data-index="${index}"
+               style="${!p.isInscribed && isFinaleCompetition ? 'background: #fff3cd;' : ''}">
             <input type="checkbox" ${p.selected ? 'checked' : ''} ${p.forfait ? 'disabled' : ''}>
             <span class="player-rank">#${p.rank}</span>
             <span class="player-name">${p.last_name} ${p.first_name}</span>
             <span class="player-club">${p.club || ''}</span>
             <span class="player-licence">${p.licence}</span>
-            ${p.forfait ? '<span class="badge badge-forfait">Forfait</span>' : (p.isInscribed ? '<span class="badge badge-inscrit">Inscrit</span>' : '')}
+            ${p.isFinalist ? '<span class="badge" style="background: #ffc107; color: #333;">Finaliste</span>' : ''}
+            ${p.forfait ? '<span class="badge badge-forfait">Forfait</span>' : (p.isInscribed ? '<span class="badge badge-inscrit">Inscrit</span>' : (isFinaleCompetition ? '<span class="badge" style="background: #dc3545; color: white;">Non inscrit</span>' : ''))}
           </div>
         `).join('');
       }
@@ -1597,8 +1746,13 @@
 
       // Update summary
       document.getElementById('summaryCategory').textContent = currentCategory.display_name;
+      const isFinale = currentTournament === 'Finale' || currentTournament === '4' ||
+                       (window.selectedUpcomingTournament && window.selectedUpcomingTournament.isFinale);
       document.getElementById('summaryTournament').textContent =
-        currentTournament === '4' ? 'Finale Départementale' : `Tournoi ${currentTournament}`;
+        isFinale ? 'Finale Départementale' : `Tournoi ${currentTournament}`;
+
+      // Store isFinale globally for later use
+      window.currentCompetitionIsFinale = isFinale;
 
       // Add tournament date and lieu from external tournament
       if (matchingTournoi) {
@@ -1614,12 +1768,40 @@
 
       document.getElementById('summaryPlayers').textContent = selectedPlayers.length;
 
-      const config = getPouleConfig(selectedPlayers.length);
-      document.getElementById('summaryConfig').textContent = config.description;
-      document.getElementById('summaryTables').textContent = config.tables;
+      let poules;
+      let configDescription;
+      let tablesNeeded;
+
+      if (isFinale) {
+        // For finals: single poule with all players (no serpentine distribution)
+        poules = [{
+          number: 1,
+          size: selectedPlayers.length,
+          players: selectedPlayers.map((p, idx) => ({
+            ...p,
+            pouleRank: idx + 1
+          }))
+        }];
+        configDescription = `1 poule unique de ${selectedPlayers.length} joueurs (Finale)`;
+        tablesNeeded = 1;
+
+        // Update the poule preview title for finale
+        document.getElementById('poulePreviewTitle').innerHTML = 'Aperçu de la Poule Unique (Finale - Tous contre tous)';
+      } else {
+        // For regular tournaments: serpentine distribution
+        const config = getPouleConfig(selectedPlayers.length);
+        poules = distributeSerpentine(selectedPlayers, config.poules);
+        configDescription = config.description;
+        tablesNeeded = config.tables;
+
+        // Reset the poule preview title
+        document.getElementById('poulePreviewTitle').innerHTML = 'Aperçu des Poules (Distribution Serpentine)';
+      }
+
+      document.getElementById('summaryConfig').textContent = configDescription;
+      document.getElementById('summaryTables').textContent = tablesNeeded;
 
       // Generate poule preview
-      const poules = distributeSerpentine(selectedPlayers, config.poules);
       renderPoulePreview(poules);
 
       // Pre-select location from tournament file
@@ -1980,7 +2162,8 @@
             ].filter(Boolean),
             gameParams: currentGameParams,
             selectedDistance: selectedDistance,
-            mockRankingData: mockRankingData
+            mockRankingData: mockRankingData,
+            isFinale: isFinale
           })
         });
 
@@ -2322,7 +2505,8 @@
             specialNote: document.getElementById('specialNoteField').value.trim(),
             gameParams: lastGeneratedData.gameParams,
             selectedDistance: lastGeneratedData.selectedDistance,
-            mockRankingData: mockRankingData
+            mockRankingData: mockRankingData,
+            isFinale: window.currentCompetitionIsFinale || false
           })
         });
 
