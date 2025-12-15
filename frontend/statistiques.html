@@ -408,22 +408,6 @@
           </div>
         </div>
 
-        <!-- Player Wins by Mode -->
-        <div class="stats-section">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-            <h2 class="stats-section-title" style="margin-bottom: 0;">🏆 Victoires par Catégorie</h2>
-            <select id="winsCategorySelect" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 8px; background: white; font-size: 14px; min-width: 200px;">
-              <option value="">Sélectionner une catégorie...</option>
-            </select>
-          </div>
-          <div class="stats-card">
-            <div class="stats-card-header" id="winsCardHeader">Top 10 - Victoires</div>
-            <div class="stats-card-body" id="playerWinsTable">
-              <div class="empty-state">Sélectionnez une catégorie pour voir les statistiques</div>
-            </div>
-          </div>
-        </div>
-
         <!-- Best Moyenne by Category -->
         <div class="stats-section">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
@@ -607,10 +591,6 @@
     });
 
     // Category dropdown handlers
-    document.getElementById('winsCategorySelect').addEventListener('change', (e) => {
-      loadPlayerWins(e.target.value);
-    });
-
     document.getElementById('moyenneCategorySelect').addEventListener('change', (e) => {
       loadPlayerMoyenne(e.target.value);
     });
@@ -642,8 +622,7 @@
         if (response.ok) {
           const categories = await response.json();
 
-          // Populate all three dropdowns
-          const winsSelect = document.getElementById('winsCategorySelect');
+          // Populate dropdowns
           const moyenneSelect = document.getElementById('moyenneCategorySelect');
           const serieSelect = document.getElementById('serieCategorySelect');
 
@@ -651,12 +630,10 @@
             `<option value="${c.id}">${c.display_name}</option>`
           ).join('');
 
-          winsSelect.innerHTML = '<option value="">Sélectionner une catégorie...</option>' + options;
           moyenneSelect.innerHTML = '<option value="">Sélectionner une catégorie...</option>' + options;
           serieSelect.innerHTML = '<option value="">Sélectionner une catégorie...</option>' + options;
 
           // Reset tables
-          document.getElementById('playerWinsTable').innerHTML = '<div class="empty-state">Sélectionnez une catégorie pour voir les statistiques</div>';
           document.getElementById('playerMoyenneTable').innerHTML = '<div class="empty-state">Sélectionnez une catégorie pour voir les statistiques</div>';
           document.getElementById('playerSerieTable').innerHTML = '<div class="empty-state">Sélectionnez une catégorie pour voir les statistiques</div>';
         }
@@ -825,65 +802,6 @@
         }
       } catch (error) {
         console.error('Error loading active players:', error);
-      }
-    }
-
-    // Load player wins by category
-    async function loadPlayerWins(categoryId) {
-      const container = document.getElementById('playerWinsTable');
-      const header = document.getElementById('winsCardHeader');
-      const select = document.getElementById('winsCategorySelect');
-      const categoryName = select.options[select.selectedIndex]?.text || 'Victoires';
-
-      if (!categoryId) {
-        container.innerHTML = '<div class="empty-state">Sélectionnez une catégorie pour voir les statistiques</div>';
-        header.textContent = 'Top 10 - Victoires';
-        return;
-      }
-
-      // Update header immediately with selected category
-      header.textContent = `Top 10 - ${categoryName}`;
-      container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
-
-      try {
-        const response = await fetch(`${API_URL}/statistics/players/wins?season=${currentSeason}&category_id=${categoryId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.length === 0) {
-            container.innerHTML = '<div class="empty-state">Aucune donnée disponible pour cette catégorie</div>';
-            return;
-          }
-
-          container.innerHTML = `
-            <table class="ranking-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Joueur</th>
-                  <th>Club</th>
-                  <th>Victoires</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.map((player, i) => `
-                  <tr>
-                    <td>${createRankBadge(i + 1)}</td>
-                    <td class="player-name">${player.player_name}</td>
-                    <td class="player-club">${player.club || '-'}</td>
-                    <td class="stat-value">${player.wins}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-        }
-      } catch (error) {
-        console.error('Error loading player wins:', error);
-        container.innerHTML = '<div class="empty-state">Erreur de chargement</div>';
       }
     }
 

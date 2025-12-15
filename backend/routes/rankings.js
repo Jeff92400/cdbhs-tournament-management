@@ -52,46 +52,53 @@ router.get('/', authenticateToken, (req, res) => {
 
     // Use LEFT JOIN for players to include ranked players even if not in players table
     // Get player name from tournament_results as fallback
-    // Use club_aliases to resolve variant club names to canonical names
+    // Use subqueries for club_aliases and clubs to avoid duplicate rows from JOINs
     const query = `
-      SELECT
-        r.rank_position,
-        r.licence,
-        COALESCE(p.first_name, (SELECT MAX(tr.player_name) FROM tournament_results tr WHERE REPLACE(tr.licence, ' ', '') = r.licence)) as first_name,
-        COALESCE(p.last_name, '') as last_name,
-        COALESCE(ca.canonical_name, p.club, 'Non renseigné') as club,
-        r.total_match_points,
-        r.avg_moyenne,
-        r.best_serie,
-        r.tournament_1_points,
-        r.tournament_2_points,
-        r.tournament_3_points,
-        c.game_type,
-        c.level,
-        c.display_name,
-        clubs.logo_filename as club_logo,
-        COALESCE((SELECT SUM(tr.points) FROM tournament_results tr
-                  JOIN tournaments t ON tr.tournament_id = t.id
-                  WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
-                  AND t.category_id = r.category_id
-                  AND t.season = r.season
-                  AND t.tournament_number <= 3), 0) as cumulated_points,
-        COALESCE((SELECT SUM(tr.reprises) FROM tournament_results tr
-                  JOIN tournaments t ON tr.tournament_id = t.id
-                  WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
-                  AND t.category_id = r.category_id
-                  AND t.season = r.season
-                  AND t.tournament_number <= 3), 0) as cumulated_reprises,
-        CASE WHEN p.licence IS NULL THEN 1 ELSE 0 END as missing_from_players
-      FROM rankings r
-      LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-      JOIN categories c ON r.category_id = c.id
-      LEFT JOIN club_aliases ca ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, ''), ' ', ''), '.', ''), '-', ''))
-                                 = UPPER(REPLACE(REPLACE(REPLACE(ca.alias, ' ', ''), '.', ''), '-', ''))
-      LEFT JOIN clubs ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(ca.canonical_name, p.club, ''), ' ', ''), '.', ''), '-', ''))
-                       = UPPER(REPLACE(REPLACE(REPLACE(clubs.name, ' ', ''), '.', ''), '-', ''))
-      WHERE r.category_id = ? AND r.season = ?
-      ORDER BY r.rank_position
+      SELECT * FROM (
+        SELECT DISTINCT ON (r.licence)
+          r.rank_position,
+          r.licence,
+          COALESCE(p.first_name, (SELECT MAX(tr.player_name) FROM tournament_results tr WHERE REPLACE(tr.licence, ' ', '') = r.licence)) as first_name,
+          COALESCE(p.last_name, '') as last_name,
+          COALESCE(
+            (SELECT canonical_name FROM club_aliases WHERE UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', ''))
+             = UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, ''), ' ', ''), '.', ''), '-', '')) LIMIT 1),
+            p.club, 'Non renseigné'
+          ) as club,
+          r.total_match_points,
+          r.avg_moyenne,
+          r.best_serie,
+          r.tournament_1_points,
+          r.tournament_2_points,
+          r.tournament_3_points,
+          c.game_type,
+          c.level,
+          c.display_name,
+          (SELECT logo_filename FROM clubs WHERE UPPER(REPLACE(REPLACE(REPLACE(name, ' ', ''), '.', ''), '-', ''))
+           = UPPER(REPLACE(REPLACE(REPLACE(COALESCE(
+             (SELECT canonical_name FROM club_aliases WHERE UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', ''))
+              = UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, ''), ' ', ''), '.', ''), '-', '')) LIMIT 1),
+             p.club, ''), ' ', ''), '.', ''), '-', '')) LIMIT 1) as club_logo,
+          COALESCE((SELECT SUM(tr.points) FROM tournament_results tr
+                    JOIN tournaments t ON tr.tournament_id = t.id
+                    WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
+                    AND t.category_id = r.category_id
+                    AND t.season = r.season
+                    AND t.tournament_number <= 3), 0) as cumulated_points,
+          COALESCE((SELECT SUM(tr.reprises) FROM tournament_results tr
+                    JOIN tournaments t ON tr.tournament_id = t.id
+                    WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
+                    AND t.category_id = r.category_id
+                    AND t.season = r.season
+                    AND t.tournament_number <= 3), 0) as cumulated_reprises,
+          CASE WHEN p.licence IS NULL THEN 1 ELSE 0 END as missing_from_players
+        FROM rankings r
+        LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+        JOIN categories c ON r.category_id = c.id
+        WHERE r.category_id = ? AND r.season = ?
+        ORDER BY r.licence, r.rank_position
+      ) sub
+      ORDER BY rank_position
     `;
 
     db.all(query, [categoryId, season], (err, rows) => {
@@ -145,45 +152,52 @@ router.get('/export', authenticateToken, async (req, res) => {
   };
 
   // Use LEFT JOIN for players to include ranked players even if not in players table
-  // Use club_aliases to resolve variant club names to canonical names
+  // Use subqueries for club_aliases and clubs to avoid duplicate rows from JOINs
   const query = `
-    SELECT
-      r.rank_position,
-      r.licence,
-      COALESCE(p.first_name, (SELECT MAX(tr.player_name) FROM tournament_results tr WHERE REPLACE(tr.licence, ' ', '') = r.licence)) as first_name,
-      COALESCE(p.last_name, '') as last_name,
-      COALESCE(ca.canonical_name, p.club, 'Non renseigné') as club,
-      r.total_match_points,
-      r.avg_moyenne,
-      r.best_serie,
-      r.tournament_1_points,
-      r.tournament_2_points,
-      r.tournament_3_points,
-      c.game_type,
-      c.level,
-      c.display_name,
-      clubs.logo_filename as club_logo,
-      COALESCE((SELECT SUM(tr.points) FROM tournament_results tr
-                JOIN tournaments t ON tr.tournament_id = t.id
-                WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
-                AND t.category_id = r.category_id
-                AND t.season = r.season
-                AND t.tournament_number <= 3), 0) as cumulated_points,
-      COALESCE((SELECT SUM(tr.reprises) FROM tournament_results tr
-                JOIN tournaments t ON tr.tournament_id = t.id
-                WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
-                AND t.category_id = r.category_id
-                AND t.season = r.season
-                AND t.tournament_number <= 3), 0) as cumulated_reprises
-    FROM rankings r
-    LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-    JOIN categories c ON r.category_id = c.id
-    LEFT JOIN club_aliases ca ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, ''), ' ', ''), '.', ''), '-', ''))
-                               = UPPER(REPLACE(REPLACE(REPLACE(ca.alias, ' ', ''), '.', ''), '-', ''))
-    LEFT JOIN clubs ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(ca.canonical_name, p.club, ''), ' ', ''), '.', ''), '-', ''))
-                     = UPPER(REPLACE(REPLACE(REPLACE(clubs.name, ' ', ''), '.', ''), '-', ''))
-    WHERE r.category_id = ? AND r.season = ?
-    ORDER BY r.rank_position
+    SELECT * FROM (
+      SELECT DISTINCT ON (r.licence)
+        r.rank_position,
+        r.licence,
+        COALESCE(p.first_name, (SELECT MAX(tr.player_name) FROM tournament_results tr WHERE REPLACE(tr.licence, ' ', '') = r.licence)) as first_name,
+        COALESCE(p.last_name, '') as last_name,
+        COALESCE(
+          (SELECT canonical_name FROM club_aliases WHERE UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', ''))
+           = UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, ''), ' ', ''), '.', ''), '-', '')) LIMIT 1),
+          p.club, 'Non renseigné'
+        ) as club,
+        r.total_match_points,
+        r.avg_moyenne,
+        r.best_serie,
+        r.tournament_1_points,
+        r.tournament_2_points,
+        r.tournament_3_points,
+        c.game_type,
+        c.level,
+        c.display_name,
+        (SELECT logo_filename FROM clubs WHERE UPPER(REPLACE(REPLACE(REPLACE(name, ' ', ''), '.', ''), '-', ''))
+         = UPPER(REPLACE(REPLACE(REPLACE(COALESCE(
+           (SELECT canonical_name FROM club_aliases WHERE UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', ''))
+            = UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, ''), ' ', ''), '.', ''), '-', '')) LIMIT 1),
+           p.club, ''), ' ', ''), '.', ''), '-', '')) LIMIT 1) as club_logo,
+        COALESCE((SELECT SUM(tr.points) FROM tournament_results tr
+                  JOIN tournaments t ON tr.tournament_id = t.id
+                  WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
+                  AND t.category_id = r.category_id
+                  AND t.season = r.season
+                  AND t.tournament_number <= 3), 0) as cumulated_points,
+        COALESCE((SELECT SUM(tr.reprises) FROM tournament_results tr
+                  JOIN tournaments t ON tr.tournament_id = t.id
+                  WHERE REPLACE(tr.licence, ' ', '') = REPLACE(r.licence, ' ', '')
+                  AND t.category_id = r.category_id
+                  AND t.season = r.season
+                  AND t.tournament_number <= 3), 0) as cumulated_reprises
+      FROM rankings r
+      LEFT JOIN players p ON REPLACE(r.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+      JOIN categories c ON r.category_id = c.id
+      WHERE r.category_id = ? AND r.season = ?
+      ORDER BY r.licence, r.rank_position
+    ) sub
+    ORDER BY rank_position
   `;
 
   db.all(query, [categoryId, season], async (err, rows) => {
