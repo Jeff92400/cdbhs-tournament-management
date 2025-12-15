@@ -233,7 +233,7 @@ router.get('/players/active', authenticateToken, async (req, res) => {
     JOIN categories c ON t.category_id = c.id
     LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     WHERE t.season = $1
-    GROUP BY tr.licence, player_name, p.club
+    GROUP BY tr.licence, COALESCE(p.first_name || ' ' || p.last_name, tr.player_name), p.club
     ORDER BY tournaments_played DESC
     LIMIT $2
   `;
@@ -265,7 +265,7 @@ router.get('/players/wins', authenticateToken, async (req, res) => {
     JOIN categories c ON t.category_id = c.id
     LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     WHERE t.season = $1 AND tr.position = 1
-    GROUP BY tr.licence, player_name, p.club, c.game_type
+    GROUP BY tr.licence, COALESCE(p.first_name || ' ' || p.last_name, tr.player_name), p.club, c.game_type
     ORDER BY c.game_type, wins DESC
   `;
 
@@ -315,7 +315,7 @@ router.get('/players/moyenne', authenticateToken, async (req, res) => {
     JOIN categories c ON t.category_id = c.id
     LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     WHERE t.season = $1 AND tr.moyenne > 0
-    GROUP BY tr.licence, player_name, p.club, c.game_type
+    GROUP BY tr.licence, COALESCE(p.first_name || ' ' || p.last_name, tr.player_name), p.club, c.game_type
     HAVING COUNT(*) >= 2
     ORDER BY c.game_type, avg_moyenne DESC
   `;
@@ -369,7 +369,7 @@ router.get('/players/serie', authenticateToken, async (req, res) => {
     JOIN categories c ON t.category_id = c.id
     LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     WHERE t.season = $1 AND tr.serie > 0
-    GROUP BY tr.licence, player_name, p.club, c.game_type, c.level, t.tournament_number, t.tournament_date
+    GROUP BY tr.licence, COALESCE(p.first_name || ' ' || p.last_name, tr.player_name), p.club, c.game_type, c.level, t.tournament_number, t.tournament_date
     ORDER BY c.game_type, best_serie DESC
   `;
 
@@ -425,7 +425,7 @@ router.get('/players/consistent', authenticateToken, async (req, res) => {
     JOIN categories c ON t.category_id = c.id
     LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     WHERE t.season = $1
-    GROUP BY tr.licence, player_name, p.club, c.id, c.display_name, c.game_type
+    GROUP BY tr.licence, COALESCE(p.first_name || ' ' || p.last_name, tr.player_name), p.club, c.id, c.display_name, c.game_type
     HAVING COUNT(DISTINCT t.tournament_number) = 3
     ORDER BY avg_position ASC
   `;
@@ -663,7 +663,7 @@ router.get('/players/new', authenticateToken, async (req, res) => {
     JOIN first_appearance fa ON tr.licence = fa.licence
     LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     WHERE t.season = $1 AND fa.first_season = $1
-    GROUP BY tr.licence, player_name, p.club
+    GROUP BY tr.licence, COALESCE(p.first_name || ' ' || p.last_name, tr.player_name), p.club
     ORDER BY tournaments_played DESC
     LIMIT 20
   `;

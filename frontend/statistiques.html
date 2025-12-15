@@ -489,18 +489,6 @@
           </div>
         </div>
 
-        <!-- Veterans -->
-        <div class="stats-section">
-          <h2 class="stats-section-title">🏛️ Vétérans (Toutes Saisons)</h2>
-          <div class="stats-card">
-            <div class="stats-card-header">Joueurs avec le plus de saisons jouées</div>
-            <div class="stats-card-body" id="veteransTable">
-              <div class="loading">
-                <div class="loading-spinner"></div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -609,7 +597,6 @@
       loadNewPlayers();
       loadParticipation();
       loadCategories();
-      loadVeterans();
     }
 
     // Load summary
@@ -1106,52 +1093,6 @@
         }
       } catch (error) {
         console.error('Error loading categories:', error);
-      }
-    }
-
-    // Load veterans
-    async function loadVeterans() {
-      const container = document.getElementById('veteransTable');
-      try {
-        const response = await fetch(`${API_URL}/statistics/players/veterans`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.length === 0) {
-            container.innerHTML = '<div class="empty-state">Aucune donnée disponible</div>';
-            return;
-          }
-
-          container.innerHTML = `
-            <table class="ranking-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Joueur</th>
-                  <th>Club</th>
-                  <th>Saisons</th>
-                  <th>Période</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.map((player, i) => `
-                  <tr>
-                    <td>${createRankBadge(i + 1)}</td>
-                    <td class="player-name">${player.player_name}</td>
-                    <td class="player-club">${player.club || '-'}</td>
-                    <td class="stat-value">${player.seasons_played}</td>
-                    <td>${player.first_season} - ${player.last_season}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-        }
-      } catch (error) {
-        console.error('Error loading veterans:', error);
       }
     }
 
