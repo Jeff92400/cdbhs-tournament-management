@@ -180,8 +180,9 @@
           document.getElementById('activePlayerCount').textContent = activePlayers.length;
         }
 
-        // Load tournaments (played)
-        const tournamentsResponse = await fetch(`${API_URL}/tournaments`, {
+        // Load tournaments (played) for current season
+        const currentSeasonForTournaments = getSeasonForDate(new Date());
+        const tournamentsResponse = await fetch(`${API_URL}/tournaments?season=${currentSeasonForTournaments}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
