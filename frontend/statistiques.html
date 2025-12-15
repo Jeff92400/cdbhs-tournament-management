@@ -440,19 +440,6 @@
           </div>
         </div>
 
-        <!-- Consistent Players -->
-        <div class="stats-section">
-          <h2 class="stats-section-title">🎯 Joueurs Assidus (3 tournois dans une catégorie)</h2>
-          <div class="stats-card">
-            <div class="stats-card-header">Joueurs ayant participé aux 3 tournois</div>
-            <div class="stats-card-body" id="consistentPlayersTable">
-              <div class="loading">
-                <div class="loading-spinner"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- New Players -->
         <div class="stats-section">
           <h2 class="stats-section-title">🌟 Nouveaux Joueurs cette Saison</h2>
@@ -606,7 +593,6 @@
       loadActiveClubs();
       loadActivePlayers();
       loadStatCategories(); // Load categories for dropdowns (wins, moyenne, serie)
-      loadConsistentPlayers();
       loadNewPlayers();
       loadParticipation();
       loadCategories();
@@ -924,50 +910,6 @@
       } catch (error) {
         console.error('Error loading player serie:', error);
         container.innerHTML = '<div class="empty-state">Erreur de chargement</div>';
-      }
-    }
-
-    // Load consistent players
-    async function loadConsistentPlayers() {
-      const container = document.getElementById('consistentPlayersTable');
-      try {
-        const response = await fetch(`${API_URL}/statistics/players/consistent?season=${currentSeason}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.length === 0) {
-            container.innerHTML = '<div class="empty-state">Aucun joueur n\'a encore participé aux 3 tournois d\'une catégorie</div>';
-            return;
-          }
-
-          container.innerHTML = `
-            <table class="ranking-table">
-              <thead>
-                <tr>
-                  <th>Joueur</th>
-                  <th>Club</th>
-                  <th>Catégorie</th>
-                  <th>Pos. Moy.</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${data.slice(0, 20).map(player => `
-                  <tr>
-                    <td class="player-name">${player.player_name}</td>
-                    <td class="player-club">${player.club || '-'}</td>
-                    <td>${player.category}</td>
-                    <td class="stat-value">${player.avg_position.toFixed(1)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-        }
-      } catch (error) {
-        console.error('Error loading consistent players:', error);
       }
     }
 
