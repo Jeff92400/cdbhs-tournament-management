@@ -805,8 +805,7 @@
                   <th>#</th>
                   <th>Joueur</th>
                   <th>Club</th>
-                  <th>Tournois</th>
-                  <th>Catégories</th>
+                  <th>Compétitions</th>
                   <th>Modes</th>
                 </tr>
               </thead>
@@ -816,8 +815,7 @@
                     <td>${createRankBadge(i + 1)}</td>
                     <td class="player-name">${player.player_name}</td>
                     <td class="player-club">${player.club || '-'}</td>
-                    <td class="stat-value">${player.tournaments_played}</td>
-                    <td>${player.category_participations}</td>
+                    <td class="stat-value">${player.competitions}</td>
                     <td>${player.game_types_played}</td>
                   </tr>
                 `).join('')}
