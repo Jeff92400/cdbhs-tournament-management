@@ -832,6 +832,8 @@
     async function loadPlayerWins(categoryId) {
       const container = document.getElementById('playerWinsTable');
       const header = document.getElementById('winsCardHeader');
+      const select = document.getElementById('winsCategorySelect');
+      const categoryName = select.options[select.selectedIndex]?.text || 'Victoires';
 
       if (!categoryId) {
         container.innerHTML = '<div class="empty-state">Sélectionnez une catégorie pour voir les statistiques</div>';
@@ -839,6 +841,8 @@
         return;
       }
 
+      // Update header immediately with selected category
+      header.textContent = `Top 10 - ${categoryName}`;
       container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
 
       try {
@@ -853,9 +857,6 @@
             container.innerHTML = '<div class="empty-state">Aucune donnée disponible pour cette catégorie</div>';
             return;
           }
-
-          // Update header with category name
-          header.textContent = `Top 10 - ${data[0].category}`;
 
           container.innerHTML = `
             <table class="ranking-table">
