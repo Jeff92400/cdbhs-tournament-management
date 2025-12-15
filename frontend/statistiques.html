@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Statistiques - CDBHS</title>
+  <link rel="icon" type="image/png" href="images/billiard-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1F4788;
+      margin: 0;
+    }
+
+    .season-filter {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .season-filter label {
+      font-weight: 600;
+      color: #666;
+    }
+
+    .season-filter select {
+      padding: 8px 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: white;
+      font-size: 14px;
+      min-width: 150px;
+    }
+
+    /* Summary Cards */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .summary-card {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .summary-card-icon {
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+
+    .summary-card-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1F4788;
+    }
+
+    .summary-card-label {
+      font-size: 13px;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    /* Tabs */
+    .stats-tabs {
+      display: flex;
+      gap: 5px;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 30px;
+      overflow-x: auto;
+    }
+
+    .stats-tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .stats-tab:hover {
+      color: #1F4788;
+    }
+
+    .stats-tab.active {
+      color: #1F4788;
+      border-bottom-color: #1F4788;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Stats Sections */
+    .stats-section {
+      margin-bottom: 30px;
+    }
+
+    .stats-section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 20px;
+    }
+
+    .stats-card {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .stats-card-header {
+      background: linear-gradient(135deg, #1F4788 0%, #3B5998 100%);
+      color: white;
+      padding: 12px 20px;
+      font-weight: 600;
+    }
+
+    .stats-card-header.libre {
+      background: linear-gradient(135deg, #1F4788 0%, #3B5998 100%);
+    }
+
+    .stats-card-header.bande {
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+
+    .stats-card-header.trois-bandes {
+      background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+    }
+
+    .stats-card-header.cadre {
+      background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+    }
+
+    .stats-card-body {
+      padding: 15px;
+    }
+
+    /* Ranking Table */
+    .ranking-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .ranking-table th,
+    .ranking-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    .ranking-table th {
+      font-weight: 600;
+      color: #666;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .ranking-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .ranking-table tr:hover {
+      background: #f8f9fa;
+    }
+
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .rank-other {
+      background: #f0f0f0;
+      color: #666;
+    }
+
+    .medal {
+      font-size: 18px;
+    }
+
+    .player-name {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .player-club {
+      font-size: 11px;
+      color: #888;
+    }
+
+    .stat-value {
+      font-weight: 700;
+      color: #1F4788;
+    }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e0e0e0;
+      border-top-color: #1F4788;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="navbar">
+      <h2><img src="images/billiard-icon.png" alt="CDBHS" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none';"> CDBHS Tournois</h2>
+      <div class="nav-links">
+        <a href="dashboard.html">Accueil</a>
+
+        <div class="nav-dropdown admin-only">
+          <button class="nav-dropdown-btn">Fichiers</button>
+          <div class="nav-dropdown-content">
+            <a href="players-list.html"><span class="nav-icon">👥</span> Joueurs</a>
+            <a href="tournaments-list.html"><span class="nav-icon">🏆</span> Tournois joués</a>
+            <a href="tournois-list.html"><span class="nav-icon">📋</span> Tournois (IONOS)</a>
+            <a href="inscriptions-list.html"><span class="nav-icon">📝</span> Inscriptions (IONOS)</a>
+            <a href="clubs.html"><span class="nav-icon">🏢</span> Clubs</a>
+            <div class="nav-divider admin-only"></div>
+            <a href="import-external.html" class="admin-only"><span class="nav-icon">📤</span> Import Compétitions</a>
+            <a href="import-players.html" class="admin-only"><span class="nav-icon">📥</span> Import Joueurs</a>
+            <a href="import-tournament.html" class="admin-only"><span class="nav-icon">📤</span> Import Tournoi</a>
+          </div>
+        </div>
+
+        <a href="rankings.html">Classements</a>
+        <a href="statistiques.html" class="active">Statistiques</a>
+        <a href="tournaments-list.html">Tournois joués</a>
+        <a href="generate-poules.html">Compétitions à jouer</a>
+        <a href="emailing.html">Emailing</a>
+
+        <div class="nav-dropdown admin-only">
+          <button class="nav-dropdown-btn">Paramètres</button>
+          <div class="nav-dropdown-content">
+            <a href="settings.html"><span class="nav-icon">⚙️</span> Configuration</a>
+            <a href="calendar.html"><span class="nav-icon">📅</span> Calendrier</a>
+          </div>
+        </div>
+
+        <a href="#" id="logoutBtn" class="nav-logout">Déconnexion</a>
+      </div>
+    </div>
+
+    <div id="errorMessage" class="error" style="display: none;"></div>
+
+    <div class="card">
+      <!-- Page Header -->
+      <div class="page-header">
+        <h3 class="page-title">📈 Statistiques</h3>
+        <div class="season-filter">
+          <label for="seasonSelect">Saison :</label>
+          <select id="seasonSelect">
+            <option value="">Chargement...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="summary-cards" id="summaryCards">
+        <div class="summary-card">
+          <div class="summary-card-icon">🏆</div>
+          <div class="summary-card-value" id="totalTournaments">-</div>
+          <div class="summary-card-label">Tournois joués</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-icon">👥</div>
+          <div class="summary-card-value" id="totalPlayers">-</div>
+          <div class="summary-card-label">Joueurs uniques</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-icon">🎯</div>
+          <div class="summary-card-value" id="totalParticipations">-</div>
+          <div class="summary-card-label">Participations totales</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-card-icon">🏢</div>
+          <div class="summary-card-value" id="totalClubs">-</div>
+          <div class="summary-card-label">Clubs représentés</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="stats-tabs">
+        <button class="stats-tab active" data-tab="clubs">🏢 Clubs</button>
+        <button class="stats-tab" data-tab="players">👤 Joueurs</button>
+        <button class="stats-tab" data-tab="general">📊 Général</button>
+      </div>
+
+      <!-- Tab: Clubs -->
+      <div class="tab-content active" id="tab-clubs">
+        <!-- Club Podiums by Mode -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">🏅 Podiums par Club et Mode de Jeu</h2>
+          <div class="stats-grid" id="clubPodiumsGrid">
+            <div class="loading">
+              <div class="loading-spinner"></div>
+              <p>Chargement des statistiques...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Most Active Clubs -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">🔥 Clubs les Plus Actifs</h2>
+          <div class="stats-card">
+            <div class="stats-card-header">Participations aux tournois</div>
+            <div class="stats-card-body" id="activeClubsTable">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Players -->
+      <div class="tab-content" id="tab-players">
+        <!-- Most Active Players -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">🔥 Joueurs les Plus Actifs</h2>
+          <div class="stats-card">
+            <div class="stats-card-header">Top 10 - Nombre de tournois joués</div>
+            <div class="stats-card-body" id="activePlayersTable">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Player Wins by Mode -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">🏆 Victoires par Mode de Jeu</h2>
+          <div class="stats-grid" id="playerWinsGrid">
+            <div class="loading">
+              <div class="loading-spinner"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Best Moyenne by Mode -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">📊 Meilleures Moyennes par Mode</h2>
+          <div class="stats-grid" id="playerMoyenneGrid">
+            <div class="loading">
+              <div class="loading-spinner"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Best Serie by Mode -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">⚡ Meilleures Séries par Mode</h2>
+          <div class="stats-grid" id="playerSerieGrid">
+            <div class="loading">
+              <div class="loading-spinner"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Consistent Players -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">🎯 Joueurs Assidus (3 tournois dans une catégorie)</h2>
+          <div class="stats-card">
+            <div class="stats-card-header">Joueurs ayant participé aux 3 tournois</div>
+            <div class="stats-card-body" id="consistentPlayersTable">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- New Players -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">🌟 Nouveaux Joueurs cette Saison</h2>
+          <div class="stats-card">
+            <div class="stats-card-header">Première participation en compétition</div>
+            <div class="stats-card-body" id="newPlayersTable">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: General -->
+      <div class="tab-content" id="tab-general">
+        <!-- Participation Rate -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">📈 Taux de Participation par Mode</h2>
+          <div class="stats-card">
+            <div class="stats-card-header">Inscriptions vs Forfaits</div>
+            <div class="stats-card-body" id="participationTable">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Categories -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">📋 Participation par Catégorie</h2>
+          <div class="stats-card">
+            <div class="stats-card-header">Nombre de joueurs par catégorie</div>
+            <div class="stats-card-body" id="categoriesTable">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Veterans -->
+        <div class="stats-section">
+          <h2 class="stats-section-title">🏛️ Vétérans (Toutes Saisons)</h2>
+          <div class="stats-card">
+            <div class="stats-card-header">Joueurs avec le plus de saisons jouées</div>
+            <div class="stats-card-body" id="veteransTable">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = '/api';
+    let currentSeason = '';
+
+    // Authentication
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    const userRole = localStorage.getItem('userRole');
+    if (userRole === 'admin') {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+    } else {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('username');
+      window.location.href = 'login.html';
+    });
+
+    // Tab management
+    document.querySelectorAll('.stats-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.stats-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // Helper: Get mode header class
+    function getModeClass(mode) {
+      const m = (mode || '').toUpperCase();
+      if (m === 'LIBRE') return 'libre';
+      if (m === 'BANDE') return 'bande';
+      if (m === '3BANDES' || m === '3 BANDES') return 'trois-bandes';
+      if (m === 'CADRE') return 'cadre';
+      return '';
+    }
+
+    // Helper: Get mode display name
+    function getModeDisplayName(mode) {
+      const m = (mode || '').toUpperCase();
+      if (m === 'LIBRE') return 'Libre';
+      if (m === 'BANDE') return 'Bande';
+      if (m === '3BANDES' || m === '3 BANDES') return '3 Bandes';
+      if (m === 'CADRE') return 'Cadre';
+      return mode;
+    }
+
+    // Helper: Create ranking badge
+    function createRankBadge(rank) {
+      const badges = ['🥇', '🥈', '🥉'];
+      if (rank <= 3) {
+        return `<span class="medal">${badges[rank - 1]}</span>`;
+      }
+      return `<span class="rank-badge rank-other">${rank}</span>`;
+    }
+
+    // Load seasons
+    async function loadSeasons() {
+      try {
+        const response = await fetch(`${API_URL}/statistics/seasons`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const seasons = await response.json();
+          const select = document.getElementById('seasonSelect');
+          select.innerHTML = seasons.map((s, i) =>
+            `<option value="${s}" ${i === 0 ? 'selected' : ''}>${s}</option>`
+          ).join('');
+          currentSeason = seasons[0] || '';
+          loadAllStats();
+        }
+      } catch (error) {
+        console.error('Error loading seasons:', error);
+      }
+    }
+
+    // Season change handler
+    document.getElementById('seasonSelect').addEventListener('change', (e) => {
+      currentSeason = e.target.value;
+      loadAllStats();
+    });
+
+    // Load all statistics
+    async function loadAllStats() {
+      loadSummary();
+      loadClubPodiums();
+      loadActiveClubs();
+      loadActivePlayers();
+      loadPlayerWins();
+      loadPlayerMoyenne();
+      loadPlayerSerie();
+      loadConsistentPlayers();
+      loadNewPlayers();
+      loadParticipation();
+      loadCategories();
+      loadVeterans();
+    }
+
+    // Load summary
+    async function loadSummary() {
+      try {
+        const response = await fetch(`${API_URL}/statistics/summary?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('totalTournaments').textContent = data.totalTournaments || 0;
+          document.getElementById('totalPlayers').textContent = data.totalPlayers || 0;
+          document.getElementById('totalParticipations').textContent = data.totalParticipations || 0;
+          document.getElementById('totalClubs').textContent = data.totalClubs || 0;
+        }
+      } catch (error) {
+        console.error('Error loading summary:', error);
+      }
+    }
+
+    // Load club podiums
+    async function loadClubPodiums() {
+      const container = document.getElementById('clubPodiumsGrid');
+      try {
+        const response = await fetch(`${API_URL}/statistics/clubs/podiums?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const modes = Object.keys(data);
+
+          if (modes.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><p>Aucune donnée disponible pour cette saison</p></div>';
+            return;
+          }
+
+          container.innerHTML = modes.map(mode => `
+            <div class="stats-card">
+              <div class="stats-card-header ${getModeClass(mode)}">${getModeDisplayName(mode)}</div>
+              <div class="stats-card-body">
+                <table class="ranking-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Club</th>
+                      <th>🥇</th>
+                      <th>🥈</th>
+                      <th>🥉</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${data[mode].slice(0, 5).map((club, i) => `
+                      <tr>
+                        <td>${createRankBadge(i + 1)}</td>
+                        <td class="player-name">${club.club}</td>
+                        <td class="stat-value">${club.gold}</td>
+                        <td>${club.silver}</td>
+                        <td>${club.bronze}</td>
+                        <td class="stat-value">${club.podiums}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Error loading club podiums:', error);
+        container.innerHTML = '<div class="empty-state"><p>Erreur de chargement</p></div>';
+      }
+    }
+
+    // Load active clubs
+    async function loadActiveClubs() {
+      const container = document.getElementById('activeClubsTable');
+      try {
+        const response = await fetch(`${API_URL}/statistics/clubs/participations?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.length === 0) {
+            container.innerHTML = '<div class="empty-state">Aucune donnée disponible</div>';
+            return;
+          }
+
+          container.innerHTML = `
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Club</th>
+                  <th>Joueurs</th>
+                  <th>Participations</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.map((club, i) => `
+                  <tr>
+                    <td>${createRankBadge(i + 1)}</td>
+                    <td class="player-name">${club.club}</td>
+                    <td>${club.unique_players}</td>
+                    <td class="stat-value">${club.total_participations}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading active clubs:', error);
+      }
+    }
+
+    // Load active players
+    async function loadActivePlayers() {
+      const container = document.getElementById('activePlayersTable');
+      try {
+        const response = await fetch(`${API_URL}/statistics/players/active?season=${currentSeason}&limit=10`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.length === 0) {
+            container.innerHTML = '<div class="empty-state">Aucune donnée disponible</div>';
+            return;
+          }
+
+          container.innerHTML = `
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Joueur</th>
+                  <th>Club</th>
+                  <th>Tournois</th>
+                  <th>Modes</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.map((player, i) => `
+                  <tr>
+                    <td>${createRankBadge(i + 1)}</td>
+                    <td class="player-name">${player.player_name}</td>
+                    <td class="player-club">${player.club || '-'}</td>
+                    <td class="stat-value">${player.tournaments_played}</td>
+                    <td>${player.game_types_played}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading active players:', error);
+      }
+    }
+
+    // Load player wins
+    async function loadPlayerWins() {
+      const container = document.getElementById('playerWinsGrid');
+      try {
+        const response = await fetch(`${API_URL}/statistics/players/wins?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const modes = Object.keys(data);
+
+          if (modes.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏆</div><p>Aucune donnée disponible</p></div>';
+            return;
+          }
+
+          container.innerHTML = modes.map(mode => `
+            <div class="stats-card">
+              <div class="stats-card-header ${getModeClass(mode)}">${getModeDisplayName(mode)}</div>
+              <div class="stats-card-body">
+                <table class="ranking-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Joueur</th>
+                      <th>Club</th>
+                      <th>Victoires</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${data[mode].map((player, i) => `
+                      <tr>
+                        <td>${createRankBadge(i + 1)}</td>
+                        <td class="player-name">${player.player_name}</td>
+                        <td class="player-club">${player.club || '-'}</td>
+                        <td class="stat-value">${player.wins}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Error loading player wins:', error);
+      }
+    }
+
+    // Load player moyenne
+    async function loadPlayerMoyenne() {
+      const container = document.getElementById('playerMoyenneGrid');
+      try {
+        const response = await fetch(`${API_URL}/statistics/players/moyenne?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const modes = Object.keys(data);
+
+          if (modes.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><p>Aucune donnée disponible</p></div>';
+            return;
+          }
+
+          container.innerHTML = modes.map(mode => `
+            <div class="stats-card">
+              <div class="stats-card-header ${getModeClass(mode)}">${getModeDisplayName(mode)}</div>
+              <div class="stats-card-body">
+                <table class="ranking-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Joueur</th>
+                      <th>Moy.</th>
+                      <th>Best</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${data[mode].map((player, i) => `
+                      <tr>
+                        <td>${createRankBadge(i + 1)}</td>
+                        <td>
+                          <div class="player-name">${player.player_name}</div>
+                          <div class="player-club">${player.club || '-'}</div>
+                        </td>
+                        <td class="stat-value">${player.avg_moyenne}</td>
+                        <td>${player.best_moyenne}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Error loading player moyenne:', error);
+      }
+    }
+
+    // Load player serie
+    async function loadPlayerSerie() {
+      const container = document.getElementById('playerSerieGrid');
+      try {
+        const response = await fetch(`${API_URL}/statistics/players/serie?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const modes = Object.keys(data);
+
+          if (modes.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚡</div><p>Aucune donnée disponible</p></div>';
+            return;
+          }
+
+          container.innerHTML = modes.map(mode => `
+            <div class="stats-card">
+              <div class="stats-card-header ${getModeClass(mode)}">${getModeDisplayName(mode)}</div>
+              <div class="stats-card-body">
+                <table class="ranking-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Joueur</th>
+                      <th>Série</th>
+                      <th>Cat.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${data[mode].map((player, i) => `
+                      <tr>
+                        <td>${createRankBadge(i + 1)}</td>
+                        <td>
+                          <div class="player-name">${player.player_name}</div>
+                          <div class="player-club">${player.club || '-'}</div>
+                        </td>
+                        <td class="stat-value">${player.best_serie}</td>
+                        <td>${player.category} ${player.tournament}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Error loading player serie:', error);
+      }
+    }
+
+    // Load consistent players
+    async function loadConsistentPlayers() {
+      const container = document.getElementById('consistentPlayersTable');
+      try {
+        const response = await fetch(`${API_URL}/statistics/players/consistent?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.length === 0) {
+            container.innerHTML = '<div class="empty-state">Aucun joueur n\'a encore participé aux 3 tournois d\'une catégorie</div>';
+            return;
+          }
+
+          container.innerHTML = `
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>Joueur</th>
+                  <th>Club</th>
+                  <th>Catégorie</th>
+                  <th>Pos. Moy.</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.slice(0, 20).map(player => `
+                  <tr>
+                    <td class="player-name">${player.player_name}</td>
+                    <td class="player-club">${player.club || '-'}</td>
+                    <td>${player.category}</td>
+                    <td class="stat-value">${player.avg_position.toFixed(1)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading consistent players:', error);
+      }
+    }
+
+    // Load new players
+    async function loadNewPlayers() {
+      const container = document.getElementById('newPlayersTable');
+      try {
+        const response = await fetch(`${API_URL}/statistics/players/new?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.length === 0) {
+            container.innerHTML = '<div class="empty-state">Aucun nouveau joueur cette saison</div>';
+            return;
+          }
+
+          container.innerHTML = `
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>Joueur</th>
+                  <th>Club</th>
+                  <th>Tournois joués</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.map(player => `
+                  <tr>
+                    <td class="player-name">${player.player_name}</td>
+                    <td class="player-club">${player.club || '-'}</td>
+                    <td class="stat-value">${player.tournaments_played}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading new players:', error);
+      }
+    }
+
+    // Load participation stats
+    async function loadParticipation() {
+      const container = document.getElementById('participationTable');
+      try {
+        const response = await fetch(`${API_URL}/statistics/general/participation?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.length === 0) {
+            container.innerHTML = '<div class="empty-state">Aucune donnée disponible</div>';
+            return;
+          }
+
+          container.innerHTML = `
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>Mode</th>
+                  <th>Inscriptions</th>
+                  <th>Présents</th>
+                  <th>Forfaits</th>
+                  <th>Taux Forfait</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.map(row => `
+                  <tr>
+                    <td class="player-name">${getModeDisplayName(row.game_type)}</td>
+                    <td>${row.total_inscriptions}</td>
+                    <td class="stat-value">${row.participated}</td>
+                    <td style="color: #dc3545;">${row.forfaits}</td>
+                    <td>${row.forfait_rate}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading participation:', error);
+      }
+    }
+
+    // Load categories
+    async function loadCategories() {
+      const container = document.getElementById('categoriesTable');
+      try {
+        const response = await fetch(`${API_URL}/statistics/general/categories?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.length === 0) {
+            container.innerHTML = '<div class="empty-state">Aucune donnée disponible</div>';
+            return;
+          }
+
+          container.innerHTML = `
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>Catégorie</th>
+                  <th>Mode</th>
+                  <th>Joueurs</th>
+                  <th>Participations</th>
+                  <th>Tournois</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.map(row => `
+                  <tr>
+                    <td class="player-name">${row.category}</td>
+                    <td>${getModeDisplayName(row.game_type)}</td>
+                    <td class="stat-value">${row.unique_players}</td>
+                    <td>${row.total_participations}</td>
+                    <td>${row.tournaments_played}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading categories:', error);
+      }
+    }
+
+    // Load veterans
+    async function loadVeterans() {
+      const container = document.getElementById('veteransTable');
+      try {
+        const response = await fetch(`${API_URL}/statistics/players/veterans`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.length === 0) {
+            container.innerHTML = '<div class="empty-state">Aucune donnée disponible</div>';
+            return;
+          }
+
+          container.innerHTML = `
+            <table class="ranking-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Joueur</th>
+                  <th>Club</th>
+                  <th>Saisons</th>
+                  <th>Période</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.map((player, i) => `
+                  <tr>
+                    <td>${createRankBadge(i + 1)}</td>
+                    <td class="player-name">${player.player_name}</td>
+                    <td class="player-club">${player.club || '-'}</td>
+                    <td class="stat-value">${player.seasons_played}</td>
+                    <td>${player.first_season} - ${player.last_season}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading veterans:', error);
+      }
+    }
+
+    // Initialize
+    loadSeasons();
+  </script>
+</body>
+</html>
