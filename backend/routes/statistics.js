@@ -226,7 +226,8 @@ router.get('/players/active', authenticateToken, async (req, res) => {
       tr.licence,
       COALESCE(p.first_name || ' ' || p.last_name, tr.player_name) as player_name,
       p.club,
-      COUNT(*) as tournaments_played,
+      COUNT(DISTINCT t.id) as tournaments_played,
+      COUNT(*) as category_participations,
       COUNT(DISTINCT c.game_type) as game_types_played
     FROM tournament_results tr
     JOIN tournaments t ON tr.tournament_id = t.id
@@ -234,7 +235,7 @@ router.get('/players/active', authenticateToken, async (req, res) => {
     LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     WHERE t.season = $1
     GROUP BY tr.licence, COALESCE(p.first_name || ' ' || p.last_name, tr.player_name), p.club
-    ORDER BY tournaments_played DESC
+    ORDER BY tournaments_played DESC, category_participations DESC
     LIMIT $2
   `;
 

@@ -740,6 +740,7 @@
                   <th>Joueur</th>
                   <th>Club</th>
                   <th>Tournois</th>
+                  <th>Catégories</th>
                   <th>Modes</th>
                 </tr>
               </thead>
@@ -750,6 +751,7 @@
                     <td class="player-name">${player.player_name}</td>
                     <td class="player-club">${player.club || '-'}</td>
                     <td class="stat-value">${player.tournaments_played}</td>
+                    <td>${player.category_participations}</td>
                     <td>${player.game_types_played}</td>
                   </tr>
                 `).join('')}
