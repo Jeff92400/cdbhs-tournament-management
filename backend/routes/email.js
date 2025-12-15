@@ -578,6 +578,30 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
     ? new Date(tournamentDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : 'Date a definir';
 
+  // Create campaign record for history tracking
+  const db = require('../db-loader');
+  const campaignSubject = `Convocation ${category.display_name} - ${tournamentLabel}`;
+  const campaignBody = `Convocations pour ${category.display_name} - ${tournamentLabel} - ${dateStr}`;
+
+  let campaignId = null;
+  try {
+    campaignId = await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, status)
+         VALUES ($1, $2, $3, $4, 'sending')`,
+        [campaignSubject, campaignBody, 'convocation', players.length],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.lastID);
+        }
+      );
+    });
+    console.log('Campaign record created with ID:', campaignId);
+  } catch (campaignError) {
+    console.error('Error creating campaign record:', campaignError);
+    // Continue anyway - don't block email sending if campaign recording fails
+  }
+
   // Process each player
   for (const player of players) {
     // Skip if no email
@@ -809,6 +833,24 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
     } catch (summaryError) {
       console.error('Error sending summary email:', summaryError);
       // Don't fail the whole operation if summary email fails
+    }
+  }
+
+  // Update campaign record with results
+  if (campaignId) {
+    try {
+      await new Promise((resolve) => {
+        db.run(
+          `UPDATE email_campaigns
+           SET sent_count = $1, failed_count = $2, status = 'completed', sent_at = CURRENT_TIMESTAMP
+           WHERE id = $3`,
+          [results.sent.length, results.failed.length, campaignId],
+          () => resolve()
+        );
+      });
+      console.log('Campaign record updated:', campaignId);
+    } catch (updateError) {
+      console.error('Error updating campaign record:', updateError);
     }
   }
 
