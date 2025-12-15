@@ -174,19 +174,22 @@ router.get('/clubs/podiums', authenticateToken, async (req, res) => {
       return res.status(500).json({ error: err.message });
     }
 
-    // Group by game_type
+    // Group by game_type and limit to top 3 per game_type
     const result = {};
     (rows || []).forEach(row => {
       if (!result[row.game_type]) {
         result[row.game_type] = [];
       }
-      result[row.game_type].push({
-        club: row.club,
-        podiums: row.podiums,
-        gold: row.gold,
-        silver: row.silver,
-        bronze: row.bronze
-      });
+      // Only keep top 3 clubs per game_type
+      if (result[row.game_type].length < 3) {
+        result[row.game_type].push({
+          club: row.club,
+          podiums: row.podiums,
+          gold: row.gold,
+          silver: row.silver,
+          bronze: row.bronze
+        });
+      }
     });
 
     res.json(result);
