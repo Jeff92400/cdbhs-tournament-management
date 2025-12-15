@@ -218,7 +218,7 @@
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        // Load tournois for date reference
+        // Load tournois for season reference
         const tournoisResponse = await fetch(`${API_URL}/inscriptions/tournoi`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -231,13 +231,13 @@
           const tournoiMap = {};
           tournois.forEach(t => { tournoiMap[t.tournoi_id] = t; });
 
-          // Current season stats
+          // Current season stats - use the saison field from tournoi records
           const currentSeason = getSeasonForDate(new Date());
           const seasonInscriptions = inscriptions.filter(i => {
             const tournoi = tournoiMap[i.tournoi_id];
-            if (!tournoi || !tournoi.debut) return false;
-            const date = new Date(tournoi.debut);
-            return getSeasonForDate(date) === currentSeason;
+            if (!tournoi) return false;
+            // Use the saison field directly instead of calculating from date
+            return tournoi.saison === currentSeason;
           });
 
           const totalSeason = seasonInscriptions.length;
@@ -269,12 +269,12 @@
           const today = new Date();
           today.setHours(0, 0, 0, 0);
 
-          // Current season stats
+          // Current season stats - use the saison field from tournoi records
           const currentSeason = getSeasonForDate(new Date());
           const seasonTournois = tournois.filter(t => {
-            if (!t.debut) return false;
-            const date = new Date(t.debut);
-            return getSeasonForDate(date) === currentSeason;
+            // Use the saison field directly instead of calculating from date
+            // This properly handles finals that belong to previous season but played in September
+            return t.saison === currentSeason;
           });
 
           const totalSeason = seasonTournois.length;
