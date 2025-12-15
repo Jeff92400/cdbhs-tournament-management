@@ -120,7 +120,7 @@ router.get('/clubs/podiums', authenticateToken, async (req, res) => {
 
   const query = `
     SELECT
-      COALESCE(ca.canonical_name, p.club) as club,
+      COALESCE(ca.canonical_name, COALESCE(p.club, tr.club)) as club,
       c.game_type,
       SUM(CASE WHEN CAST(tr.position AS INTEGER) = 1 THEN 1 ELSE 0 END) as gold,
       SUM(CASE WHEN CAST(tr.position AS INTEGER) = 2 THEN 1 ELSE 0 END) as silver,
@@ -129,13 +129,13 @@ router.get('/clubs/podiums', authenticateToken, async (req, res) => {
     FROM tournament_results tr
     JOIN tournaments t ON tr.tournament_id = t.id
     JOIN categories c ON t.category_id = c.id
-    JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-    LEFT JOIN club_aliases ca ON UPPER(REPLACE(REPLACE(REPLACE(p.club, ' ', ''), '.', ''), '-', ''))
+    LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+    LEFT JOIN club_aliases ca ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, tr.club, ''), ' ', ''), '.', ''), '-', ''))
                                 = UPPER(REPLACE(REPLACE(REPLACE(ca.alias, ' ', ''), '.', ''), '-', ''))
     WHERE t.season = $1
       AND CAST(tr.position AS INTEGER) IN (1, 2, 3)
-      AND p.club IS NOT NULL AND p.club != ''
-    GROUP BY COALESCE(ca.canonical_name, p.club), c.game_type
+      AND COALESCE(p.club, tr.club) IS NOT NULL AND COALESCE(p.club, tr.club) != ''
+    GROUP BY COALESCE(ca.canonical_name, COALESCE(p.club, tr.club)), c.game_type
     ORDER BY c.game_type, podiums DESC
   `;
 
