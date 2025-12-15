@@ -615,12 +615,6 @@ router.get('/summary', authenticateToken, async (req, res) => {
     totalParticipations: `
       SELECT COUNT(*) as count FROM tournament_results tr
       JOIN tournaments t ON tr.tournament_id = t.id WHERE t.season = $1
-    `,
-    totalClubs: `
-      SELECT COUNT(DISTINCT p.club) as count FROM tournament_results tr
-      JOIN tournaments t ON tr.tournament_id = t.id
-      JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-      WHERE t.season = $1 AND p.club IS NOT NULL AND p.club != ''
     `
   };
 

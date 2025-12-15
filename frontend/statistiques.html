@@ -353,11 +353,6 @@
           <div class="summary-card-value" id="totalParticipations">-</div>
           <div class="summary-card-label">Participations totales</div>
         </div>
-        <div class="summary-card">
-          <div class="summary-card-icon">🏢</div>
-          <div class="summary-card-value" id="totalClubs">-</div>
-          <div class="summary-card-label">Clubs représentés</div>
-        </div>
       </div>
 
       <!-- Tabs -->
@@ -629,7 +624,6 @@
           document.getElementById('totalTournaments').textContent = data.totalTournaments || 0;
           document.getElementById('totalPlayers').textContent = data.totalPlayers || 0;
           document.getElementById('totalParticipations').textContent = data.totalParticipations || 0;
-          document.getElementById('totalClubs').textContent = data.totalClubs || 0;
         }
       } catch (error) {
         console.error('Error loading summary:', error);
