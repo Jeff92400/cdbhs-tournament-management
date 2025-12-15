@@ -16,6 +16,36 @@ function getCurrentSeason() {
   }
 }
 
+// FIX: Update position field for all tournament results based on match_points ranking
+router.post('/fix/positions', async (req, res) => {
+  const db = require('../db-loader');
+
+  // Update position based on match_points ranking within each tournament
+  const updateQuery = `
+    UPDATE tournament_results
+    SET position = sub.rank
+    FROM (
+      SELECT id,
+             ROW_NUMBER() OVER (PARTITION BY tournament_id ORDER BY match_points DESC, moyenne DESC) as rank
+      FROM tournament_results
+    ) sub
+    WHERE tournament_results.id = sub.id
+  `;
+
+  try {
+    await new Promise((resolve, reject) => {
+      db.run(updateQuery, [], function(err) {
+        if (err) reject(err);
+        else resolve(this.changes);
+      });
+    });
+
+    res.json({ success: true, message: 'Positions updated for all tournament results' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get available seasons
 router.get('/seasons', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
