@@ -296,7 +296,7 @@ router.get('/players/wins', authenticateToken, async (req, res) => {
       JOIN tournaments t ON tr.tournament_id = t.id
       JOIN categories c ON t.category_id = c.id
       LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-      WHERE t.season = $1 AND tr.position = 1 AND c.id = $2
+      WHERE t.season = $1 AND CAST(tr.position AS INTEGER) = 1 AND c.id = $2
       GROUP BY tr.licence, COALESCE(p.first_name || ' ' || p.last_name, tr.player_name), p.club, c.display_name
       ORDER BY wins DESC
       LIMIT 10
