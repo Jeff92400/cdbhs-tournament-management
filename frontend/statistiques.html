@@ -696,7 +696,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    ${data[mode].slice(0, 3).map((club, i) => `
+                    ${data[mode].map((club, i) => `
                       <tr>
                         <td>${createRankBadge(i + 1)}</td>
                         <td class="player-name">${club.club}</td>
