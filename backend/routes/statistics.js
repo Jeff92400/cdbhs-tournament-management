@@ -79,7 +79,7 @@ router.get('/debug/bande-check', async (req, res) => {
     const tournamentsByMode = await new Promise((resolve, reject) => {
       db.all(`
         SELECT c.game_type, COUNT(*) as tournament_count,
-               GROUP_CONCAT(t.id || ':' || c.level || ':T' || t.tournament_number) as tournaments
+               STRING_AGG(t.id || ':' || c.level || ':T' || t.tournament_number, ', ') as tournaments
         FROM tournaments t
         JOIN categories c ON t.category_id = c.id
         WHERE t.season = '2025-2026'
