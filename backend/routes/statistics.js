@@ -75,13 +75,14 @@ router.get('/debug/bande-check', async (req, res) => {
   const db = require('../db-loader');
 
   try {
-    // Get all BANDE tournaments
+    // Get all BANDE tournaments with category info
     const tournaments = await new Promise((resolve, reject) => {
       db.all(`
-        SELECT id, name, game_type, level, tournament_date, season
-        FROM tournaments
-        WHERE UPPER(game_type) = 'BANDE'
-        ORDER BY tournament_date DESC
+        SELECT t.id, c.game_type, c.level, t.tournament_number, t.tournament_date, t.season
+        FROM tournaments t
+        JOIN categories c ON t.category_id = c.id
+        WHERE UPPER(c.game_type) = 'BANDE'
+        ORDER BY t.tournament_date DESC
       `, [], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
@@ -91,11 +92,13 @@ router.get('/debug/bande-check', async (req, res) => {
     // Get podiums for BANDE in 2025-2026
     const podiums = await new Promise((resolve, reject) => {
       db.all(`
-        SELECT t.id, t.name, t.season, t.tournament_date, tr.position, tr.player_name, p.club
+        SELECT t.id, c.game_type, c.level, t.tournament_number, t.season, t.tournament_date,
+               tr.position, tr.player_name, p.club
         FROM tournament_results tr
         JOIN tournaments t ON tr.tournament_id = t.id
+        JOIN categories c ON t.category_id = c.id
         LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-        WHERE UPPER(t.game_type) = 'BANDE'
+        WHERE UPPER(c.game_type) = 'BANDE'
           AND t.season = '2025-2026'
           AND tr.position IN (1, 2, 3)
         ORDER BY t.tournament_date, tr.position
