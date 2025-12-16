@@ -16,6 +16,50 @@ function getCurrentSeason() {
   }
 }
 
+// DEBUG: Show all club aliases
+router.get('/debug/club-aliases', async (req, res) => {
+  const db = require('../db-loader');
+  try {
+    const aliases = await new Promise((resolve, reject) => {
+      db.all('SELECT id, alias, canonical_name FROM club_aliases ORDER BY canonical_name, alias', [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    res.json(aliases);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// FIX: Remove duplicate club aliases (keep only one per normalized alias)
+router.post('/fix/duplicate-aliases', async (req, res) => {
+  const db = require('../db-loader');
+
+  try {
+    // Find and delete duplicate aliases, keeping the one with the lowest ID
+    const deleteQuery = `
+      DELETE FROM club_aliases
+      WHERE id NOT IN (
+        SELECT MIN(id)
+        FROM club_aliases
+        GROUP BY UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', ''))
+      )
+    `;
+
+    const result = await new Promise((resolve, reject) => {
+      db.run(deleteQuery, [], function(err) {
+        if (err) reject(err);
+        else resolve(this.changes);
+      });
+    });
+
+    res.json({ success: true, deleted_count: result, message: `Deleted ${result} duplicate aliases` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // FIX: Add missing club alias for Courbevoie
 router.post('/fix/club-alias', async (req, res) => {
   const db = require('../db-loader');
