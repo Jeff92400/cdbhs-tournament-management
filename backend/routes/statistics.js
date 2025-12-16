@@ -174,37 +174,33 @@ router.get('/debug/bande-check', async (req, res) => {
   const db = require('../db-loader');
 
   try {
-    // Check for duplicate licences in players table
-    const duplicateLicences = await new Promise((resolve, reject) => {
+    // Get podiums by mode (raw count)
+    const podiumsByMode = await new Promise((resolve, reject) => {
       db.all(`
-        SELECT REPLACE(licence, ' ', '') as clean_licence, COUNT(*) as cnt
-        FROM players
-        GROUP BY REPLACE(licence, ' ', '')
-        HAVING COUNT(*) > 1
+        SELECT c.game_type, COUNT(*) as podiums
+        FROM tournament_results tr
+        JOIN tournaments t ON tr.tournament_id = t.id
+        JOIN categories c ON t.category_id = c.id
+        WHERE t.season = '2025-2026'
+          AND tr.position IN (1, 2, 3)
+        GROUP BY c.game_type
+        ORDER BY c.game_type
       `, [], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
     });
 
-    // Check for duplicate club aliases
-    const duplicateAliases = await new Promise((resolve, reject) => {
+    // Get podiums grouped by club and mode (same as the API endpoint)
+    const clubPodiums = await new Promise((resolve, reject) => {
       db.all(`
-        SELECT UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', '')) as clean_alias,
-               COUNT(*) as cnt
-        FROM club_aliases
-        GROUP BY UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', ''))
-        HAVING COUNT(*) > 1
-      `, [], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
-
-    // Check actual row count from the join (before aggregation)
-    const joinRowCount = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT COUNT(*) as row_count
+        SELECT
+          COALESCE(ca.canonical_name, p.club, 'Non renseigné') as club,
+          c.game_type,
+          SUM(CASE WHEN tr.position = 1 THEN 1 ELSE 0 END) as gold,
+          SUM(CASE WHEN tr.position = 2 THEN 1 ELSE 0 END) as silver,
+          SUM(CASE WHEN tr.position = 3 THEN 1 ELSE 0 END) as bronze,
+          SUM(CASE WHEN tr.position IN (1, 2, 3) THEN 1 ELSE 0 END) as podiums
         FROM tournament_results tr
         JOIN tournaments t ON tr.tournament_id = t.id
         JOIN categories c ON t.category_id = c.id
@@ -213,34 +209,37 @@ router.get('/debug/bande-check', async (req, res) => {
                                     = UPPER(REPLACE(REPLACE(REPLACE(ca.alias, ' ', ''), '.', ''), '-', ''))
         WHERE t.season = '2025-2026'
           AND tr.position IN (1, 2, 3)
+        GROUP BY COALESCE(ca.canonical_name, p.club, 'Non renseigné'), c.game_type
+        ORDER BY c.game_type, podiums DESC
       `, [], (err, rows) => {
         if (err) reject(err);
-        else resolve(rows[0]);
+        else resolve(rows);
       });
     });
 
-    // Get raw podium count (without joins that might cause duplication)
-    const rawPodiumCount = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT COUNT(*) as count
-        FROM tournament_results tr
-        JOIN tournaments t ON tr.tournament_id = t.id
-        WHERE t.season = '2025-2026'
-          AND tr.position IN (1, 2, 3)
-      `, [], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows[0]);
+    // Group by mode
+    const byMode = {};
+    clubPodiums.forEach(row => {
+      if (!byMode[row.game_type]) {
+        byMode[row.game_type] = { clubs: [], total: 0 };
+      }
+      const podiums = parseInt(row.podiums) || 0;
+      byMode[row.game_type].clubs.push({
+        club: row.club,
+        gold: parseInt(row.gold) || 0,
+        silver: parseInt(row.silver) || 0,
+        bronze: parseInt(row.bronze) || 0,
+        podiums: podiums
       });
+      byMode[row.game_type].total += podiums;
     });
+
+    const grandTotal = Object.values(byMode).reduce((sum, m) => sum + m.total, 0);
 
     res.json({
-      raw_podium_count: rawPodiumCount.count,
-      join_row_count: joinRowCount.row_count,
-      duplicate_licences: duplicateLicences,
-      duplicate_aliases: duplicateAliases,
-      issue: joinRowCount.row_count > rawPodiumCount.count ?
-        `JOIN creates ${joinRowCount.row_count - rawPodiumCount.count} extra rows due to duplicates` :
-        'No duplication from JOINs'
+      raw_podiums_by_mode: podiumsByMode,
+      club_podiums_by_mode: byMode,
+      grand_total: grandTotal
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
