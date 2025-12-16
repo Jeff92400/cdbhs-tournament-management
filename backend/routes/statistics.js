@@ -70,18 +70,17 @@ router.post('/fix/positions', async (req, res) => {
   }
 });
 
-// DEBUG: Check BANDE tournaments and podiums
+// DEBUG: Check all tournaments and podiums
 router.get('/debug/bande-check', async (req, res) => {
   const db = require('../db-loader');
 
   try {
-    // Get all BANDE tournaments with category info
-    const tournaments = await new Promise((resolve, reject) => {
+    // Get ALL tournaments to check seasons
+    const allTournaments = await new Promise((resolve, reject) => {
       db.all(`
         SELECT t.id, c.game_type, c.level, t.tournament_number, t.tournament_date, t.season
         FROM tournaments t
         JOIN categories c ON t.category_id = c.id
-        WHERE UPPER(c.game_type) = 'BANDE'
         ORDER BY t.tournament_date DESC
       `, [], (err, rows) => {
         if (err) reject(err);
@@ -89,29 +88,39 @@ router.get('/debug/bande-check', async (req, res) => {
       });
     });
 
-    // Get podiums for BANDE in 2025-2026
-    const podiums = await new Promise((resolve, reject) => {
+    // Check the podiums aggregation with club alias
+    const podiumsAggregated = await new Promise((resolve, reject) => {
       db.all(`
-        SELECT t.id, c.game_type, c.level, t.tournament_number, t.season, t.tournament_date,
-               tr.position, tr.player_name, p.club
+        SELECT
+          COALESCE(ca.canonical_name, p.club, 'Non renseigné') as club,
+          c.game_type,
+          SUM(CASE WHEN tr.position = 1 THEN 1 ELSE 0 END) as gold,
+          SUM(CASE WHEN tr.position = 2 THEN 1 ELSE 0 END) as silver,
+          SUM(CASE WHEN tr.position = 3 THEN 1 ELSE 0 END) as bronze,
+          SUM(CASE WHEN tr.position IN (1, 2, 3) THEN 1 ELSE 0 END) as podiums
         FROM tournament_results tr
         JOIN tournaments t ON tr.tournament_id = t.id
         JOIN categories c ON t.category_id = c.id
         LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-        WHERE UPPER(c.game_type) = 'BANDE'
-          AND t.season = '2025-2026'
+        LEFT JOIN club_aliases ca ON UPPER(REPLACE(REPLACE(REPLACE(COALESCE(p.club, ''), ' ', ''), '.', ''), '-', ''))
+                                    = UPPER(REPLACE(REPLACE(REPLACE(ca.alias, ' ', ''), '.', ''), '-', ''))
+        WHERE t.season = '2025-2026'
           AND tr.position IN (1, 2, 3)
-        ORDER BY t.tournament_date, tr.position
+        GROUP BY COALESCE(ca.canonical_name, p.club, 'Non renseigné'), c.game_type
+        ORDER BY c.game_type, podiums DESC
       `, [], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
     });
 
+    // Total podiums count
+    const totalPodiums = podiumsAggregated.reduce((sum, r) => sum + r.podiums, 0);
+
     res.json({
-      tournaments,
-      podiums_2025_2026: podiums,
-      podium_count: podiums.length
+      all_tournaments: allTournaments,
+      podiums_by_club_and_mode: podiumsAggregated,
+      total_podiums: totalPodiums
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
