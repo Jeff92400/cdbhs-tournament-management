@@ -32,20 +32,75 @@ router.get('/debug/club-aliases', async (req, res) => {
   }
 });
 
+// DEBUG: Show which aliases are duplicates
+router.get('/debug/duplicate-aliases', async (req, res) => {
+  const db = require('../db-loader');
+
+  try {
+    // Show all aliases with their normalized versions
+    const aliases = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT id, alias, canonical_name,
+               UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', '')) as normalized
+        FROM club_aliases
+        ORDER BY normalized, id
+      `, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    // Show IDs to keep (MIN per normalized)
+    const toKeep = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT MIN(id) as keep_id,
+               UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', '')) as normalized
+        FROM club_aliases
+        GROUP BY UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', ''))
+      `, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    const keepIds = toKeep.map(r => r.keep_id);
+    const toDelete = aliases.filter(a => !keepIds.includes(a.id));
+
+    res.json({
+      all_aliases: aliases,
+      ids_to_keep: keepIds,
+      aliases_to_delete: toDelete
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // FIX: Remove duplicate club aliases (keep only one per normalized alias)
 router.post('/fix/duplicate-aliases', async (req, res) => {
   const db = require('../db-loader');
 
   try {
-    // Find and delete duplicate aliases, keeping the one with the lowest ID
-    const deleteQuery = `
-      DELETE FROM club_aliases
-      WHERE id NOT IN (
-        SELECT MIN(id)
+    // First get the IDs to keep
+    const toKeep = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT MIN(id) as keep_id
         FROM club_aliases
         GROUP BY UPPER(REPLACE(REPLACE(REPLACE(alias, ' ', ''), '.', ''), '-', ''))
-      )
-    `;
+      `, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    const keepIds = toKeep.map(r => r.keep_id);
+
+    if (keepIds.length === 0) {
+      return res.json({ success: true, deleted_count: 0, message: 'No aliases to process' });
+    }
+
+    // Delete aliases not in the keep list
+    const deleteQuery = `DELETE FROM club_aliases WHERE id NOT IN (${keepIds.join(',')})`;
 
     const result = await new Promise((resolve, reject) => {
       db.run(deleteQuery, [], function(err) {
