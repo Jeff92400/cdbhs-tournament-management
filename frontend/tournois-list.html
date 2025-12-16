@@ -269,8 +269,8 @@
         document.getElementById('upcomingCount').textContent = upcomingTournois.length;
         document.getElementById('pastCount').textContent = pastTournois.length;
 
-        // Update season stats
-        updateSeasonStats();
+        // Update season stats (async - fetches from tournaments table)
+        await updateSeasonStats();
 
         displayTournois(allTournois);
 
@@ -543,38 +543,51 @@
     document.getElementById('categorieFilter').addEventListener('change', applyFilters);
     document.getElementById('searchInput').addEventListener('input', applyFilters);
 
-    // Update season-specific stats
-    function updateSeasonStats() {
+    // Update season-specific stats (consistent with dashboard)
+    async function updateSeasonStats() {
       const currentSeason = getSeasonForDate(new Date());
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Filter tournaments by current season
-      const seasonTournois = allTournois.filter(t => {
-        if (!t.debut) return false;
-        const date = new Date(t.debut);
-        return getSeasonForDate(date) === currentSeason;
-      });
+      try {
+        // Get played competitions from tournaments table (same as dashboard)
+        const tournamentsResponse = await fetch(`${API_URL}/tournaments?season=${currentSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
 
-      const seasonUpcoming = seasonTournois.filter(t => {
-        const debut = t.debut ? new Date(t.debut) : null;
-        return debut && debut >= today;
-      });
+        let pastSeason = 0;
+        if (tournamentsResponse.ok) {
+          const tournaments = await tournamentsResponse.json();
+          pastSeason = tournaments.length;
+        }
 
-      const seasonPast = seasonTournois.filter(t => {
-        const debut = t.debut ? new Date(t.debut) : null;
-        return debut && debut < today;
-      });
+        // Get upcoming from IONOS tournois (future dates in current season)
+        const seasonTournois = allTournois.filter(t => {
+          if (!t.debut) return false;
+          const date = new Date(t.debut);
+          return getSeasonForDate(date) === currentSeason;
+        });
 
-      // Update labels with current season
-      document.getElementById('seasonTotalLabel').textContent = `Total Saison ${currentSeason}`;
-      document.getElementById('seasonUpcomingLabel').textContent = `A venir Saison ${currentSeason}`;
-      document.getElementById('seasonPastLabel').textContent = `Passés Saison ${currentSeason}`;
+        const upcomingSeason = seasonTournois.filter(t => {
+          const debut = t.debut ? new Date(t.debut) : null;
+          return debut && debut >= today;
+        }).length;
 
-      // Update values
-      document.getElementById('seasonTotalCount').textContent = seasonTournois.length;
-      document.getElementById('seasonUpcomingCount').textContent = seasonUpcoming.length;
-      document.getElementById('seasonPastCount').textContent = seasonPast.length;
+        // Total = Passés + A venir (ensures consistency with dashboard)
+        const totalSeason = pastSeason + upcomingSeason;
+
+        // Update labels with current season
+        document.getElementById('seasonTotalLabel').textContent = `Total Saison ${currentSeason}`;
+        document.getElementById('seasonUpcomingLabel').textContent = `A venir Saison ${currentSeason}`;
+        document.getElementById('seasonPastLabel').textContent = `Passés Saison ${currentSeason}`;
+
+        // Update values
+        document.getElementById('seasonTotalCount').textContent = totalSeason;
+        document.getElementById('seasonUpcomingCount').textContent = upcomingSeason;
+        document.getElementById('seasonPastCount').textContent = pastSeason;
+      } catch (error) {
+        console.error('Error updating season stats:', error);
+      }
     }
 
     // Initialize
