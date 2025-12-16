@@ -70,6 +70,51 @@ router.post('/fix/positions', async (req, res) => {
   }
 });
 
+// DEBUG: Check BANDE tournaments and podiums
+router.get('/debug/bande-check', async (req, res) => {
+  const db = require('../db-loader');
+
+  try {
+    // Get all BANDE tournaments
+    const tournaments = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT id, name, game_type, level, tournament_date, season
+        FROM tournaments
+        WHERE UPPER(game_type) = 'BANDE'
+        ORDER BY tournament_date DESC
+      `, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    // Get podiums for BANDE in 2025-2026
+    const podiums = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT t.id, t.name, t.season, t.tournament_date, tr.position, tr.player_name, p.club
+        FROM tournament_results tr
+        JOIN tournaments t ON tr.tournament_id = t.id
+        LEFT JOIN players p ON REPLACE(tr.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+        WHERE UPPER(t.game_type) = 'BANDE'
+          AND t.season = '2025-2026'
+          AND tr.position IN (1, 2, 3)
+        ORDER BY t.tournament_date, tr.position
+      `, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    res.json({
+      tournaments,
+      podiums_2025_2026: podiums,
+      podium_count: podiums.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get available seasons
 router.get('/seasons', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
