@@ -821,6 +821,32 @@ router.get('/scheduled', authenticateToken, async (req, res) => {
   );
 });
 
+// Update a scheduled email (change date/time)
+router.put('/scheduled/:id', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { id } = req.params;
+  const { scheduled_at } = req.body;
+
+  if (!scheduled_at) {
+    return res.status(400).json({ error: 'Date requise' });
+  }
+
+  db.run(
+    `UPDATE scheduled_emails SET scheduled_at = $1 WHERE id = $2 AND status = 'pending'`,
+    [scheduled_at, id],
+    function(err) {
+      if (err) {
+        console.error('Error updating scheduled email:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Email non trouvé ou déjà traité' });
+      }
+      res.json({ success: true });
+    }
+  );
+});
+
 // Cancel a scheduled email
 router.delete('/scheduled/:id', authenticateToken, async (req, res) => {
   const db = require('../db-loader');

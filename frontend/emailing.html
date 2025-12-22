@@ -3197,6 +3197,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
       scheduled.forEach(s => {
         const date = new Date(s.scheduled_at).toLocaleString('fr-FR');
+        const dateValue = s.scheduled_at ? s.scheduled_at.slice(0, 16) : ''; // Format for datetime-local input
         const recipientIds = s.recipient_ids ? JSON.parse(s.recipient_ids) : [];
         const status = SCHEDULED_STATUS_LABELS[s.status] || { label: s.status, color: '#6c757d', bg: '#e2e3e5' };
         const emailType = SCHEDULED_TYPE_LABELS[s.email_type] || s.email_type || 'Custom';
@@ -3216,15 +3217,79 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
               <span style="background: #e7f3ff; color: #1F4788; padding: 3px 10px; border-radius: 12px; font-size: 11px;">${emailType}${categoryInfo}</span>
             </div>
             <strong>${s.subject}</strong>
-            <div style="font-size: 12px; color: #666; margin-top: 5px;">
-              📅 ${date}${s.created_by ? ` • Par: ${s.created_by}` : ''}${recipientIds.length > 0 ? ` • ${recipientIds.length} dest.` : ''}${testEmailInfo}
+            <div style="font-size: 12px; color: #666; margin-top: 5px;" class="scheduled-date-display" data-id="${s.id}">
+              📅 <span class="date-text" style="cursor: ${s.status === 'pending' ? 'pointer' : 'default'}; ${s.status === 'pending' ? 'text-decoration: underline dotted;' : ''}" title="${s.status === 'pending' ? 'Cliquer pour modifier' : ''}">${date}</span>
+              ${s.created_by ? ` • Par: ${s.created_by}` : ''}${recipientIds.length > 0 ? ` • ${recipientIds.length} dest.` : ''}${testEmailInfo}
             </div>
+            ${s.status === 'pending' ? `
+            <div class="scheduled-date-edit" data-id="${s.id}" style="display: none; margin-top: 8px;">
+              <input type="datetime-local" class="edit-scheduled-date" data-id="${s.id}" value="${dateValue}" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+              <button class="btn save-scheduled-date" data-id="${s.id}" style="background: #28a745; padding: 6px 12px; margin-left: 5px; font-size: 12px;">OK</button>
+              <button class="btn cancel-edit-date" data-id="${s.id}" style="background: #6c757d; padding: 6px 12px; margin-left: 5px; font-size: 12px;">X</button>
+            </div>
+            ` : ''}
           </div>
           ${s.status === 'pending' ? `<button class="btn cancel-scheduled-btn" data-id="${s.id}" style="background: #dc3545; padding: 8px 15px;">Annuler</button>` : ''}
         `;
         list.appendChild(div);
       });
 
+      // Click on date to edit
+      document.querySelectorAll('.scheduled-date-display .date-text').forEach(span => {
+        span.addEventListener('click', (e) => {
+          const id = e.target.closest('.scheduled-date-display').dataset.id;
+          const displayDiv = document.querySelector(`.scheduled-date-display[data-id="${id}"]`);
+          const editDiv = document.querySelector(`.scheduled-date-edit[data-id="${id}"]`);
+          if (editDiv) {
+            displayDiv.style.display = 'none';
+            editDiv.style.display = 'block';
+          }
+        });
+      });
+
+      // Cancel edit
+      document.querySelectorAll('.cancel-edit-date').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          document.querySelector(`.scheduled-date-display[data-id="${id}"]`).style.display = 'block';
+          document.querySelector(`.scheduled-date-edit[data-id="${id}"]`).style.display = 'none';
+        });
+      });
+
+      // Save new date
+      document.querySelectorAll('.save-scheduled-date').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const newDate = document.querySelector(`.edit-scheduled-date[data-id="${id}"]`).value;
+          if (!newDate) {
+            showError('Veuillez sélectionner une date');
+            return;
+          }
+
+          try {
+            const response = await fetch(`${API_URL}/emailing/scheduled/${id}`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ scheduled_at: newDate })
+            });
+
+            if (response.ok) {
+              showSuccess('Date modifiée');
+              loadScheduled();
+            } else {
+              const result = await response.json();
+              showError(result.error || 'Erreur');
+            }
+          } catch (error) {
+            showError('Erreur: ' + error.message);
+          }
+        });
+      });
+
+      // Cancel scheduled email
       document.querySelectorAll('.cancel-scheduled-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
           if (!confirm('Annuler cet email programmé ?')) return;
