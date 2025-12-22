@@ -265,8 +265,16 @@ async function processTemplatedScheduledEmail(db, resend, scheduled, delay) {
   }
 
   // Update status
-  await new Promise((resolve) => {
-    db.run(`UPDATE scheduled_emails SET status = 'completed', sent_at = CURRENT_TIMESTAMP WHERE id = $1`, [scheduled.id], () => resolve());
+  await new Promise((resolve, reject) => {
+    db.run(`UPDATE scheduled_emails SET status = 'completed', sent_at = CURRENT_TIMESTAMP WHERE id = $1`, [scheduled.id], function(err) {
+      if (err) {
+        console.error(`[Email Scheduler] Error updating status for ${scheduled.id}:`, err.message);
+        reject(err);
+      } else {
+        console.log(`[Email Scheduler] Status updated to 'completed' for ${scheduled.id}, rows affected: ${this.changes}`);
+        resolve();
+      }
+    });
   });
 
   // Create campaign record
@@ -444,11 +452,19 @@ async function processScheduledEmails() {
       }
 
       // Update scheduled email status
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         db.run(
           `UPDATE scheduled_emails SET status = 'completed', sent_at = CURRENT_TIMESTAMP WHERE id = $1`,
           [scheduled.id],
-          () => resolve()
+          function(err) {
+            if (err) {
+              console.error(`[Email Scheduler] Error updating status for ${scheduled.id}:`, err.message);
+              reject(err);
+            } else {
+              console.log(`[Email Scheduler] Status updated to 'completed' for ${scheduled.id}, rows affected: ${this.changes}`);
+              resolve();
+            }
+          }
         );
       });
 
