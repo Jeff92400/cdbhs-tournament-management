@@ -2503,32 +2503,21 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       const infoDiv = document.getElementById('relanceInfo');
 
       try {
-        console.log('Fetching tournament info for:', mode, category, relanceType);
         const response = await fetch(`${API_URL}/emailing/next-tournament?mode=${mode}&category=${category}&relanceType=${relanceType}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        if (!response.ok) {
-          console.log('Response not OK:', response.status);
-          return;
-        }
+        if (!response.ok) return;
 
         const data = await response.json();
-        console.log('Tournament data:', data);
 
         if (!data.found) {
-          // Tournament not found - show message with debug info
-          let debugInfo = '';
-          if (data.debug && data.debug.allTournamentsForCategory && data.debug.allTournamentsForCategory.length > 0) {
-            debugInfo = '<br><small>Tournois disponibles pour cette catégorie: ' +
-              data.debug.allTournamentsForCategory.map(t => t.nom).join(', ') + '</small>';
-          }
+          // Tournament not found - show message
           if (infoDiv) {
-            infoDiv.innerHTML = `<p style="color: #856404;"><strong>Info:</strong> ${data.message || 'Tournoi non trouvé dans la base de données. Veuillez saisir les informations manuellement.'}${debugInfo}</p>`;
+            infoDiv.innerHTML = `<p style="color: #856404;"><strong>Info:</strong> ${data.message || 'Tournoi non trouvé dans la base de données. Veuillez saisir les informations manuellement.'}</p>`;
             infoDiv.style.display = 'block';
             infoDiv.style.background = '#fff3cd';
           }
-          console.log('Tournament not found - debug:', data.debug);
           return;
         }
 
@@ -2548,13 +2537,11 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
           if (!lieuSelect || !locationValue) return;
 
           const locationUpper = locationValue.toUpperCase();
-          console.log('Trying to match location:', locationValue);
 
           // First try exact match
           for (let opt of lieuSelect.options) {
             if (opt.value === locationValue || opt.text === locationValue) {
               lieuSelect.value = opt.value;
-              console.log('Location matched exactly:', opt.value);
               return;
             }
           }
@@ -2564,11 +2551,9 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             const optUpper = opt.text.toUpperCase();
             if (optUpper.includes(locationUpper) || locationUpper.includes(optUpper.split(' ')[0])) {
               lieuSelect.value = opt.value;
-              console.log('Location matched partially:', opt.value);
               return;
             }
           }
-          console.log('Location not matched in dropdown options');
         }
 
         if (relanceType === 't2') {

@@ -2130,7 +2130,6 @@ router.get('/next-tournament', authenticateToken, async (req, res) => {
     const currentMonth = now.getMonth();
     const season = currentMonth >= 8 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
 
-    console.log('next-tournament request:', { mode, category, relanceType, season });
 
     // Find the category
     const categoryRow = await new Promise((resolve, reject) => {
@@ -2143,8 +2142,6 @@ router.get('/next-tournament', authenticateToken, async (req, res) => {
         }
       );
     });
-
-    console.log('Category found:', categoryRow);
 
     if (!categoryRow) {
       return res.status(404).json({ error: 'Category not found' });
@@ -2198,8 +2195,6 @@ router.get('/next-tournament', authenticateToken, async (req, res) => {
       nameCondition = "(UPPER(nom) LIKE '%FINALE%' OR UPPER(nom) LIKE '%FINAL%')";
     }
 
-    console.log('Looking for tournament in tournoi_ext:', { mode, category, nameCondition, modeMappings: modeParams });
-
     // Build the full query
     const catParamIdx = modeParams.length + 1;
 
@@ -2217,28 +2212,10 @@ router.get('/next-tournament', authenticateToken, async (req, res) => {
       );
     });
 
-    console.log('Tournament found in tournoi_ext:', tournament);
-
     if (!tournament) {
-      // Debug: list all tournaments for this mode/category
-      const allTournaments = await new Promise((resolve, reject) => {
-        db.all(
-          `SELECT tournoi_id, nom, mode, categorie, debut, lieu FROM tournoi_ext
-           WHERE UPPER(categorie) = $1
-           ORDER BY debut DESC LIMIT 10`,
-          [category.toUpperCase()],
-          (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows || []);
-          }
-        );
-      });
-      console.log('All tournaments for category', category, ':', allTournaments);
-
       return res.json({
         found: false,
-        message: `Tournoi ${relanceType === 'finale' ? 'Finale' : 'T' + tournamentNumber} non trouvé dans la base de données`,
-        debug: { modeMappings: modeParams, allTournamentsForCategory: allTournaments }
+        message: `Tournoi ${relanceType === 'finale' ? 'Finale' : 'T' + tournamentNumber} non trouvé dans la base de données`
       });
     }
 
