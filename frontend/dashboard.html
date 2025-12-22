@@ -50,6 +50,14 @@
     <div id="errorMessage" class="error" style="display: none;"></div>
     <div id="successMessage" class="success" style="display: none;"></div>
 
+    <!-- Season selector -->
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+      <label style="font-weight: bold; color: #333;">Saison :</label>
+      <select id="seasonSelect" style="padding: 8px 15px; border: 2px solid #1F4788; border-radius: 8px; font-size: 16px; font-weight: bold; color: #1F4788; background: white; cursor: pointer; min-width: 150px;">
+        <option value="">Chargement...</option>
+      </select>
+    </div>
+
     <!-- Joueurs stats -->
     <div class="stats-grid" style="margin-bottom: 20px;">
       <div class="stat-card">
@@ -160,10 +168,58 @@
       }
     }
 
+    // Current selected season
+    let selectedSeason = getSeasonForDate(new Date());
+
+    // Load available seasons and populate selector
+    async function loadSeasons() {
+      try {
+        const response = await fetch(`${API_URL}/statistics/seasons`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const seasons = await response.json();
+          const select = document.getElementById('seasonSelect');
+          select.innerHTML = '';
+
+          // Add current season if not in list
+          const currentSeason = getSeasonForDate(new Date());
+          if (!seasons.includes(currentSeason)) {
+            seasons.unshift(currentSeason);
+          }
+
+          seasons.forEach(season => {
+            const option = document.createElement('option');
+            option.value = season;
+            option.textContent = season;
+            if (season === selectedSeason) {
+              option.selected = true;
+            }
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading seasons:', error);
+      }
+    }
+
+    // Season selector change handler
+    document.getElementById('seasonSelect').addEventListener('change', (e) => {
+      selectedSeason = e.target.value;
+      loadDashboardStats();
+    });
+
     // Load dashboard data
     async function loadDashboard() {
+      await loadSeasons();
+      await loadDashboardStats();
+    }
+
+    // Load all stats for selected season
+    async function loadDashboardStats() {
       try {
-        // Load player counts
+        // Load player counts (global - not season specific)
         const allPlayersResponse = await fetch(`${API_URL}/players`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -180,9 +236,8 @@
           document.getElementById('activePlayerCount').textContent = activePlayers.length;
         }
 
-        // Load tournaments (played) for current season
-        const currentSeasonForTournaments = getSeasonForDate(new Date());
-        const tournamentsResponse = await fetch(`${API_URL}/tournaments?season=${currentSeasonForTournaments}`, {
+        // Load tournaments (played) for selected season
+        const tournamentsResponse = await fetch(`${API_URL}/tournaments?season=${selectedSeason}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -232,7 +287,7 @@
       }
     }
 
-    // Load inscriptions stats (current season only)
+    // Load inscriptions stats for selected season
     async function loadInscriptionsStats() {
       try {
         // Load inscriptions
@@ -253,12 +308,11 @@
           const tournoiMap = {};
           tournois.forEach(t => { tournoiMap[t.tournoi_id] = t; });
 
-          // Current season stats
-          const currentSeason = getSeasonForDate(new Date());
+          // Filter by selected season
           const seasonInscriptions = inscriptions.filter(i => {
             const tournoi = tournoiMap[i.tournoi_id];
             if (!tournoi) return false;
-            return getSeasonForTournoi(tournoi) === currentSeason;
+            return getSeasonForTournoi(tournoi) === selectedSeason;
           });
 
           const totalSeason = seasonInscriptions.length;
@@ -266,7 +320,7 @@
           const forfaitsSeason = seasonInscriptions.filter(i => i.forfait === 1).length;
 
           // Update section title with season
-          document.getElementById('inscSectionTitle').textContent = `Inscriptions saison ${currentSeason}`;
+          document.getElementById('inscSectionTitle').textContent = `Inscriptions saison ${selectedSeason}`;
 
           // Update values
           document.getElementById('inscTotalSeason').textContent = totalSeason;
@@ -278,15 +332,13 @@
       }
     }
 
-    // Load tournois stats (current season only)
+    // Load tournois stats for selected season
     // Uses tournaments table (played) for Passés, tournoi_ext for A venir
     // Total = Passés + A venir to ensure consistency
     async function loadTournoisStats() {
       try {
-        const currentSeason = getSeasonForDate(new Date());
-
         // Get played competitions from tournaments table (like Statistics page)
-        const response = await fetch(`${API_URL}/tournaments?season=${currentSeason}`, {
+        const response = await fetch(`${API_URL}/tournaments?season=${selectedSeason}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -299,7 +351,7 @@
           const tournaments = await response.json();
           const pastSeason = tournaments.length; // Played competitions for this season
 
-          // Calculate upcoming from tournoi_ext (future dates only)
+          // Calculate upcoming from tournoi_ext (future dates only, for selected season)
           let upcomingSeason = 0;
           if (tournoiResponse.ok) {
             const tournois = await tournoiResponse.json();
@@ -307,7 +359,7 @@
             today.setHours(0, 0, 0, 0);
 
             // Filter by season, then count only future dates
-            const seasonTournois = tournois.filter(t => getSeasonForTournoi(t) === currentSeason);
+            const seasonTournois = tournois.filter(t => getSeasonForTournoi(t) === selectedSeason);
             upcomingSeason = seasonTournois.filter(t => {
               const debut = t.debut ? new Date(t.debut) : null;
               return debut && debut >= today;
@@ -318,7 +370,7 @@
           const totalSeason = pastSeason + upcomingSeason;
 
           // Update section title with season
-          document.getElementById('tournoiSectionTitle').textContent = `Compétitions saison ${currentSeason}`;
+          document.getElementById('tournoiSectionTitle').textContent = `Compétitions saison ${selectedSeason}`;
 
           // Update values
           document.getElementById('tournoiTotalSeason').textContent = totalSeason;
