@@ -917,9 +917,12 @@ router.post('/schedule-results', authenticateToken, async (req, res) => {
   }
 
   try {
-    // Get tournament info for subject
+    // Get tournament info with category display_name for subject
     const tournament = await new Promise((resolve, reject) => {
-      db.get(`SELECT * FROM tournaments WHERE id = $1`, [tournamentId], (err, row) => {
+      db.get(`SELECT t.*, c.display_name, c.game_type, c.level
+              FROM tournaments t
+              JOIN categories c ON t.category_id = c.id
+              WHERE t.id = $1`, [tournamentId], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
@@ -929,7 +932,8 @@ router.post('/schedule-results', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Tournoi non trouvé' });
     }
 
-    const subject = `Résultats - ${tournament.display_name}`;
+    const tournamentLabel = `T${tournament.tournament_number} ${tournament.season}`;
+    const subject = `Résultats - ${tournament.display_name} - ${tournamentLabel}`;
 
     await new Promise((resolve, reject) => {
       db.run(
