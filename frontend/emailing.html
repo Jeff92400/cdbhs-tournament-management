@@ -359,6 +359,29 @@
               </div>
             </div>
 
+            <!-- Summary Email Option for One-Shot -->
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="oneShotCcCheck" checked style="width: 18px; height: 18px;">
+                <strong>📋 Récapitulatif</strong> - Envoyer un email de synthèse à :
+              </label>
+              <p style="margin: 5px 0 0 28px; font-size: 12px; color: #666;">Un seul email avec la liste des destinataires et le contenu envoyé</p>
+              <div id="oneShotCcEmailInput" style="margin-top: 10px;">
+                <input type="email" id="oneShotCcEmail" value="cdbhs92@gmail.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+              </div>
+            </div>
+
+            <!-- Test Mode for One-Shot -->
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="oneShotTestModeCheck" style="width: 18px; height: 18px;">
+                <strong>Mode Test</strong> - Envoyer uniquement à mon adresse
+              </label>
+              <div id="oneShotTestEmailInput" style="display: none; margin-top: 10px;">
+                <input type="email" id="oneShotTestEmail" placeholder="votre.email@exemple.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+              </div>
+            </div>
+
             <div class="send-actions">
               <button class="btn" id="sendNowBtn" style="background: #1F4788;">Envoyer maintenant</button>
               <button class="btn" id="scheduleBtn" style="background: #FF9800; display: none;">Programmer</button>
@@ -1180,10 +1203,53 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
       }
     });
 
+    // One-Shot: Recap checkbox toggle
+    document.getElementById('oneShotCcCheck').addEventListener('change', (e) => {
+      document.getElementById('oneShotCcEmailInput').style.opacity = e.target.checked ? '1' : '0.5';
+      document.getElementById('oneShotCcEmail').disabled = !e.target.checked;
+    });
+
+    // One-Shot: Test mode toggle
+    document.getElementById('oneShotTestModeCheck').addEventListener('change', (e) => {
+      const testEmailInput = document.getElementById('oneShotTestEmailInput');
+      const sendBtn = document.getElementById('sendNowBtn');
+
+      if (e.target.checked) {
+        testEmailInput.style.display = 'block';
+        sendBtn.textContent = 'Envoyer le Test';
+        sendBtn.style.background = '#FF9800';
+      } else {
+        testEmailInput.style.display = 'none';
+        sendBtn.textContent = 'Envoyer maintenant';
+        sendBtn.style.background = '#1F4788';
+      }
+    });
+
+    // Load saved summary email for one-shot
+    async function loadOneShotCcEmail() {
+      try {
+        const response = await fetch(`${API_URL}/emailing/summary-email`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.email) {
+            document.getElementById('oneShotCcEmail').value = data.email;
+          }
+        }
+      } catch (error) {
+        console.log('Using default summary email for one-shot');
+      }
+    }
+    loadOneShotCcEmail();
+
     document.getElementById('sendNowBtn').addEventListener('click', sendEmails);
     document.getElementById('scheduleBtn').addEventListener('click', scheduleEmail);
 
     async function sendEmails() {
+      const isTestMode = document.getElementById('oneShotTestModeCheck').checked;
+      const testEmail = document.getElementById('oneShotTestEmail').value.trim();
+
       if (selectedContactIds.size === 0) {
         showError('Veuillez selectionner au moins un destinataire.');
         return;
@@ -1197,7 +1263,17 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
         return;
       }
 
-      if (!confirm(`Envoyer l'email a ${selectedContactIds.size} destinataire(s) ?`)) {
+      // Validate test mode email
+      if (isTestMode && (!testEmail || !testEmail.includes('@'))) {
+        showError('Mode Test activé: veuillez saisir une adresse email valide.');
+        return;
+      }
+
+      const confirmMsg = isTestMode
+        ? `MODE TEST: Envoyer l'email uniquement à ${testEmail} ?`
+        : `Envoyer l'email a ${selectedContactIds.size} destinataire(s) ?`;
+
+      if (!confirm(confirmMsg)) {
         return;
       }
 
@@ -1215,7 +1291,10 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
             subject,
             body,
             templateKey: document.getElementById('templateSelect').value || null,
-            imageUrl: document.getElementById('imageUrl').value || null
+            imageUrl: document.getElementById('imageUrl').value || null,
+            testMode: isTestMode,
+            testEmail: isTestMode ? testEmail : null,
+            ccEmail: document.getElementById('oneShotCcCheck').checked ? document.getElementById('oneShotCcEmail').value.trim() : null
           })
         });
 

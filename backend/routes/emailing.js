@@ -21,6 +21,16 @@ async function getSummaryEmail() {
   });
 }
 
+// API endpoint to get summary email
+router.get('/summary-email', authenticateToken, async (req, res) => {
+  try {
+    const email = await getSummaryEmail();
+    res.json({ email });
+  } catch (error) {
+    res.json({ email: 'cdbhs92@gmail.com' });
+  }
+});
+
 // Initialize Resend
 const getResend = () => {
   if (!process.env.RESEND_API_KEY) {
@@ -397,7 +407,7 @@ router.put('/templates/:key', authenticateToken, async (req, res) => {
 // Send emails immediately
 router.post('/send', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
-  const { recipientIds, subject, body, templateKey, imageUrl } = req.body;
+  const { recipientIds, subject, body, templateKey, imageUrl, testMode, testEmail, ccEmail } = req.body;
 
   const resend = getResend();
   if (!resend) {
@@ -408,6 +418,11 @@ router.post('/send', authenticateToken, async (req, res) => {
 
   if (!recipientIds || recipientIds.length === 0) {
     return res.status(400).json({ error: 'Aucun destinataire selectionne.' });
+  }
+
+  // Validate test mode
+  if (testMode && (!testEmail || !testEmail.includes('@'))) {
+    return res.status(400).json({ error: 'Mode Test: adresse email invalide.' });
   }
 
   try {
@@ -435,7 +450,7 @@ router.post('/send', authenticateToken, async (req, res) => {
       db.run(
         `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, status)
          VALUES ($1, $2, $3, $4, 'sending')`,
-        [subject, body, templateKey || null, recipientIds.length],
+        [subject, body, templateKey || null, testMode ? 1 : recipientIds.length],
         function(err) {
           if (err) reject(err);
           else resolve(this.lastID);
@@ -443,8 +458,13 @@ router.post('/send', authenticateToken, async (req, res) => {
       );
     });
 
+    // In test mode, only send to the test email address
+    const recipientsToEmail = testMode
+      ? [{ ...recipients[0], email: testEmail, first_name: 'TEST', last_name: 'MODE' }]
+      : recipients;
+
     // Send emails
-    for (const recipient of recipients) {
+    for (const recipient of recipientsToEmail) {
       if (!recipient.email || !recipient.email.includes('@')) {
         results.skipped.push({
           name: `${recipient.first_name} ${recipient.last_name}`,
@@ -530,11 +550,60 @@ router.post('/send', authenticateToken, async (req, res) => {
       );
     });
 
+    // Send summary email if requested and not in test mode
+    let summarySent = false;
+    if (ccEmail && ccEmail.includes('@') && !testMode && results.sent.length > 0) {
+      try {
+        const recipientsList = results.sent.map(r => `- ${r.name} (${r.email})`).join('\n');
+        const summaryHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0; font-size: 20px;">Récapitulatif d'envoi</h1>
+            </div>
+            <div style="padding: 20px; background: #f8f9fa;">
+              <h2 style="color: #1F4788; margin-top: 0;">Sujet: ${subject}</h2>
+              <p><strong>Destinataires (${results.sent.length}):</strong></p>
+              <ul style="background: white; padding: 15px 15px 15px 35px; border-radius: 4px; margin: 10px 0;">
+                ${results.sent.map(r => `<li>${r.name} - ${r.email}</li>`).join('')}
+              </ul>
+              ${results.failed.length > 0 ? `
+                <p style="color: #dc3545;"><strong>Échecs (${results.failed.length}):</strong></p>
+                <ul style="background: #fff5f5; padding: 15px 15px 15px 35px; border-radius: 4px; margin: 10px 0;">
+                  ${results.failed.map(r => `<li>${r.name} - ${r.email}: ${r.error}</li>`).join('')}
+                </ul>
+              ` : ''}
+              <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+              <p><strong>Contenu envoyé:</strong></p>
+              <div style="background: white; padding: 15px; border-radius: 4px; border-left: 4px solid #1F4788;">
+                ${body.replace(/\n/g, '<br>')}
+              </div>
+            </div>
+          </div>
+        `;
+
+        await resend.emails.send({
+          from: 'CDBHS <communication@cdbhs.net>',
+          to: [ccEmail],
+          subject: `[Récap] ${subject}`,
+          html: summaryHtml
+        });
+        summarySent = true;
+        console.log(`Summary email sent to ${ccEmail}`);
+      } catch (summaryError) {
+        console.error('Error sending summary email:', summaryError);
+      }
+    }
+
+    const message = testMode
+      ? `MODE TEST: Email envoyé uniquement à ${testEmail}`
+      : `Emails envoyés: ${results.sent.length}, Échecs: ${results.failed.length}, Ignorés: ${results.skipped.length}${summarySent ? ' + récapitulatif envoyé' : ''}`;
+
     res.json({
       success: true,
-      message: `Emails envoyes: ${results.sent.length}, Echecs: ${results.failed.length}, Ignores: ${results.skipped.length}`,
+      message,
       results,
-      campaignId
+      campaignId,
+      testMode
     });
 
   } catch (error) {
