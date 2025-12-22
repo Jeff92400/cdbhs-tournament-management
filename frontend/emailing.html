@@ -443,6 +443,17 @@
               <div id="relanceInfoContent"></div>
             </div>
 
+            <!-- Already Sent Warning -->
+            <div id="relanceAlreadySentWarning" style="display: none; padding: 15px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; margin-bottom: 20px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 24px;">⚠️</span>
+                <div>
+                  <strong style="color: #856404;">Cette relance a deja ete envoyee!</strong>
+                  <div id="relanceAlreadySentDetails" style="font-size: 13px; color: #856404; margin-top: 5px;"></div>
+                </div>
+              </div>
+            </div>
+
             <!-- Participants List -->
             <div id="relanceParticipantsSection" style="display: none;">
               <h4>Destinataires (<span id="relanceParticipantCount">0</span> joueurs, <span id="relanceEmailCount">0</span> avec email, <span id="relanceSelectedCount">0</span> sélectionnés)</h4>
@@ -2617,6 +2628,22 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         relanceData = await response.json();
         relanceParticipants = relanceData.participants || [];
 
+        // Check if this relance was already sent
+        const warningDiv = document.getElementById('relanceAlreadySentWarning');
+        const warningDetails = document.getElementById('relanceAlreadySentDetails');
+        const campaignCheck = await checkCampaignAlreadySent(`relance_${relanceType}`, mode, category);
+
+        if (campaignCheck && campaignCheck.alreadySent) {
+          warningDetails.innerHTML = `
+            <strong>Date:</strong> ${formatCampaignDate(campaignCheck.lastSent)}<br>
+            <strong>Par:</strong> ${campaignCheck.sentBy || 'Inconnu'}<br>
+            <strong>Destinataires:</strong> ${campaignCheck.recipientCount || 0}
+          `;
+          warningDiv.style.display = 'block';
+        } else {
+          warningDiv.style.display = 'none';
+        }
+
         // Update info box
         const infoDiv = document.getElementById('relanceInfo');
         const infoContent = document.getElementById('relanceInfoContent');
@@ -2818,6 +2845,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       updateRelanceTypeEnabled();
       // Reset
       document.getElementById('relanceInfo').style.display = 'none';
+      document.getElementById('relanceAlreadySentWarning').style.display = 'none';
       document.getElementById('relanceParticipantsSection').style.display = 'none';
       document.getElementById('sendRelanceBtn').disabled = true;
     });
@@ -2825,6 +2853,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
     document.getElementById('relanceCategoryFilter').addEventListener('change', () => {
       updateRelanceTypeEnabled();
       document.getElementById('relanceInfo').style.display = 'none';
+      document.getElementById('relanceAlreadySentWarning').style.display = 'none';
       document.getElementById('relanceParticipantsSection').style.display = 'none';
       document.getElementById('sendRelanceBtn').disabled = true;
     });
@@ -2833,6 +2862,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       updateRelanceTypeEnabled();
       updateRelanceTemplate();
       document.getElementById('relanceInfo').style.display = 'none';
+      document.getElementById('relanceAlreadySentWarning').style.display = 'none';
       document.getElementById('relanceParticipantsSection').style.display = 'none';
       document.getElementById('sendRelanceBtn').disabled = true;
     });
