@@ -615,42 +615,6 @@ router.post('/recalculate-rankings', authenticateToken, (req, res) => {
   });
 });
 
-// Debug endpoint to see raw ranking calculation data
-router.get('/debug-rankings/:categoryId/:season', authenticateToken, (req, res) => {
-  const { categoryId, season } = req.params;
-
-  const query = `
-    SELECT
-      REPLACE(tr.licence, ' ', '') as licence,
-      MAX(tr.player_name) as player_name,
-      SUM(tr.match_points) as total_match_points,
-      SUM(tr.points) as total_points,
-      SUM(tr.reprises) as total_reprises,
-      CASE
-        WHEN SUM(tr.reprises) > 0 THEN CAST(SUM(tr.points) AS FLOAT) / CAST(SUM(tr.reprises) AS FLOAT)
-        ELSE 0
-      END as avg_moyenne,
-      MAX(tr.serie) as best_serie,
-      MAX(CASE WHEN t.tournament_number = 1 THEN tr.match_points ELSE NULL END) as t1_points,
-      MAX(CASE WHEN t.tournament_number = 2 THEN tr.match_points ELSE NULL END) as t2_points,
-      MAX(CASE WHEN t.tournament_number = 3 THEN tr.match_points ELSE NULL END) as t3_points,
-      t.category_id,
-      t.season
-    FROM tournament_results tr
-    JOIN tournaments t ON tr.tournament_id = t.id
-    WHERE t.category_id = ? AND t.season = ? AND t.tournament_number <= 3
-    GROUP BY REPLACE(tr.licence, ' ', ''), t.category_id, t.season
-    ORDER BY total_match_points DESC, avg_moyenne DESC, best_serie DESC
-  `;
-
-  db.all(query, [categoryId, season], (err, results) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json({ count: results.length, results });
-  });
-});
-
 // Get all tournaments
 router.get('/', authenticateToken, (req, res) => {
   console.log('GET /api/tournaments called, season:', req.query.season);

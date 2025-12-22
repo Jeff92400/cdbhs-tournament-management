@@ -7,24 +7,6 @@ const { authenticateToken } = require('./auth');
 
 const router = express.Router();
 
-// Debug: check players table
-router.get('/debug-player/:licence', authenticateToken, (req, res) => {
-  const { licence } = req.params;
-  db.all(`SELECT licence, first_name, last_name, LENGTH(licence) as len FROM players WHERE licence LIKE ?`, [`%${licence}%`], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
-});
-
-// Debug: check rankings table directly
-router.get('/debug-rankings-table/:categoryId/:season', authenticateToken, (req, res) => {
-  const { categoryId, season } = req.params;
-  db.all(`SELECT licence, total_match_points, rank_position FROM rankings WHERE category_id = ? AND season = ? ORDER BY rank_position`, [categoryId, season], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ count: rows.length, rows });
-  });
-});
-
 // Get rankings by category and season
 router.get('/', authenticateToken, (req, res) => {
   const { categoryId, season } = req.query;
