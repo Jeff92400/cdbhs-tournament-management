@@ -245,6 +245,7 @@
 
     <div class="tabs">
       <div class="tab active" data-tab="compose">Composer</div>
+      <div class="tab" data-tab="relances">Relances</div>
       <div class="tab" data-tab="results">Résultats Tournoi</div>
       <div class="tab" data-tab="finale">Convocation Finale</div>
       <div class="tab" data-tab="contacts">Gestion Contacts</div>
@@ -389,6 +390,135 @@
               <button class="btn" id="sendNowBtn" style="background: #1F4788;">Envoyer maintenant</button>
               <button class="btn" id="scheduleBtn" style="background: #FF9800; display: none;">Programmer</button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Relances Inscriptions -->
+    <div id="tab-relances" class="tab-content">
+      <div class="card">
+        <h3>Relances Inscriptions</h3>
+        <p style="color: #666; margin-bottom: 20px;">
+          Envoyez des relances automatiques aux joueurs pour les inviter à s'inscrire aux tournois.
+        </p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <!-- Left: Selection -->
+          <div>
+            <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+              <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Mode</label>
+                <select id="relanceModeFilter" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-width: 150px;">
+                  <option value="">-- Sélectionner --</option>
+                  <option value="LIBRE">LIBRE</option>
+                  <option value="CADRE">CADRE</option>
+                  <option value="BANDE">BANDE</option>
+                  <option value="3BANDES">3 BANDES</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Catégorie</label>
+                <select id="relanceCategoryFilter" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-width: 120px;" disabled>
+                  <option value="">-- Sélectionner --</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-weight: bold; margin-bottom: 5px;">Type de Relance</label>
+                <select id="relanceTypeSelect" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;" disabled>
+                  <option value="">-- Sélectionner --</option>
+                  <option value="t2">Relance T2 (joueurs du T1)</option>
+                  <option value="t3">Relance T3 (joueurs au classement)</option>
+                  <option value="finale">Relance Finale (qualifiés)</option>
+                </select>
+              </div>
+            </div>
+
+            <button class="btn" id="loadRelanceParticipantsBtn" style="background: #1F4788; margin-bottom: 20px;" disabled>
+              Charger les destinataires
+            </button>
+
+            <!-- Info Box -->
+            <div id="relanceInfo" style="display: none; padding: 15px; background: #e7f3ff; border-radius: 8px; margin-bottom: 20px;">
+              <div id="relanceInfoContent"></div>
+            </div>
+
+            <!-- Participants List -->
+            <div id="relanceParticipantsSection" style="display: none;">
+              <h4>Destinataires (<span id="relanceParticipantCount">0</span> joueurs, <span id="relanceEmailCount">0</span> avec email)</h4>
+              <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+                <table style="width: 100%; font-size: 13px;">
+                  <thead style="background: #f8f9fa; position: sticky; top: 0;">
+                    <tr>
+                      <th style="padding: 10px; text-align: left;">Pos</th>
+                      <th style="padding: 10px; text-align: left;">Joueur</th>
+                      <th style="padding: 10px; text-align: left;">Club</th>
+                      <th style="padding: 10px; text-align: center;">Email</th>
+                    </tr>
+                  </thead>
+                  <tbody id="relanceParticipantsBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Template & Send -->
+          <div>
+            <!-- Custom Fields based on relance type -->
+            <div id="relanceCustomFields" style="display: none; margin-bottom: 20px; padding: 15px; background: #fff3cd; border-radius: 8px;">
+              <h4 style="margin-top: 0;">Informations du tournoi</h4>
+              <div id="relanceCustomFieldsContent"></div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-weight: bold; margin-bottom: 5px;">Sujet</label>
+              <input type="text" id="relanceSubject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-weight: bold; margin-bottom: 5px;">Message d'introduction</label>
+              <textarea id="relanceIntro" rows="6" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-weight: bold; margin-bottom: 5px;">Message de conclusion</label>
+              <textarea id="relanceOutro" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+            </div>
+
+            <div class="template-vars" style="margin-bottom: 15px;">
+              <strong>Variables disponibles:</strong>
+              <code>{first_name}</code> <code>{last_name}</code> <code>{club}</code> <code>{category}</code>
+              <span id="relanceExtraVars"></span>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="display: block; font-weight: bold; margin-bottom: 5px;">Image (optionnel) - URL</label>
+              <input type="url" id="relanceImageUrl" placeholder="https://exemple.com/image.jpg" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+
+            <!-- Summary Email -->
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="relanceCcCheck" checked style="width: 18px; height: 18px;">
+                <strong>Récapitulatif</strong>
+              </label>
+              <input type="email" id="relanceCcEmail" value="cdbhs92@gmail.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-top: 10px;">
+            </div>
+
+            <!-- Test Mode -->
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="relanceTestModeCheck" style="width: 18px; height: 18px;">
+                <strong>Mode Test</strong> - Envoyer uniquement à mon adresse
+              </label>
+              <div id="relanceTestEmailInput" style="display: none; margin-top: 10px;">
+                <input type="email" id="relanceTestEmail" placeholder="votre.email@exemple.com" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+              </div>
+            </div>
+
+            <button class="btn" id="sendRelanceBtn" style="width: 100%; padding: 15px; font-size: 16px; background: #28a745;" disabled>
+              Envoyer les Relances
+            </button>
           </div>
         </div>
       </div>
@@ -943,6 +1073,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
         document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
 
         // Load data for specific tabs
+        if (tab.dataset.tab === 'relances') loadRelanceTemplates();
         if (tab.dataset.tab === 'results') loadImportedTournaments();
         if (tab.dataset.tab === 'finale') loadFinales();
         if (tab.dataset.tab === 'contacts') loadAllContacts();
@@ -2020,6 +2151,339 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       } catch (error) {
         showError('Erreur: ' + error.message);
       }
+    });
+
+    // ==================== RELANCES INSCRIPTIONS ====================
+
+    let relanceTemplates = {};
+    let relanceParticipants = [];
+    let relanceData = {};
+
+    async function loadRelanceTemplates() {
+      try {
+        const response = await fetch(`${API_URL}/emailing/relance-templates`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          relanceTemplates = await response.json();
+        }
+      } catch (error) {
+        console.error('Error loading relance templates:', error);
+      }
+    }
+
+    function updateRelanceCategoryFilter() {
+      const mode = document.getElementById('relanceModeFilter').value;
+      const categorySelect = document.getElementById('relanceCategoryFilter');
+      const typeSelect = document.getElementById('relanceTypeSelect');
+
+      categorySelect.innerHTML = '<option value="">-- Sélectionner --</option>';
+
+      if (mode && categoriesByMode[mode]) {
+        categorySelect.disabled = false;
+        categoriesByMode[mode].forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat;
+          option.textContent = cat;
+          categorySelect.appendChild(option);
+        });
+      } else {
+        categorySelect.disabled = true;
+        typeSelect.disabled = true;
+      }
+    }
+
+    function updateRelanceTypeEnabled() {
+      const mode = document.getElementById('relanceModeFilter').value;
+      const category = document.getElementById('relanceCategoryFilter').value;
+      const typeSelect = document.getElementById('relanceTypeSelect');
+      const loadBtn = document.getElementById('loadRelanceParticipantsBtn');
+
+      if (mode && category) {
+        typeSelect.disabled = false;
+      } else {
+        typeSelect.disabled = true;
+        typeSelect.value = '';
+      }
+
+      loadBtn.disabled = !(mode && category && typeSelect.value);
+    }
+
+    function updateRelanceTemplate() {
+      const relanceType = document.getElementById('relanceTypeSelect').value;
+      const extraVarsSpan = document.getElementById('relanceExtraVars');
+      const customFieldsDiv = document.getElementById('relanceCustomFields');
+      const customFieldsContent = document.getElementById('relanceCustomFieldsContent');
+
+      if (!relanceType) {
+        document.getElementById('relanceSubject').value = '';
+        document.getElementById('relanceIntro').value = '';
+        document.getElementById('relanceOutro').value = '';
+        extraVarsSpan.innerHTML = '';
+        customFieldsDiv.style.display = 'none';
+        return;
+      }
+
+      const templateKey = `relance_${relanceType}`;
+      const template = relanceTemplates[templateKey] || {};
+
+      document.getElementById('relanceSubject').value = template.subject || '';
+      document.getElementById('relanceIntro').value = template.intro || '';
+      document.getElementById('relanceOutro').value = template.outro || '';
+
+      // Update extra variables based on type
+      if (relanceType === 't2') {
+        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code>';
+        customFieldsContent.innerHTML = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label style="font-size: 12px;">Date du T2</label>
+              <input type="date" id="relanceT2Date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+              <label style="font-size: 12px;">Lieu du T2</label>
+              <input type="text" id="relanceT2Lieu" placeholder="Club / Ville" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+          </div>
+        `;
+        customFieldsDiv.style.display = 'block';
+      } else if (relanceType === 't3') {
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code>';
+        customFieldsContent.innerHTML = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label style="font-size: 12px;">Date du T3</label>
+              <input type="date" id="relanceT3Date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+              <label style="font-size: 12px;">Lieu du T3</label>
+              <input type="text" id="relanceT3Lieu" placeholder="Club / Ville" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+          </div>
+        `;
+        customFieldsDiv.style.display = 'block';
+      } else if (relanceType === 'finale') {
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{qualified_count}</code> <code>{finale_date}</code> <code>{finale_lieu}</code> <code>{deadline_date}</code>';
+        customFieldsContent.innerHTML = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label style="font-size: 12px;">Date de la Finale</label>
+              <input type="date" id="relanceFinaleDate" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+              <label style="font-size: 12px;">Lieu de la Finale</label>
+              <input type="text" id="relanceFinaleLieu" placeholder="Club / Ville" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div style="grid-column: span 2;">
+              <label style="font-size: 12px;">Date limite de réponse</label>
+              <input type="date" id="relanceDeadlineDate" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+          </div>
+        `;
+        customFieldsDiv.style.display = 'block';
+      }
+    }
+
+    async function loadRelanceParticipants() {
+      const mode = document.getElementById('relanceModeFilter').value;
+      const category = document.getElementById('relanceCategoryFilter').value;
+      const relanceType = document.getElementById('relanceTypeSelect').value;
+
+      if (!mode || !category || !relanceType) return;
+
+      try {
+        let endpoint = '';
+        if (relanceType === 't2') {
+          endpoint = `${API_URL}/emailing/t1-participants?mode=${mode}&category=${category}`;
+        } else if (relanceType === 't3') {
+          endpoint = `${API_URL}/emailing/ranking-for-relance?mode=${mode}&category=${category}`;
+        } else if (relanceType === 'finale') {
+          endpoint = `${API_URL}/emailing/finale-qualified?mode=${mode}&category=${category}`;
+        }
+
+        const response = await fetch(endpoint, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || 'Erreur chargement');
+        }
+
+        relanceData = await response.json();
+        relanceParticipants = relanceData.participants || [];
+
+        // Update info box
+        const infoDiv = document.getElementById('relanceInfo');
+        const infoContent = document.getElementById('relanceInfoContent');
+        infoDiv.style.display = 'block';
+
+        if (relanceType === 't2' && relanceData.t1Tournament) {
+          const t1Date = relanceData.t1Tournament.date ? new Date(relanceData.t1Tournament.date).toLocaleDateString('fr-FR') : '-';
+          infoContent.innerHTML = `
+            <strong>T1 joué:</strong> ${t1Date} à ${relanceData.t1Tournament.location || '-'}<br>
+            <strong>Catégorie:</strong> ${relanceData.t1Tournament.category}<br>
+            <strong>Participants T1:</strong> ${relanceParticipants.length} joueurs
+          `;
+        } else if (relanceType === 't3' && relanceData.category) {
+          infoContent.innerHTML = `
+            <strong>Catégorie:</strong> ${relanceData.category.display_name}<br>
+            <strong>Joueurs au classement:</strong> ${relanceParticipants.length}
+          `;
+        } else if (relanceType === 'finale' && relanceData.category) {
+          infoContent.innerHTML = `
+            <strong>Catégorie:</strong> ${relanceData.category.display_name}<br>
+            <strong>Qualifiés:</strong> ${relanceData.qualifiedCount} / ${relanceData.totalInRanking} joueurs au classement
+            ${relanceData.finale ? `<br><strong>Finale:</strong> ${relanceData.finale.nom}` : ''}
+          `;
+        }
+
+        // Update participants table
+        const tbody = document.getElementById('relanceParticipantsBody');
+        tbody.innerHTML = '';
+
+        relanceParticipants.forEach(p => {
+          const pos = p.t1_position || p.rank_position || '-';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="padding: 8px;">${pos}</td>
+            <td style="padding: 8px;">${p.player_name || p.first_name + ' ' + p.last_name}</td>
+            <td style="padding: 8px;">${p.club || '-'}</td>
+            <td style="padding: 8px; text-align: center;">${p.email ? '✅' : '❌'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById('relanceParticipantCount').textContent = relanceParticipants.length;
+        document.getElementById('relanceEmailCount').textContent = relanceData.emailCount || 0;
+        document.getElementById('relanceParticipantsSection').style.display = 'block';
+        document.getElementById('sendRelanceBtn').disabled = relanceData.emailCount === 0;
+
+      } catch (error) {
+        console.error('Error loading relance participants:', error);
+        showError('Erreur: ' + error.message);
+      }
+    }
+
+    async function sendRelance() {
+      const mode = document.getElementById('relanceModeFilter').value;
+      const category = document.getElementById('relanceCategoryFilter').value;
+      const relanceType = document.getElementById('relanceTypeSelect').value;
+      const subject = document.getElementById('relanceSubject').value.trim();
+      const intro = document.getElementById('relanceIntro').value.trim();
+      const outro = document.getElementById('relanceOutro').value.trim();
+      const imageUrl = document.getElementById('relanceImageUrl').value.trim();
+      const testMode = document.getElementById('relanceTestModeCheck').checked;
+      const testEmail = document.getElementById('relanceTestEmail').value.trim();
+      const ccEmail = document.getElementById('relanceCcCheck').checked ? document.getElementById('relanceCcEmail').value.trim() : null;
+
+      if (!subject || !intro) {
+        showError('Le sujet et le message sont obligatoires.');
+        return;
+      }
+
+      if (testMode && (!testEmail || !testEmail.includes('@'))) {
+        showError('Email de test invalide.');
+        return;
+      }
+
+      // Build custom data based on relance type
+      let customData = {};
+      if (relanceType === 't2') {
+        const dateInput = document.getElementById('relanceT2Date');
+        const lieuInput = document.getElementById('relanceT2Lieu');
+        customData.tournament_date = dateInput?.value ? new Date(dateInput.value).toLocaleDateString('fr-FR') : '';
+        customData.tournament_lieu = lieuInput?.value || '';
+      } else if (relanceType === 't3') {
+        const dateInput = document.getElementById('relanceT3Date');
+        const lieuInput = document.getElementById('relanceT3Lieu');
+        customData.tournament_date = dateInput?.value ? new Date(dateInput.value).toLocaleDateString('fr-FR') : '';
+        customData.tournament_lieu = lieuInput?.value || '';
+      } else if (relanceType === 'finale') {
+        const dateInput = document.getElementById('relanceFinaleDate');
+        const lieuInput = document.getElementById('relanceFinaleLieu');
+        const deadlineInput = document.getElementById('relanceDeadlineDate');
+        customData.finale_date = dateInput?.value ? new Date(dateInput.value).toLocaleDateString('fr-FR') : '';
+        customData.finale_lieu = lieuInput?.value || '';
+        customData.deadline_date = deadlineInput?.value ? new Date(deadlineInput.value).toLocaleDateString('fr-FR') : '';
+      }
+
+      const emailCount = relanceData.emailCount || 0;
+      const confirmMsg = testMode
+        ? `MODE TEST: Envoyer l'email uniquement à ${testEmail} ?`
+        : `Envoyer la relance à ${emailCount} destinataire(s) ?`;
+
+      if (!confirm(confirmMsg)) return;
+
+      showProgress('Envoi des relances...');
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/send-relance`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            relanceType,
+            mode,
+            category,
+            subject,
+            intro,
+            outro,
+            imageUrl: imageUrl || null,
+            testMode,
+            testEmail: testMode ? testEmail : null,
+            ccEmail,
+            customData
+          })
+        });
+
+        const result = await response.json();
+        hideProgress();
+
+        if (response.ok) {
+          showSuccess(result.message);
+        } else {
+          showError(result.error || 'Erreur lors de l\'envoi.');
+        }
+
+      } catch (error) {
+        hideProgress();
+        showError('Erreur: ' + error.message);
+      }
+    }
+
+    // Relances event listeners
+    document.getElementById('relanceModeFilter').addEventListener('change', () => {
+      updateRelanceCategoryFilter();
+      updateRelanceTypeEnabled();
+      // Reset
+      document.getElementById('relanceInfo').style.display = 'none';
+      document.getElementById('relanceParticipantsSection').style.display = 'none';
+      document.getElementById('sendRelanceBtn').disabled = true;
+    });
+
+    document.getElementById('relanceCategoryFilter').addEventListener('change', () => {
+      updateRelanceTypeEnabled();
+      document.getElementById('relanceInfo').style.display = 'none';
+      document.getElementById('relanceParticipantsSection').style.display = 'none';
+      document.getElementById('sendRelanceBtn').disabled = true;
+    });
+
+    document.getElementById('relanceTypeSelect').addEventListener('change', () => {
+      updateRelanceTypeEnabled();
+      updateRelanceTemplate();
+      document.getElementById('relanceInfo').style.display = 'none';
+      document.getElementById('relanceParticipantsSection').style.display = 'none';
+      document.getElementById('sendRelanceBtn').disabled = true;
+    });
+
+    document.getElementById('loadRelanceParticipantsBtn').addEventListener('click', loadRelanceParticipants);
+    document.getElementById('sendRelanceBtn').addEventListener('click', sendRelance);
+
+    document.getElementById('relanceTestModeCheck').addEventListener('change', (e) => {
+      document.getElementById('relanceTestEmailInput').style.display = e.target.checked ? 'block' : 'none';
     });
 
     // ==================== HISTORY ====================

@@ -1993,5 +1993,859 @@ router.get('/history', authenticateToken, async (req, res) => {
   );
 });
 
+// ==================== RELANCES INSCRIPTIONS ====================
+
+// Default templates for relances
+const DEFAULT_RELANCE_TEMPLATES = {
+  relance_t2: {
+    subject: 'Inscription T2 {category} - Confirmez votre participation',
+    intro: `Bonjour {first_name},
+
+Vous avez participé au premier tournoi {category} qui s'est déroulé le {t1_date} où vous avez terminé à la {t1_position}ème place.
+
+Le deuxième tournoi de la saison aura lieu le {tournament_date} à {tournament_lieu}.
+
+Pour participer, merci de confirmer votre inscription en répondant à cet email ou en vous inscrivant sur le site.`,
+    outro: `Sportivement,
+Le Comité Départemental de Billard des Hauts-de-Seine`
+  },
+  relance_t3: {
+    subject: 'Inscription T3 {category} - Confirmez votre participation',
+    intro: `Bonjour {first_name},
+
+Vous êtes actuellement classé(e) {rank_position}ème au classement général {category} avec {total_points} points match.
+
+Le troisième et dernier tournoi qualificatif aura lieu le {tournament_date} à {tournament_lieu}.
+
+Ce tournoi est déterminant pour la qualification à la finale départementale. Pour participer, merci de confirmer votre inscription en répondant à cet email.`,
+    outro: `Sportivement,
+Le Comité Départemental de Billard des Hauts-de-Seine`
+  },
+  relance_finale: {
+    subject: 'Confirmation participation Finale {category}',
+    intro: `Bonjour {first_name},
+
+Félicitations ! Vous êtes qualifié(e) pour la finale départementale {category} !
+
+Vous avez terminé {rank_position}ème au classement général avec {total_points} points match, ce qui vous place parmi les {qualified_count} finalistes.
+
+La finale aura lieu le {finale_date} à {finale_lieu}.
+
+Merci de confirmer votre participation en répondant à cet email avant le {deadline_date}.`,
+    outro: `Nous comptons sur votre présence !
+
+Sportivement,
+Le Comité Départemental de Billard des Hauts-de-Seine`
+  }
+};
+
+// Get relance templates
+router.get('/relance-templates', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+
+  try {
+    // Get all relance templates from database
+    const templates = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM email_templates WHERE template_key LIKE 'relance_%'`,
+        [],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    // Build result with defaults for missing templates
+    const result = {};
+    for (const key of ['relance_t2', 'relance_t3', 'relance_finale']) {
+      const dbTemplate = templates.find(t => t.template_key === key);
+      if (dbTemplate) {
+        result[key] = {
+          subject: dbTemplate.subject_template,
+          intro: dbTemplate.body_template,
+          outro: dbTemplate.outro_template || DEFAULT_RELANCE_TEMPLATES[key].outro
+        };
+      } else {
+        result[key] = DEFAULT_RELANCE_TEMPLATES[key];
+      }
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching relance templates:', error);
+    res.json(DEFAULT_RELANCE_TEMPLATES);
+  }
+});
+
+// Save relance template
+router.put('/relance-templates/:key', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { key } = req.params;
+  const { subject, intro, outro } = req.body;
+
+  if (!['relance_t2', 'relance_t3', 'relance_finale'].includes(key)) {
+    return res.status(400).json({ error: 'Invalid template key' });
+  }
+
+  try {
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO email_templates (template_key, subject_template, body_template, outro_template)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (template_key) DO UPDATE SET
+           subject_template = EXCLUDED.subject_template,
+           body_template = EXCLUDED.body_template,
+           outro_template = EXCLUDED.outro_template,
+           updated_at = CURRENT_TIMESTAMP`,
+        [key, subject, intro, outro],
+        function(err) {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving relance template:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get T1 participants for T2 relance (players who played T1 in a specific mode/category)
+router.get('/t1-participants', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { mode, category } = req.query;
+
+  if (!mode || !category) {
+    return res.status(400).json({ error: 'Mode and category required' });
+  }
+
+  try {
+    // Find T1 tournament for this mode/category in current season
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let season;
+    if (currentMonth >= 8) {
+      season = `${currentYear}-${currentYear + 1}`;
+    } else {
+      season = `${currentYear - 1}-${currentYear}`;
+    }
+
+    // Find the category
+    const categoryRow = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND UPPER(level) = $2`,
+        [mode.toUpperCase(), category.toUpperCase()],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!categoryRow) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    // Get T1 tournament (tournament_number = 1)
+    const t1Tournament = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM tournaments WHERE category_id = $1 AND season = $2 AND tournament_number = 1`,
+        [categoryRow.id, season],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!t1Tournament) {
+      return res.json({ tournament: null, participants: [], message: 'T1 tournament not found for this category/season' });
+    }
+
+    // Get participants from tournament_results
+    const participants = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT tr.*,
+                pc.id as contact_id, pc.first_name, pc.last_name, pc.email, pc.club, pc.email_optin
+         FROM tournament_results tr
+         LEFT JOIN player_contacts pc ON REPLACE(tr.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+         WHERE tr.tournament_id = $1
+         ORDER BY tr.position ASC`,
+        [t1Tournament.id],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    // Get T2 tournament info if exists
+    const t2Tournament = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM tournaments WHERE category_id = $1 AND season = $2 AND tournament_number = 2`,
+        [categoryRow.id, season],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    // Also try to get T2 from tournoi_ext
+    const t2External = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM tournoi_ext
+         WHERE UPPER(mode) = $1 AND UPPER(categorie) = $2
+         AND UPPER(nom) LIKE '%T2%'
+         ORDER BY debut DESC LIMIT 1`,
+        [mode.toUpperCase(), category.toUpperCase()],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    res.json({
+      t1Tournament: {
+        id: t1Tournament.id,
+        date: t1Tournament.tournament_date,
+        location: t1Tournament.location,
+        category: categoryRow.display_name
+      },
+      t2Tournament: t2Tournament || t2External ? {
+        date: t2Tournament?.tournament_date || t2External?.debut,
+        location: t2Tournament?.location || t2External?.lieu
+      } : null,
+      participants: participants.map(p => ({
+        licence: p.licence,
+        player_name: p.player_name,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        email: p.email,
+        club: p.club,
+        contact_id: p.contact_id,
+        t1_position: p.position,
+        t1_points: p.match_points,
+        email_optin: p.email_optin
+      })),
+      emailCount: participants.filter(p => p.email && p.email.includes('@')).length
+    });
+
+  } catch (error) {
+    console.error('Error fetching T1 participants:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get ranking players for T3 relance
+router.get('/ranking-for-relance', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { mode, category } = req.query;
+
+  if (!mode || !category) {
+    return res.status(400).json({ error: 'Mode and category required' });
+  }
+
+  try {
+    // Determine current season
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let season;
+    if (currentMonth >= 8) {
+      season = `${currentYear}-${currentYear + 1}`;
+    } else {
+      season = `${currentYear - 1}-${currentYear}`;
+    }
+
+    // Find the category
+    const categoryRow = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND UPPER(level) = $2`,
+        [mode.toUpperCase(), category.toUpperCase()],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!categoryRow) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    // Get T3 tournament info if exists
+    const t3Tournament = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM tournaments WHERE category_id = $1 AND season = $2 AND tournament_number = 3`,
+        [categoryRow.id, season],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    // Also try to get T3 from tournoi_ext
+    const t3External = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM tournoi_ext
+         WHERE UPPER(mode) = $1 AND UPPER(categorie) = $2
+         AND UPPER(nom) LIKE '%T3%'
+         ORDER BY debut DESC LIMIT 1`,
+        [mode.toUpperCase(), category.toUpperCase()],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    // Get all players in the ranking
+    const rankings = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT r.*,
+                pc.id as contact_id, pc.first_name, pc.last_name, pc.email, pc.club, pc.email_optin,
+                COALESCE(pc.first_name || ' ' || pc.last_name, r.licence) as player_name
+         FROM rankings r
+         LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+         WHERE r.season = $1 AND r.category_id = $2
+         ORDER BY r.rank_position ASC`,
+        [season, categoryRow.id],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    res.json({
+      category: categoryRow,
+      t3Tournament: t3Tournament || t3External ? {
+        date: t3Tournament?.tournament_date || t3External?.debut,
+        location: t3Tournament?.location || t3External?.lieu
+      } : null,
+      participants: rankings.map(r => ({
+        licence: r.licence,
+        player_name: r.player_name,
+        first_name: r.first_name,
+        last_name: r.last_name,
+        email: r.email,
+        club: r.club,
+        contact_id: r.contact_id,
+        rank_position: r.rank_position,
+        total_points: r.total_match_points,
+        avg_moyenne: r.avg_moyenne,
+        email_optin: r.email_optin
+      })),
+      emailCount: rankings.filter(r => r.email && r.email.includes('@')).length
+    });
+
+  } catch (error) {
+    console.error('Error fetching ranking for relance:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get qualified players for finale relance
+router.get('/finale-qualified', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { mode, category } = req.query;
+
+  if (!mode || !category) {
+    return res.status(400).json({ error: 'Mode and category required' });
+  }
+
+  try {
+    // Determine current season
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let season;
+    if (currentMonth >= 8) {
+      season = `${currentYear}-${currentYear + 1}`;
+    } else {
+      season = `${currentYear - 1}-${currentYear}`;
+    }
+
+    // Find the category
+    const categoryRow = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND UPPER(level) = $2`,
+        [mode.toUpperCase(), category.toUpperCase()],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!categoryRow) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    // Get finale from tournoi_ext
+    const finale = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM tournoi_ext
+         WHERE UPPER(mode) = $1 AND UPPER(categorie) = $2
+         AND (UPPER(nom) LIKE '%FINALE%' OR UPPER(nom) LIKE '%FINAL%')
+         ORDER BY debut DESC LIMIT 1`,
+        [mode.toUpperCase(), category.toUpperCase()],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    // Get all players in the ranking
+    const rankings = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT r.*,
+                pc.id as contact_id, pc.first_name, pc.last_name, pc.email, pc.club, pc.email_optin,
+                COALESCE(pc.first_name || ' ' || pc.last_name, r.licence) as player_name
+         FROM rankings r
+         LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+         WHERE r.season = $1 AND r.category_id = $2
+         ORDER BY r.rank_position ASC`,
+        [season, categoryRow.id],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    // Determine qualified count: <9 players → 4 qualified, >=9 players → 6 qualified
+    const qualifiedCount = rankings.length < 9 ? 4 : 6;
+    const qualified = rankings.filter(r => r.rank_position <= qualifiedCount);
+
+    res.json({
+      category: categoryRow,
+      finale: finale ? {
+        tournoi_id: finale.tournoi_id,
+        nom: finale.nom,
+        date: finale.debut,
+        location: finale.lieu
+      } : null,
+      qualifiedCount,
+      totalInRanking: rankings.length,
+      participants: qualified.map(r => ({
+        licence: r.licence,
+        player_name: r.player_name,
+        first_name: r.first_name,
+        last_name: r.last_name,
+        email: r.email,
+        club: r.club,
+        contact_id: r.contact_id,
+        rank_position: r.rank_position,
+        total_points: r.total_match_points,
+        avg_moyenne: r.avg_moyenne,
+        email_optin: r.email_optin
+      })),
+      emailCount: qualified.filter(r => r.email && r.email.includes('@')).length
+    });
+
+  } catch (error) {
+    console.error('Error fetching finale qualified:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Send relance emails
+router.post('/send-relance', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { relanceType, mode, category, subject, intro, outro, imageUrl, testMode, testEmail, ccEmail, customData } = req.body;
+
+  const resend = getResend();
+  if (!resend) {
+    return res.status(500).json({
+      error: 'Email non configuré. Veuillez définir RESEND_API_KEY.'
+    });
+  }
+
+  if (!['t2', 't3', 'finale'].includes(relanceType)) {
+    return res.status(400).json({ error: 'Type de relance invalide' });
+  }
+
+  if (testMode && (!testEmail || !testEmail.includes('@'))) {
+    return res.status(400).json({ error: 'Email de test invalide.' });
+  }
+
+  try {
+    // Get participants based on relance type
+    let participants = [];
+    let tournamentInfo = {};
+
+    if (relanceType === 't2') {
+      const response = await new Promise((resolve) => {
+        // Simulate internal API call by reusing the logic
+        const req2 = { query: { mode, category } };
+        // We'll fetch directly here
+        resolve(null);
+      });
+
+      // Fetch T1 participants directly
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const season = currentMonth >= 8 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+
+      const categoryRow = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND UPPER(level) = $2`,
+          [mode.toUpperCase(), category.toUpperCase()],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+
+      if (!categoryRow) {
+        return res.status(404).json({ error: 'Category not found' });
+      }
+
+      const t1Tournament = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT * FROM tournaments WHERE category_id = $1 AND season = $2 AND tournament_number = 1`,
+          [categoryRow.id, season],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+
+      if (!t1Tournament) {
+        return res.status(404).json({ error: 'T1 tournament not found' });
+      }
+
+      participants = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT tr.*,
+                  pc.id as contact_id, pc.first_name, pc.last_name, pc.email, pc.club
+           FROM tournament_results tr
+           LEFT JOIN player_contacts pc ON REPLACE(tr.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+           WHERE tr.tournament_id = $1
+           ORDER BY tr.position ASC`,
+          [t1Tournament.id],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+
+      tournamentInfo = {
+        category: categoryRow.display_name,
+        t1_date: t1Tournament.tournament_date ? new Date(t1Tournament.tournament_date).toLocaleDateString('fr-FR') : '',
+        tournament_date: customData?.tournament_date || '',
+        tournament_lieu: customData?.tournament_lieu || ''
+      };
+
+    } else if (relanceType === 't3') {
+      // Fetch ranking players
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const season = currentMonth >= 8 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+
+      const categoryRow = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND UPPER(level) = $2`,
+          [mode.toUpperCase(), category.toUpperCase()],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+
+      if (!categoryRow) {
+        return res.status(404).json({ error: 'Category not found' });
+      }
+
+      participants = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT r.*,
+                  pc.id as contact_id, pc.first_name, pc.last_name, pc.email, pc.club,
+                  COALESCE(pc.first_name || ' ' || pc.last_name, r.licence) as player_name
+           FROM rankings r
+           LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+           WHERE r.season = $1 AND r.category_id = $2
+           ORDER BY r.rank_position ASC`,
+          [season, categoryRow.id],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+
+      tournamentInfo = {
+        category: categoryRow.display_name,
+        tournament_date: customData?.tournament_date || '',
+        tournament_lieu: customData?.tournament_lieu || ''
+      };
+
+    } else if (relanceType === 'finale') {
+      // Fetch finale qualified
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const season = currentMonth >= 8 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+
+      const categoryRow = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND UPPER(level) = $2`,
+          [mode.toUpperCase(), category.toUpperCase()],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+
+      if (!categoryRow) {
+        return res.status(404).json({ error: 'Category not found' });
+      }
+
+      const allRankings = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT r.*,
+                  pc.id as contact_id, pc.first_name, pc.last_name, pc.email, pc.club,
+                  COALESCE(pc.first_name || ' ' || pc.last_name, r.licence) as player_name
+           FROM rankings r
+           LEFT JOIN player_contacts pc ON REPLACE(r.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+           WHERE r.season = $1 AND r.category_id = $2
+           ORDER BY r.rank_position ASC`,
+          [season, categoryRow.id],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+
+      const qualifiedCount = allRankings.length < 9 ? 4 : 6;
+      participants = allRankings.filter(r => r.rank_position <= qualifiedCount);
+
+      tournamentInfo = {
+        category: categoryRow.display_name,
+        qualified_count: qualifiedCount,
+        finale_date: customData?.finale_date || '',
+        finale_lieu: customData?.finale_lieu || '',
+        deadline_date: customData?.deadline_date || ''
+      };
+    }
+
+    if (participants.length === 0) {
+      return res.status(400).json({ error: 'Aucun participant trouvé' });
+    }
+
+    const results = { sent: [], failed: [], skipped: [] };
+
+    // Create campaign record
+    const campaignId = await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, status)
+         VALUES ($1, $2, $3, $4, 'sending')`,
+        [subject, intro, `relance_${relanceType}`, testMode ? 1 : participants.filter(p => p.email).length],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.lastID);
+        }
+      );
+    });
+
+    // In test mode, only send to test email
+    const recipientsToEmail = testMode
+      ? [{ ...participants[0], email: testEmail }]
+      : participants.filter(p => p.email && p.email.includes('@'));
+
+    for (const participant of recipientsToEmail) {
+      if (!participant.email || !participant.email.includes('@')) {
+        results.skipped.push({
+          name: participant.player_name || `${participant.first_name} ${participant.last_name}`,
+          reason: 'Email invalide'
+        });
+        continue;
+      }
+
+      try {
+        // Build template variables
+        const variables = {
+          first_name: participant.first_name || '',
+          last_name: participant.last_name || '',
+          player_name: participant.player_name || `${participant.first_name} ${participant.last_name}`,
+          club: participant.club || '',
+          category: tournamentInfo.category || '',
+          t1_position: participant.position || participant.t1_position || '',
+          t1_points: participant.match_points || participant.t1_points || '',
+          t1_date: tournamentInfo.t1_date || '',
+          rank_position: participant.rank_position || '',
+          total_points: participant.total_match_points || participant.total_points || '',
+          tournament_date: tournamentInfo.tournament_date || '',
+          tournament_lieu: tournamentInfo.tournament_lieu || '',
+          finale_date: tournamentInfo.finale_date || '',
+          finale_lieu: tournamentInfo.finale_lieu || '',
+          deadline_date: tournamentInfo.deadline_date || '',
+          qualified_count: tournamentInfo.qualified_count || ''
+        };
+
+        // Replace variables in subject, intro, outro
+        let emailSubject = subject;
+        let emailIntro = intro;
+        let emailOutro = outro;
+
+        for (const [key, value] of Object.entries(variables)) {
+          const regex = new RegExp(`\\{${key}\\}`, 'g');
+          emailSubject = emailSubject.replace(regex, value);
+          emailIntro = emailIntro.replace(regex, value);
+          emailOutro = emailOutro.replace(regex, value);
+        }
+
+        const imageHtml = imageUrl ? `<div style="text-align: center; margin: 20px 0;"><img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px;"></div>` : '';
+
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
+              <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <h1 style="margin: 0; font-size: 24px;">Comité Départemental Billard Hauts-de-Seine</h1>
+            </div>
+            <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
+              ${imageHtml}
+              <p>${emailIntro.replace(/\n/g, '<br>')}</p>
+              <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+              <p>${emailOutro.replace(/\n/g, '<br>')}</p>
+            </div>
+            <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
+              <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+            </div>
+          </div>
+        `;
+
+        await resend.emails.send({
+          from: 'CDBHS <communication@cdbhs.net>',
+          replyTo: 'cdbhs92@gmail.com',
+          to: [participant.email],
+          subject: emailSubject,
+          html: emailHtml
+        });
+
+        results.sent.push({
+          name: participant.player_name || `${participant.first_name} ${participant.last_name}`,
+          email: participant.email
+        });
+
+        // Update last_contacted
+        if (participant.contact_id) {
+          await new Promise((resolve) => {
+            db.run(
+              'UPDATE player_contacts SET last_contacted = CURRENT_TIMESTAMP WHERE id = $1',
+              [participant.contact_id],
+              () => resolve()
+            );
+          });
+        }
+
+        await delay(1500);
+
+      } catch (error) {
+        console.error(`Error sending relance to ${participant.email}:`, error);
+        results.failed.push({
+          name: participant.player_name || `${participant.first_name} ${participant.last_name}`,
+          email: participant.email,
+          error: error.message
+        });
+      }
+    }
+
+    // Update campaign
+    await new Promise((resolve) => {
+      db.run(
+        `UPDATE email_campaigns SET sent_count = $1, failed_count = $2, status = 'completed', sent_at = CURRENT_TIMESTAMP WHERE id = $3`,
+        [results.sent.length, results.failed.length, campaignId],
+        () => resolve()
+      );
+    });
+
+    // Send summary if requested
+    if (ccEmail && ccEmail.includes('@') && !testMode && results.sent.length > 0) {
+      try {
+        const recipientListHtml = results.sent.map((r, idx) =>
+          `<tr style="background: ${idx % 2 === 0 ? 'white' : '#f8f9fa'};">
+            <td style="padding: 8px; border: 1px solid #ddd;">${idx + 1}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${r.name}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${r.email}</td>
+          </tr>`
+        ).join('');
+
+        const relanceTypeLabels = { t2: 'T2', t3: 'T3', finale: 'Finale' };
+
+        const summaryHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0; font-size: 20px;">Récapitulatif Relance ${relanceTypeLabels[relanceType]}</h1>
+              <p style="margin: 10px 0 0 0;">${mode} ${category}</p>
+            </div>
+            <div style="padding: 20px; background: #f8f9fa;">
+              <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin-bottom: 20px;">
+                <strong>✅ ${results.sent.length} relance(s) envoyée(s)</strong>
+                ${results.failed.length > 0 ? `<br><span style="color: #dc3545;">${results.failed.length} échec(s)</span>` : ''}
+              </div>
+              <h3>Destinataires</h3>
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                  <tr style="background: #1F4788; color: white;">
+                    <th style="padding: 8px; border: 1px solid #ddd;">#</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Joueur</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Email</th>
+                  </tr>
+                </thead>
+                <tbody>${recipientListHtml}</tbody>
+              </table>
+            </div>
+          </div>
+        `;
+
+        await resend.emails.send({
+          from: 'CDBHS <communication@cdbhs.net>',
+          to: [ccEmail],
+          subject: `Récap Relance ${relanceTypeLabels[relanceType]} - ${mode} ${category}`,
+          html: summaryHtml
+        });
+      } catch (summaryError) {
+        console.error('Error sending summary:', summaryError);
+      }
+    }
+
+    const message = testMode
+      ? `Email de test envoyé à ${testEmail}`
+      : `Relances envoyées: ${results.sent.length}, Échecs: ${results.failed.length}${ccEmail ? ' + récapitulatif' : ''}`;
+
+    res.json({
+      success: true,
+      message,
+      results,
+      testMode
+    });
+
+  } catch (error) {
+    console.error('Error sending relance:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
 module.exports.syncContacts = syncContacts;
