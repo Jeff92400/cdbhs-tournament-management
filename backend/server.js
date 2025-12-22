@@ -324,11 +324,19 @@ async function processScheduledEmails() {
 
     // Filter emails that are due (scheduled_at <= now Paris time)
     const scheduledEmails = allPending.filter(email => {
-      // Parse scheduled_at as Paris time (remove Z if present)
-      const scheduledStr = email.scheduled_at ? email.scheduled_at.replace('Z', '').replace('.000', '') : '';
-      const scheduledDate = new Date(scheduledStr);
+      // Handle scheduled_at as Date object or string
+      let scheduledDate;
+      if (email.scheduled_at instanceof Date) {
+        scheduledDate = email.scheduled_at;
+      } else if (typeof email.scheduled_at === 'string') {
+        const scheduledStr = email.scheduled_at.replace('Z', '').replace('.000', '');
+        scheduledDate = new Date(scheduledStr);
+      } else {
+        console.log(`[Email Scheduler] Email ${email.id}: invalid scheduled_at type: ${typeof email.scheduled_at}`);
+        return false;
+      }
       const isDue = scheduledDate <= parisNow;
-      console.log(`[Email Scheduler] Email ${email.id}: scheduled=${scheduledStr} (${scheduledDate.toLocaleString('fr-FR')}), now=${parisNow.toLocaleString('fr-FR')}, isDue=${isDue}`);
+      console.log(`[Email Scheduler] Email ${email.id}: scheduled=${scheduledDate.toLocaleString('fr-FR')}, now=${parisNow.toLocaleString('fr-FR')}, isDue=${isDue}`);
       return isDue;
     });
 
