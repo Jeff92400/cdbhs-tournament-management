@@ -2542,22 +2542,42 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         }
 
         // Populate the fields based on relance type
+        // Helper function to match location with dropdown options
+        function setLocationDropdown(selectId, locationValue) {
+          const lieuSelect = document.getElementById(selectId);
+          if (!lieuSelect || !locationValue) return;
+
+          const locationUpper = locationValue.toUpperCase();
+          console.log('Trying to match location:', locationValue);
+
+          // First try exact match
+          for (let opt of lieuSelect.options) {
+            if (opt.value === locationValue || opt.text === locationValue) {
+              lieuSelect.value = opt.value;
+              console.log('Location matched exactly:', opt.value);
+              return;
+            }
+          }
+
+          // Then try case-insensitive partial match (location name contained in option)
+          for (let opt of lieuSelect.options) {
+            const optUpper = opt.text.toUpperCase();
+            if (optUpper.includes(locationUpper) || locationUpper.includes(optUpper.split(' ')[0])) {
+              lieuSelect.value = opt.value;
+              console.log('Location matched partially:', opt.value);
+              return;
+            }
+          }
+          console.log('Location not matched in dropdown options');
+        }
+
         if (relanceType === 't2') {
           if (data.tournament_date) {
             const dateInput = document.getElementById('relanceT2Date');
             if (dateInput) dateInput.value = data.tournament_date.split('T')[0];
           }
           if (data.location) {
-            const lieuSelect = document.getElementById('relanceT2Lieu');
-            if (lieuSelect) {
-              // Find matching option
-              for (let opt of lieuSelect.options) {
-                if (opt.value === data.location || opt.text === data.location) {
-                  lieuSelect.value = opt.value;
-                  break;
-                }
-              }
-            }
+            setLocationDropdown('relanceT2Lieu', data.location);
           }
         } else if (relanceType === 't3') {
           if (data.tournament_date) {
@@ -2565,15 +2585,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             if (dateInput) dateInput.value = data.tournament_date.split('T')[0];
           }
           if (data.location) {
-            const lieuSelect = document.getElementById('relanceT3Lieu');
-            if (lieuSelect) {
-              for (let opt of lieuSelect.options) {
-                if (opt.value === data.location || opt.text === data.location) {
-                  lieuSelect.value = opt.value;
-                  break;
-                }
-              }
-            }
+            setLocationDropdown('relanceT3Lieu', data.location);
           }
         } else if (relanceType === 'finale') {
           if (data.tournament_date) {
@@ -2581,15 +2593,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             if (dateInput) dateInput.value = data.tournament_date.split('T')[0];
           }
           if (data.location) {
-            const lieuSelect = document.getElementById('relanceFinaleLieu');
-            if (lieuSelect) {
-              for (let opt of lieuSelect.options) {
-                if (opt.value === data.location || opt.text === data.location) {
-                  lieuSelect.value = opt.value;
-                  break;
-                }
-              }
-            }
+            setLocationDropdown('relanceFinaleLieu', data.location);
           }
         }
       } catch (error) {
