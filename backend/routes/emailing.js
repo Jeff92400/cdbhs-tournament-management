@@ -492,7 +492,8 @@ router.post('/send', authenticateToken, async (req, res) => {
     });
   }
 
-  if (!recipientIds || recipientIds.length === 0) {
+  // In test mode, we allow sending without recipients (use placeholder data)
+  if ((!recipientIds || recipientIds.length === 0) && !testMode) {
     return res.status(400).json({ error: 'Aucun destinataire selectionne.' });
   }
 
@@ -502,18 +503,33 @@ router.post('/send', authenticateToken, async (req, res) => {
   }
 
   try {
-    // Get recipients
-    const placeholders = recipientIds.map((_, i) => `$${i + 1}`).join(',');
-    const recipients = await new Promise((resolve, reject) => {
-      db.all(
-        `SELECT * FROM player_contacts WHERE id IN (${placeholders})`,
-        recipientIds,
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows || []);
-        }
-      );
-    });
+    // Get recipients (or use placeholder for test mode without selection)
+    let recipients = [];
+    if (recipientIds && recipientIds.length > 0) {
+      const placeholders = recipientIds.map((_, i) => `$${i + 1}`).join(',');
+      recipients = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT * FROM player_contacts WHERE id IN (${placeholders})`,
+          recipientIds,
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+    }
+
+    // In test mode without contacts, use placeholder data
+    if (testMode && recipients.length === 0) {
+      recipients = [{
+        id: 0,
+        first_name: 'Test',
+        last_name: 'Utilisateur',
+        email: testEmail,
+        club: 'Club Test',
+        licence: 'TEST-001'
+      }];
+    }
 
     const results = {
       sent: [],
@@ -526,7 +542,7 @@ router.post('/send', authenticateToken, async (req, res) => {
       db.run(
         `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, status)
          VALUES ($1, $2, $3, $4, 'sending')`,
-        [subject, body, templateKey || null, testMode ? 1 : recipientIds.length],
+        [subject, body, templateKey || null, testMode ? 1 : (recipientIds ? recipientIds.length : 0)],
         function(err) {
           if (err) reject(err);
           else resolve(this.lastID);

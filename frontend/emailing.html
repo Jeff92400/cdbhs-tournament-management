@@ -1331,7 +1331,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
       const isTestMode = document.getElementById('oneShotTestModeCheck').checked;
       const testEmail = document.getElementById('oneShotTestEmail').value.trim();
 
-      if (selectedContactIds.size === 0) {
+      // In test mode, we don't require contact selection
+      if (selectedContactIds.size === 0 && !isTestMode) {
         showError('Veuillez selectionner au moins un destinataire.');
         return;
       }
