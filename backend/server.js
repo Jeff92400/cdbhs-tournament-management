@@ -445,10 +445,12 @@ app.listen(PORT, '0.0.0.0', () => {
 ╚════════════════════════════════════════════╝
   `);
 
-  // Start email scheduler (check every hour, process at configured hour)
+  // Start email scheduler (check every hour, process at configured hour - Paris time)
   setInterval(async () => {
     const now = new Date();
-    const currentHour = now.getHours();
+    // Get current hour in Paris timezone
+    const parisTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const currentHour = parisTime.getHours();
 
     // Get configured hour from database (default: 6)
     let schedulerHour = 6;
