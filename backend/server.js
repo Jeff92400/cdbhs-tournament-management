@@ -432,16 +432,32 @@ app.listen(PORT, '0.0.0.0', () => {
 ╚════════════════════════════════════════════╝
   `);
 
-  // Start email scheduler (check every hour, process only at 6am)
-  setInterval(() => {
+  // Start email scheduler (check every hour, process at configured hour)
+  setInterval(async () => {
     const now = new Date();
-    const hour = now.getHours();
-    if (hour === 6) {
-      console.log('[Email Scheduler] 6am - processing scheduled emails');
+    const currentHour = now.getHours();
+
+    // Get configured hour from database (default: 6)
+    let schedulerHour = 6;
+    try {
+      const setting = await new Promise((resolve) => {
+        db.get(`SELECT value FROM app_settings WHERE key = 'email_scheduler_hour'`, [], (err, row) => {
+          resolve(row);
+        });
+      });
+      if (setting && setting.value) {
+        schedulerHour = parseInt(setting.value, 10);
+      }
+    } catch (e) {
+      console.error('[Email Scheduler] Error reading scheduler hour setting:', e.message);
+    }
+
+    if (currentHour === schedulerHour) {
+      console.log(`[Email Scheduler] ${schedulerHour}h - processing scheduled emails`);
       processScheduledEmails();
     }
   }, 3600000); // Check every hour (3600000ms)
-  console.log('[Email Scheduler] Started - will process scheduled emails daily at 6am');
+  console.log('[Email Scheduler] Started - checking for scheduled emails every hour');
 
   // Auto-sync contacts on startup (after a short delay to ensure DB is ready)
   setTimeout(async () => {

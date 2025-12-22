@@ -157,10 +157,10 @@ const initAppSettings = async () => {
       )
     `, [], (err) => {
       if (err) console.error('Error creating app_settings table:', err);
-      // Insert default summary email if not exists
-      db.run(`
-        INSERT OR IGNORE INTO app_settings (key, value) VALUES ('summary_email', 'cdbhs92@gmail.com')
-      `, [], () => resolve());
+      // Insert default values if not exists
+      db.run(`INSERT OR IGNORE INTO app_settings (key, value) VALUES ('summary_email', 'cdbhs92@gmail.com')`, [], () => {
+        db.run(`INSERT OR IGNORE INTO app_settings (key, value) VALUES ('email_scheduler_hour', '6')`, [], () => resolve());
+      });
     });
   });
 };

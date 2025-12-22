@@ -202,6 +202,59 @@
       <div id="gameParamsMessage" style="display: none; margin-top: 15px; padding: 10px; border-radius: 4px;"></div>
     </div>
 
+    <!-- Email Scheduler Settings - Admin Only -->
+    <div class="card admin-only" id="emailSchedulerSection">
+      <h3>Planification des emails</h3>
+      <p style="margin-bottom: 20px; color: #666;">
+        Configurez l'heure d'envoi automatique des emails programmés.
+      </p>
+
+      <div style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px; max-width: 300px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 500;">Heure d'envoi :</label>
+          <select id="schedulerHour" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+            <option value="0">00h00 (minuit)</option>
+            <option value="1">01h00</option>
+            <option value="2">02h00</option>
+            <option value="3">03h00</option>
+            <option value="4">04h00</option>
+            <option value="5">05h00</option>
+            <option value="6">06h00</option>
+            <option value="7">07h00</option>
+            <option value="8">08h00</option>
+            <option value="9">09h00</option>
+            <option value="10">10h00</option>
+            <option value="11">11h00</option>
+            <option value="12">12h00</option>
+            <option value="13">13h00</option>
+            <option value="14">14h00</option>
+            <option value="15">15h00</option>
+            <option value="16">16h00</option>
+            <option value="17">17h00</option>
+            <option value="18">18h00</option>
+            <option value="19">19h00</option>
+            <option value="20">20h00</option>
+            <option value="21">21h00</option>
+            <option value="22">22h00</option>
+            <option value="23">23h00</option>
+          </select>
+        </div>
+        <button onclick="saveSchedulerHour()" class="btn" style="background: #28a745; padding: 12px 25px;">
+          Enregistrer
+        </button>
+      </div>
+
+      <div id="schedulerMessage" style="display: none; margin-top: 15px; padding: 10px; border-radius: 4px;"></div>
+
+      <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-left: 4px solid #1F4788; border-radius: 4px;">
+        <strong>Information :</strong>
+        <p style="margin: 10px 0 0 0; color: #666;">
+          Les emails programmés seront envoyés automatiquement chaque jour à l'heure configurée.
+          Si un email a déjà été envoyé manuellement avant la date programmée, il sera automatiquement bloqué.
+        </p>
+      </div>
+    </div>
+
     <!-- Club Aliases Section - Admin Only -->
     <div class="card admin-only" id="clubAliasesSection">
       <h3>Alias des Clubs</h3>
@@ -576,6 +629,63 @@
     loadUsers();
 
     // ============= END USER MANAGEMENT =============
+
+    // ============= EMAIL SCHEDULER SETTINGS =============
+
+    // Load scheduler hour setting
+    async function loadSchedulerHour() {
+      try {
+        const response = await fetch(`${API_URL}/settings/app/email_scheduler_hour`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.value) {
+            document.getElementById('schedulerHour').value = data.value;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading scheduler hour:', error);
+      }
+    }
+
+    // Save scheduler hour setting
+    async function saveSchedulerHour() {
+      const hour = document.getElementById('schedulerHour').value;
+      const msgDiv = document.getElementById('schedulerMessage');
+
+      try {
+        const response = await fetch(`${API_URL}/settings/app/email_scheduler_hour`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ value: hour })
+        });
+
+        if (response.ok) {
+          msgDiv.textContent = `Heure d'envoi configurée à ${hour}h00`;
+          msgDiv.style.background = '#d4edda';
+          msgDiv.style.color = '#155724';
+        } else {
+          throw new Error('Erreur lors de la sauvegarde');
+        }
+      } catch (error) {
+        console.error('Error saving scheduler hour:', error);
+        msgDiv.textContent = error.message;
+        msgDiv.style.background = '#f8d7da';
+        msgDiv.style.color = '#721c24';
+      }
+
+      msgDiv.style.display = 'block';
+      setTimeout(() => { msgDiv.style.display = 'none'; }, 3000);
+    }
+
+    // Load on page load
+    loadSchedulerHour();
+
+    // ============= END EMAIL SCHEDULER SETTINGS =============
 
     // ============= CLUB ALIASES MANAGEMENT =============
 
