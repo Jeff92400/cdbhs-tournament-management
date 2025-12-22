@@ -2517,12 +2517,18 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         console.log('Tournament data:', data);
 
         if (!data.found) {
-          // Tournament not found - show message
+          // Tournament not found - show message with debug info
+          let debugInfo = '';
+          if (data.debug && data.debug.allTournamentsForCategory && data.debug.allTournamentsForCategory.length > 0) {
+            debugInfo = '<br><small>Tournois disponibles pour cette catégorie: ' +
+              data.debug.allTournamentsForCategory.map(t => t.nom).join(', ') + '</small>';
+          }
           if (infoDiv) {
-            infoDiv.innerHTML = `<p style="color: #856404;"><strong>Info:</strong> ${data.message || 'Tournoi non trouvé dans la base de données. Veuillez saisir les informations manuellement.'}</p>`;
+            infoDiv.innerHTML = `<p style="color: #856404;"><strong>Info:</strong> ${data.message || 'Tournoi non trouvé dans la base de données. Veuillez saisir les informations manuellement.'}${debugInfo}</p>`;
             infoDiv.style.display = 'block';
             infoDiv.style.background = '#fff3cd';
           }
+          console.log('Tournament not found - debug:', data.debug);
           return;
         }
 

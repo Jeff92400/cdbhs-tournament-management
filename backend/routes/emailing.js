@@ -2220,9 +2220,25 @@ router.get('/next-tournament', authenticateToken, async (req, res) => {
     console.log('Tournament found in tournoi_ext:', tournament);
 
     if (!tournament) {
+      // Debug: list all tournaments for this mode/category
+      const allTournaments = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT tournoi_id, nom, mode, categorie, debut, lieu FROM tournoi_ext
+           WHERE UPPER(categorie) = $1
+           ORDER BY debut DESC LIMIT 10`,
+          [category.toUpperCase()],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+      console.log('All tournaments for category', category, ':', allTournaments);
+
       return res.json({
         found: false,
-        message: `Tournoi ${relanceType === 'finale' ? 'Finale' : 'T' + tournamentNumber} non trouvé dans la base de données`
+        message: `Tournoi ${relanceType === 'finale' ? 'Finale' : 'T' + tournamentNumber} non trouvé dans la base de données`,
+        debug: { modeMappings: modeParams, allTournamentsForCategory: allTournaments }
       });
     }
 
