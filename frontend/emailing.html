@@ -940,6 +940,48 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
         <button class="btn" id="resetResultsTemplateBtn" style="background: #6c757d; margin-left: 10px;">Réinitialiser par défaut</button>
       </div>
 
+      <!-- Relance Templates -->
+      <div class="card" style="margin-top: 20px;">
+        <h3>Templates Relances Inscriptions</h3>
+        <p style="color: #666; margin-bottom: 15px;">Personnalisez les templates pour les relances d'inscription (T2, T3, Finale).</p>
+
+        <div style="margin-bottom: 20px;">
+          <label style="font-weight: bold;">Sélectionner un template:</label>
+          <select id="relanceTemplateSelect" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
+            <option value="">-- Choisir --</option>
+            <option value="relance_t2">Relance T2 (joueurs du T1)</option>
+            <option value="relance_t3">Relance T3 (joueurs au classement)</option>
+            <option value="relance_finale">Relance Finale (qualifiés)</option>
+          </select>
+        </div>
+
+        <div id="relanceTemplateEditor" style="display: none;">
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Sujet</label>
+            <input type="text" id="relanceTemplateSubject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Message d'introduction</label>
+            <textarea id="relanceTemplateIntro" rows="8" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 5px;">Message de conclusion</label>
+            <textarea id="relanceTemplateOutro" rows="4" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+          </div>
+
+          <div class="template-vars" style="margin-bottom: 15px;">
+            <strong>Variables disponibles:</strong>
+            <code>{first_name}</code> <code>{last_name}</code> <code>{club}</code> <code>{category}</code>
+            <span id="relanceTemplateExtraVars"></span>
+          </div>
+
+          <button class="btn" id="saveRelanceTemplateBtn" style="background: #28a745;">Enregistrer</button>
+          <button class="btn" id="resetRelanceTemplateBtn" style="background: #6c757d; margin-left: 10px;">Réinitialiser par défaut</button>
+        </div>
+      </div>
+
       <!-- Custom Templates -->
       <div class="card" style="margin-top: 20px;">
         <h3>Templates Personnalisés</h3>
@@ -1081,6 +1123,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
           loadConvocationTemplate();
           loadFinaleConvocationTemplate();
           loadResultsTemplate();
+          loadRelanceTemplates();
         }
         if (tab.dataset.tab === 'history') loadHistory();
         if (tab.dataset.tab === 'scheduled') loadScheduled();
@@ -2002,6 +2045,127 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
     });
 
+    // ==================== RELANCE TEMPLATES EDITOR ====================
+
+    const DEFAULT_RELANCE_TEMPLATES_CLIENT = {
+      relance_t2: {
+        subject: 'Inscription T2 {category} - Confirmez votre participation',
+        intro: `Bonjour {first_name},
+
+Vous avez participé au premier tournoi {category} qui s'est déroulé le {t1_date} où vous avez terminé à la {t1_position}ème place.
+
+Le deuxième tournoi de la saison aura lieu le {tournament_date} à {tournament_lieu}.
+
+Pour participer, merci de confirmer votre inscription en répondant à cet email ou en vous inscrivant sur le site.`,
+        outro: `Sportivement,
+Le Comité Départemental de Billard des Hauts-de-Seine`
+      },
+      relance_t3: {
+        subject: 'Inscription T3 {category} - Confirmez votre participation',
+        intro: `Bonjour {first_name},
+
+Vous êtes actuellement classé(e) {rank_position}ème au classement général {category} avec {total_points} points match.
+
+Le troisième et dernier tournoi qualificatif aura lieu le {tournament_date} à {tournament_lieu}.
+
+Ce tournoi est déterminant pour la qualification à la finale départementale. Pour participer, merci de confirmer votre inscription en répondant à cet email.`,
+        outro: `Sportivement,
+Le Comité Départemental de Billard des Hauts-de-Seine`
+      },
+      relance_finale: {
+        subject: 'Confirmation participation Finale {category}',
+        intro: `Bonjour {first_name},
+
+Félicitations ! Vous êtes qualifié(e) pour la finale départementale {category} !
+
+Vous avez terminé {rank_position}ème au classement général avec {total_points} points match, ce qui vous place parmi les {qualified_count} finalistes.
+
+La finale aura lieu le {finale_date} à {finale_lieu}.
+
+Merci de confirmer votre participation en répondant à cet email avant le {deadline_date}.`,
+        outro: `Nous comptons sur votre présence !
+
+Sportivement,
+Le Comité Départemental de Billard des Hauts-de-Seine`
+      }
+    };
+
+    let currentRelanceTemplateKey = '';
+
+    document.getElementById('relanceTemplateSelect').addEventListener('change', async (e) => {
+      const key = e.target.value;
+      const editor = document.getElementById('relanceTemplateEditor');
+      const extraVarsSpan = document.getElementById('relanceTemplateExtraVars');
+
+      if (!key) {
+        editor.style.display = 'none';
+        currentRelanceTemplateKey = '';
+        return;
+      }
+
+      currentRelanceTemplateKey = key;
+      editor.style.display = 'block';
+
+      // Set extra vars based on template type
+      if (key === 'relance_t2') {
+        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code>';
+      } else if (key === 'relance_t3') {
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code>';
+      } else if (key === 'relance_finale') {
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{qualified_count}</code> <code>{finale_date}</code> <code>{finale_lieu}</code> <code>{deadline_date}</code>';
+      }
+
+      // Load template from server or use default
+      const template = relanceTemplates[key] || DEFAULT_RELANCE_TEMPLATES_CLIENT[key];
+      document.getElementById('relanceTemplateSubject').value = template.subject || '';
+      document.getElementById('relanceTemplateIntro').value = template.intro || '';
+      document.getElementById('relanceTemplateOutro').value = template.outro || '';
+    });
+
+    document.getElementById('saveRelanceTemplateBtn').addEventListener('click', async () => {
+      if (!currentRelanceTemplateKey) return;
+
+      const subject = document.getElementById('relanceTemplateSubject').value.trim();
+      const intro = document.getElementById('relanceTemplateIntro').value.trim();
+      const outro = document.getElementById('relanceTemplateOutro').value.trim();
+
+      if (!subject || !intro) {
+        showError('Le sujet et le message d\'introduction sont obligatoires.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/relance-templates/${currentRelanceTemplateKey}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ subject, intro, outro })
+        });
+
+        if (response.ok) {
+          showSuccess('Template relance enregistré!');
+          // Update local cache
+          relanceTemplates[currentRelanceTemplateKey] = { subject, intro, outro };
+        } else {
+          showError('Erreur lors de la sauvegarde.');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    });
+
+    document.getElementById('resetRelanceTemplateBtn').addEventListener('click', () => {
+      if (!currentRelanceTemplateKey) return;
+
+      const defaultTemplate = DEFAULT_RELANCE_TEMPLATES_CLIENT[currentRelanceTemplateKey];
+      document.getElementById('relanceTemplateSubject').value = defaultTemplate.subject;
+      document.getElementById('relanceTemplateIntro').value = defaultTemplate.intro;
+      document.getElementById('relanceTemplateOutro').value = defaultTemplate.outro;
+      showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
+    });
+
     // ==================== ALL CONTACTS (Management) ====================
 
     let allContactsData = []; // Store contacts globally for filtering
@@ -2231,6 +2395,16 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       document.getElementById('relanceIntro').value = template.intro || '';
       document.getElementById('relanceOutro').value = template.outro || '';
 
+      // Club options for lieu dropdowns
+      const clubOptions = `
+        <option value="">-- Sélectionner --</option>
+        <option value="Billard Club Clichois (Clichy)">Billard Club Clichois (Clichy)</option>
+        <option value="Cercle Billard Nanterre (Nanterre)">Cercle Billard Nanterre (Nanterre)</option>
+        <option value="Billard Club Levallois (Levallois)">Billard Club Levallois (Levallois)</option>
+        <option value="Académie Billard Courbevoie (Courbevoie)">Académie Billard Courbevoie (Courbevoie)</option>
+        <option value="Billard Club Garennois (La Garenne-Colombes)">Billard Club Garennois (La Garenne-Colombes)</option>
+      `;
+
       // Update extra variables based on type
       if (relanceType === 't2') {
         extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code>';
@@ -2242,7 +2416,9 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             </div>
             <div>
               <label style="font-size: 12px;">Lieu du T2</label>
-              <input type="text" id="relanceT2Lieu" placeholder="Club / Ville" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+              <select id="relanceT2Lieu" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                ${clubOptions}
+              </select>
             </div>
           </div>
         `;
@@ -2257,7 +2433,9 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             </div>
             <div>
               <label style="font-size: 12px;">Lieu du T3</label>
-              <input type="text" id="relanceT3Lieu" placeholder="Club / Ville" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+              <select id="relanceT3Lieu" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                ${clubOptions}
+              </select>
             </div>
           </div>
         `;
@@ -2272,7 +2450,9 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             </div>
             <div>
               <label style="font-size: 12px;">Lieu de la Finale</label>
-              <input type="text" id="relanceFinaleLieu" placeholder="Club / Ville" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+              <select id="relanceFinaleLieu" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                ${clubOptions}
+              </select>
             </div>
             <div style="grid-column: span 2;">
               <label style="font-size: 12px;">Date limite de réponse</label>
