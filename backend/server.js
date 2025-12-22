@@ -432,9 +432,16 @@ app.listen(PORT, '0.0.0.0', () => {
 ╚════════════════════════════════════════════╝
   `);
 
-  // Start email scheduler (check every minute)
-  setInterval(processScheduledEmails, 60000);
-  console.log('[Email Scheduler] Started - checking for scheduled emails every minute');
+  // Start email scheduler (check every hour, process only at 6am)
+  setInterval(() => {
+    const now = new Date();
+    const hour = now.getHours();
+    if (hour === 6) {
+      console.log('[Email Scheduler] 6am - processing scheduled emails');
+      processScheduledEmails();
+    }
+  }, 3600000); // Check every hour (3600000ms)
+  console.log('[Email Scheduler] Started - will process scheduled emails daily at 6am');
 
   // Auto-sync contacts on startup (after a short delay to ensure DB is ready)
   setTimeout(async () => {
