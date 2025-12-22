@@ -262,8 +262,14 @@ async function initializeDatabase() {
         template_key TEXT NOT NULL UNIQUE,
         subject_template TEXT NOT NULL,
         body_template TEXT NOT NULL,
+        outro_template TEXT,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    // Add outro_template column if it doesn't exist (for existing deployments)
+    await client.query(`
+      ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS outro_template TEXT
     `);
 
     // Player contacts table - centralized contact information
