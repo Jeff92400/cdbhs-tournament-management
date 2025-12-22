@@ -2187,30 +2187,29 @@ router.get('/next-tournament', authenticateToken, async (req, res) => {
       modeParams = [mode.toUpperCase()];
     }
 
-    // Match by mode, category, and name pattern (T2, T3, or Finale)
-    let namePattern;
+    // Match by mode, category, and name pattern
+    // Tournaments can be named "T2", "T3", "TOURNOI 2", "TOURNOI 3", etc.
+    let nameCondition;
     if (relanceType === 't2') {
-      namePattern = '%T2%';
+      nameCondition = "(UPPER(nom) LIKE '%T2%' OR UPPER(nom) LIKE '%TOURNOI 2%' OR UPPER(nom) LIKE '%TOURNOI2%')";
     } else if (relanceType === 't3') {
-      namePattern = '%T3%';
+      nameCondition = "(UPPER(nom) LIKE '%T3%' OR UPPER(nom) LIKE '%TOURNOI 3%' OR UPPER(nom) LIKE '%TOURNOI3%')";
     } else {
-      namePattern = '%FINALE%';
+      nameCondition = "(UPPER(nom) LIKE '%FINALE%' OR UPPER(nom) LIKE '%FINAL%')";
     }
 
-    console.log('Looking for tournament in tournoi_ext:', { mode, category, namePattern, modeMappings: modeParams });
+    console.log('Looking for tournament in tournoi_ext:', { mode, category, nameCondition, modeMappings: modeParams });
 
     // Build the full query
     const catParamIdx = modeParams.length + 1;
-    const nameParamIdx = modeParams.length + 2;
-    const finaleCondition = relanceType === 'finale' ? "OR UPPER(nom) LIKE '%FINAL%'" : "";
 
     const tournament = await new Promise((resolve, reject) => {
       db.get(
         `SELECT * FROM tournoi_ext
          WHERE ${modeCondition} AND UPPER(categorie) = $${catParamIdx}
-         AND (UPPER(nom) LIKE $${nameParamIdx} ${finaleCondition})
+         AND ${nameCondition}
          ORDER BY debut DESC LIMIT 1`,
-        [...modeParams, category.toUpperCase(), namePattern],
+        [...modeParams, category.toUpperCase()],
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
