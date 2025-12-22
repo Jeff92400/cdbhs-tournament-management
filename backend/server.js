@@ -188,6 +188,19 @@ async function processTemplatedScheduledEmail(db, resend, scheduled, delay) {
     };
   }
 
+  // Handle test mode - send only to test email
+  const isTestMode = scheduled.test_mode === true || scheduled.test_mode === 1;
+  if (isTestMode && scheduled.test_email) {
+    console.log(`[Email Scheduler] TEST MODE - sending to ${scheduled.test_email} instead of ${recipients.length} recipients`);
+    // Use a single fake recipient with test email
+    recipients = [{
+      email: scheduled.test_email,
+      first_name: 'Test',
+      last_name: 'User',
+      club: 'Test Club'
+    }];
+  }
+
   if (recipients.length === 0) {
     console.log(`[Email Scheduler] No recipients for scheduled email ${scheduled.id}`);
     await new Promise((resolve) => {

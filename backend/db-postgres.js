@@ -358,7 +358,9 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS outro_text TEXT`);
     await client.query(`ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS cc_email TEXT`);
     await client.query(`ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS custom_data TEXT`);
-    await client.query(`ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS created_by TEXT`)
+    await client.query(`ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS created_by TEXT`);
+    await client.query(`ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS test_mode BOOLEAN DEFAULT FALSE`);
+    await client.query(`ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS test_email TEXT`)
 
     await client.query('COMMIT');
 

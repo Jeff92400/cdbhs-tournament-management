@@ -842,18 +842,22 @@ router.delete('/scheduled/:id', authenticateToken, async (req, res) => {
 // Schedule a relance email
 router.post('/schedule-relance', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
-  const { relanceType, mode, category, subject, intro, outro, imageUrl, scheduledAt, ccEmail, customData } = req.body;
+  const { relanceType, mode, category, subject, intro, outro, imageUrl, scheduledAt, ccEmail, customData, testMode, testEmail } = req.body;
 
   if (!relanceType || !mode || !category || !subject || !intro || !scheduledAt) {
     return res.status(400).json({ error: 'Champs obligatoires manquants' });
   }
 
+  if (testMode && !testEmail) {
+    return res.status(400).json({ error: 'Email de test requis en mode test' });
+  }
+
   try {
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO scheduled_emails (subject, body, template_key, image_url, recipient_ids, scheduled_at, status, email_type, mode, category, outro_text, cc_email, custom_data, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11, $12, $13)`,
-        [subject, intro, `relance_${relanceType}`, imageUrl || null, '[]', scheduledAt, `relance_${relanceType}`, mode, category, outro || null, ccEmail || null, JSON.stringify(customData || {}), req.user?.username || 'unknown'],
+        `INSERT INTO scheduled_emails (subject, body, template_key, image_url, recipient_ids, scheduled_at, status, email_type, mode, category, outro_text, cc_email, custom_data, created_by, test_mode, test_email)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        [subject, intro, `relance_${relanceType}`, imageUrl || null, '[]', scheduledAt, `relance_${relanceType}`, mode, category, outro || null, ccEmail || null, JSON.stringify(customData || {}), req.user?.username || 'unknown', testMode || false, testEmail || null],
         function(err) {
           if (err) reject(err);
           else resolve(this.lastID);
@@ -861,7 +865,8 @@ router.post('/schedule-relance', authenticateToken, async (req, res) => {
       );
     });
 
-    res.json({ success: true, message: `Relance programmée pour le ${new Date(scheduledAt).toLocaleString('fr-FR')}` });
+    const modeLabel = testMode ? ' (MODE TEST)' : '';
+    res.json({ success: true, message: `Relance programmée pour le ${new Date(scheduledAt).toLocaleString('fr-FR')}${modeLabel}` });
   } catch (error) {
     console.error('Error scheduling relance:', error);
     res.status(500).json({ error: error.message });
@@ -871,10 +876,14 @@ router.post('/schedule-relance', authenticateToken, async (req, res) => {
 // Schedule results email
 router.post('/schedule-results', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
-  const { tournamentId, introText, outroText, imageUrl, scheduledAt, ccEmail } = req.body;
+  const { tournamentId, introText, outroText, imageUrl, scheduledAt, ccEmail, testMode, testEmail } = req.body;
 
   if (!tournamentId || !scheduledAt) {
     return res.status(400).json({ error: 'Champs obligatoires manquants' });
+  }
+
+  if (testMode && !testEmail) {
+    return res.status(400).json({ error: 'Email de test requis en mode test' });
   }
 
   try {
@@ -894,9 +903,9 @@ router.post('/schedule-results', authenticateToken, async (req, res) => {
 
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO scheduled_emails (subject, body, template_key, image_url, recipient_ids, scheduled_at, status, email_type, mode, category, tournament_id, outro_text, cc_email, created_by)
-         VALUES ($1, $2, 'tournament_results', $3, $4, $5, 'pending', 'tournament_results', $6, $7, $8, $9, $10, $11)`,
-        [subject, introText || '', imageUrl || null, '[]', scheduledAt, tournament.game_type, tournament.level, tournamentId, outroText || null, ccEmail || null, req.user?.username || 'unknown'],
+        `INSERT INTO scheduled_emails (subject, body, template_key, image_url, recipient_ids, scheduled_at, status, email_type, mode, category, tournament_id, outro_text, cc_email, created_by, test_mode, test_email)
+         VALUES ($1, $2, 'tournament_results', $3, $4, $5, 'pending', 'tournament_results', $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [subject, introText || '', imageUrl || null, '[]', scheduledAt, tournament.game_type, tournament.level, tournamentId, outroText || null, ccEmail || null, req.user?.username || 'unknown', testMode || false, testEmail || null],
         function(err) {
           if (err) reject(err);
           else resolve(this.lastID);
@@ -904,7 +913,8 @@ router.post('/schedule-results', authenticateToken, async (req, res) => {
       );
     });
 
-    res.json({ success: true, message: `Résultats programmés pour le ${new Date(scheduledAt).toLocaleString('fr-FR')}` });
+    const modeLabel = testMode ? ' (MODE TEST)' : '';
+    res.json({ success: true, message: `Résultats programmés pour le ${new Date(scheduledAt).toLocaleString('fr-FR')}${modeLabel}` });
   } catch (error) {
     console.error('Error scheduling results:', error);
     res.status(500).json({ error: error.message });
@@ -914,10 +924,14 @@ router.post('/schedule-results', authenticateToken, async (req, res) => {
 // Schedule finale convocation email
 router.post('/schedule-finale-convocation', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
-  const { finaleId, introText, outroText, imageUrl, scheduledAt, ccEmail } = req.body;
+  const { finaleId, introText, outroText, imageUrl, scheduledAt, ccEmail, testMode, testEmail } = req.body;
 
   if (!finaleId || !scheduledAt) {
     return res.status(400).json({ error: 'Champs obligatoires manquants' });
+  }
+
+  if (testMode && !testEmail) {
+    return res.status(400).json({ error: 'Email de test requis en mode test' });
   }
 
   try {
@@ -937,9 +951,9 @@ router.post('/schedule-finale-convocation', authenticateToken, async (req, res) 
 
     await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO scheduled_emails (subject, body, template_key, image_url, recipient_ids, scheduled_at, status, email_type, mode, category, tournament_id, outro_text, cc_email, created_by)
-         VALUES ($1, $2, 'finale_convocation', $3, $4, $5, 'pending', 'finale_convocation', $6, $7, $8, $9, $10, $11)`,
-        [subject, introText || '', imageUrl || null, '[]', scheduledAt, finale.mode, finale.categorie, finaleId, outroText || null, ccEmail || null, req.user?.username || 'unknown'],
+        `INSERT INTO scheduled_emails (subject, body, template_key, image_url, recipient_ids, scheduled_at, status, email_type, mode, category, tournament_id, outro_text, cc_email, created_by, test_mode, test_email)
+         VALUES ($1, $2, 'finale_convocation', $3, $4, $5, 'pending', 'finale_convocation', $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [subject, introText || '', imageUrl || null, '[]', scheduledAt, finale.mode, finale.categorie, finaleId, outroText || null, ccEmail || null, req.user?.username || 'unknown', testMode || false, testEmail || null],
         function(err) {
           if (err) reject(err);
           else resolve(this.lastID);
@@ -947,7 +961,8 @@ router.post('/schedule-finale-convocation', authenticateToken, async (req, res) 
       );
     });
 
-    res.json({ success: true, message: `Convocation finale programmée pour le ${new Date(scheduledAt).toLocaleString('fr-FR')}` });
+    const modeLabel = testMode ? ' (MODE TEST)' : '';
+    res.json({ success: true, message: `Convocation finale programmée pour le ${new Date(scheduledAt).toLocaleString('fr-FR')}${modeLabel}` });
   } catch (error) {
     console.error('Error scheduling finale convocation:', error);
     res.status(500).json({ error: error.message });
