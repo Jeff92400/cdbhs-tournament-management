@@ -447,34 +447,14 @@ app.listen(PORT, '0.0.0.0', () => {
 ╚════════════════════════════════════════════╝
   `);
 
-  // Start email scheduler (check every hour, process at configured hour - Paris time)
+  // Start email scheduler - check every 5 minutes and process any past-due emails
   setInterval(async () => {
-    const now = new Date();
-    // Get current hour in Paris timezone
-    const parisTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-    const currentHour = parisTime.getHours();
+    await processScheduledEmails();
+  }, 300000); // Check every 5 minutes (300000ms)
+  console.log('[Email Scheduler] Started - checking for scheduled emails every 5 minutes');
 
-    // Get configured hour from database (default: 6)
-    let schedulerHour = 6;
-    try {
-      const setting = await new Promise((resolve) => {
-        db.get(`SELECT value FROM app_settings WHERE key = 'email_scheduler_hour'`, [], (err, row) => {
-          resolve(row);
-        });
-      });
-      if (setting && setting.value) {
-        schedulerHour = parseInt(setting.value, 10);
-      }
-    } catch (e) {
-      console.error('[Email Scheduler] Error reading scheduler hour setting:', e.message);
-    }
-
-    if (currentHour === schedulerHour) {
-      console.log(`[Email Scheduler] ${schedulerHour}h - processing scheduled emails`);
-      processScheduledEmails();
-    }
-  }, 3600000); // Check every hour (3600000ms)
-  console.log('[Email Scheduler] Started - checking for scheduled emails every hour');
+  // Also run once immediately on startup (after 30 seconds to let DB settle)
+  setTimeout(() => processScheduledEmails(), 30000);
 
   // Auto-sync contacts on startup (after a short delay to ensure DB is ready)
   setTimeout(async () => {
