@@ -445,11 +445,16 @@
 
             <!-- Participants List -->
             <div id="relanceParticipantsSection" style="display: none;">
-              <h4>Destinataires (<span id="relanceParticipantCount">0</span> joueurs, <span id="relanceEmailCount">0</span> avec email)</h4>
+              <h4>Destinataires (<span id="relanceParticipantCount">0</span> joueurs, <span id="relanceEmailCount">0</span> avec email, <span id="relanceSelectedCount">0</span> sélectionnés)</h4>
+              <div class="selection-actions" style="margin-bottom: 10px;">
+                <button class="btn" id="relanceSelectAllBtn" style="background: #4CAF50; padding: 8px 15px; font-size: 12px;">Tout sélectionner</button>
+                <button class="btn" id="relanceDeselectAllBtn" style="background: #999; padding: 8px 15px; font-size: 12px;">Tout désélectionner</button>
+              </div>
               <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
                 <table style="width: 100%; font-size: 13px;">
                   <thead style="background: #f8f9fa; position: sticky; top: 0;">
                     <tr>
+                      <th style="padding: 10px; text-align: center; width: 40px;"></th>
                       <th style="padding: 10px; text-align: left;">Pos</th>
                       <th style="padding: 10px; text-align: left;">Joueur</th>
                       <th style="padding: 10px; text-align: left;">Club</th>
@@ -2322,9 +2327,35 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
     let relanceTemplates = {};
     let relanceParticipants = [];
     let relanceData = {};
+    let selectedRelanceIds = new Set();
+    let relanceClubs = [];
+
+    async function loadRelanceClubs() {
+      try {
+        const response = await fetch(`${API_URL}/emailing/clubs`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          relanceClubs = await response.json();
+        }
+      } catch (error) {
+        console.error('Error loading clubs:', error);
+      }
+    }
+
+    function getClubOptionsHtml() {
+      let html = '<option value="">-- Sélectionner --</option>';
+      relanceClubs.forEach(club => {
+        html += `<option value="${club}">${club}</option>`;
+      });
+      return html;
+    }
 
     async function loadRelanceTemplates() {
       try {
+        // Load clubs first
+        await loadRelanceClubs();
+
         const response = await fetch(`${API_URL}/emailing/relance-templates`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -2395,15 +2426,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       document.getElementById('relanceIntro').value = template.intro || '';
       document.getElementById('relanceOutro').value = template.outro || '';
 
-      // Club options for lieu dropdowns
-      const clubOptions = `
-        <option value="">-- Sélectionner --</option>
-        <option value="Billard Club Clichois (Clichy)">Billard Club Clichois (Clichy)</option>
-        <option value="Cercle Billard Nanterre (Nanterre)">Cercle Billard Nanterre (Nanterre)</option>
-        <option value="Billard Club Levallois (Levallois)">Billard Club Levallois (Levallois)</option>
-        <option value="Académie Billard Courbevoie (Courbevoie)">Académie Billard Courbevoie (Courbevoie)</option>
-        <option value="Billard Club Garennois (La Garenne-Colombes)">Billard Club Garennois (La Garenne-Colombes)</option>
-      `;
+      // Club options for lieu dropdowns (dynamic from database)
+      const clubOptions = getClubOptionsHtml();
 
       // Update extra variables based on type
       if (relanceType === 't2') {
@@ -2518,26 +2542,56 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
           `;
         }
 
-        // Update participants table
+        // Update participants table with checkboxes
         const tbody = document.getElementById('relanceParticipantsBody');
         tbody.innerHTML = '';
+        selectedRelanceIds.clear();
 
-        relanceParticipants.forEach(p => {
+        relanceParticipants.forEach((p, idx) => {
           const pos = p.t1_position || p.rank_position || '-';
+          const hasEmail = p.email && p.email.includes('@');
           const tr = document.createElement('tr');
+          tr.className = hasEmail ? 'relance-participant selected' : 'relance-participant';
+          tr.dataset.idx = idx;
+
+          // Auto-select participants with email
+          if (hasEmail) {
+            selectedRelanceIds.add(idx);
+          }
+
           tr.innerHTML = `
+            <td style="padding: 8px; text-align: center;">
+              <input type="checkbox" class="relance-checkbox" data-idx="${idx}" ${hasEmail ? 'checked' : ''} ${!hasEmail ? 'disabled' : ''}>
+            </td>
             <td style="padding: 8px;">${pos}</td>
-            <td style="padding: 8px;">${p.player_name || p.first_name + ' ' + p.last_name}</td>
+            <td style="padding: 8px;">${p.player_name || (p.first_name + ' ' + p.last_name)}</td>
             <td style="padding: 8px;">${p.club || '-'}</td>
-            <td style="padding: 8px; text-align: center;">${p.email ? '✅' : '❌'}</td>
+            <td style="padding: 8px; text-align: center;">${hasEmail ? '✅' : '❌'}</td>
           `;
+
+          // Add checkbox event listener
+          const checkbox = tr.querySelector('.relance-checkbox');
+          if (checkbox && !checkbox.disabled) {
+            checkbox.addEventListener('change', () => {
+              if (checkbox.checked) {
+                selectedRelanceIds.add(idx);
+                tr.classList.add('selected');
+              } else {
+                selectedRelanceIds.delete(idx);
+                tr.classList.remove('selected');
+              }
+              updateRelanceSelectedCount();
+            });
+          }
+
           tbody.appendChild(tr);
         });
 
         document.getElementById('relanceParticipantCount').textContent = relanceParticipants.length;
         document.getElementById('relanceEmailCount').textContent = relanceData.emailCount || 0;
+        updateRelanceSelectedCount();
         document.getElementById('relanceParticipantsSection').style.display = 'block';
-        document.getElementById('sendRelanceBtn').disabled = relanceData.emailCount === 0;
+        document.getElementById('sendRelanceBtn').disabled = selectedRelanceIds.size === 0;
 
       } catch (error) {
         console.error('Error loading relance participants:', error);
@@ -2567,6 +2621,15 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         return;
       }
 
+      // Check that at least one participant is selected (unless test mode)
+      if (!testMode && selectedRelanceIds.size === 0) {
+        showError('Veuillez sélectionner au moins un destinataire.');
+        return;
+      }
+
+      // Get selected participant licences
+      const selectedLicences = Array.from(selectedRelanceIds).map(idx => relanceParticipants[idx]?.licence).filter(Boolean);
+
       // Build custom data based on relance type
       let customData = {};
       if (relanceType === 't2') {
@@ -2588,10 +2651,10 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         customData.deadline_date = deadlineInput?.value ? new Date(deadlineInput.value).toLocaleDateString('fr-FR') : '';
       }
 
-      const emailCount = relanceData.emailCount || 0;
+      const selectedCount = selectedRelanceIds.size;
       const confirmMsg = testMode
         ? `MODE TEST: Envoyer l'email uniquement à ${testEmail} ?`
-        : `Envoyer la relance à ${emailCount} destinataire(s) ?`;
+        : `Envoyer la relance à ${selectedCount} destinataire(s) sélectionné(s) ?`;
 
       if (!confirm(confirmMsg)) return;
 
@@ -2615,7 +2678,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             testMode,
             testEmail: testMode ? testEmail : null,
             ccEmail,
-            customData
+            customData,
+            selectedLicences: testMode ? null : selectedLicences
           })
         });
 
@@ -2661,6 +2725,33 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
     document.getElementById('loadRelanceParticipantsBtn').addEventListener('click', loadRelanceParticipants);
     document.getElementById('sendRelanceBtn').addEventListener('click', sendRelance);
+
+    // Helper function to update selected count
+    function updateRelanceSelectedCount() {
+      document.getElementById('relanceSelectedCount').textContent = selectedRelanceIds.size;
+      document.getElementById('sendRelanceBtn').disabled = selectedRelanceIds.size === 0;
+    }
+
+    // Select all / Deselect all buttons
+    document.getElementById('relanceSelectAllBtn').addEventListener('click', () => {
+      document.querySelectorAll('.relance-checkbox:not(:disabled)').forEach(cb => {
+        cb.checked = true;
+        const idx = parseInt(cb.dataset.idx);
+        selectedRelanceIds.add(idx);
+        cb.closest('tr').classList.add('selected');
+      });
+      updateRelanceSelectedCount();
+    });
+
+    document.getElementById('relanceDeselectAllBtn').addEventListener('click', () => {
+      document.querySelectorAll('.relance-checkbox:not(:disabled)').forEach(cb => {
+        cb.checked = false;
+        const idx = parseInt(cb.dataset.idx);
+        selectedRelanceIds.delete(idx);
+        cb.closest('tr').classList.remove('selected');
+      });
+      updateRelanceSelectedCount();
+    });
 
     document.getElementById('relanceTestModeCheck').addEventListener('change', (e) => {
       document.getElementById('relanceTestEmailInput').style.display = e.target.checked ? 'block' : 'none';

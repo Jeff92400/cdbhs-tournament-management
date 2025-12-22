@@ -2464,7 +2464,7 @@ router.get('/finale-qualified', authenticateToken, async (req, res) => {
 // Send relance emails
 router.post('/send-relance', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
-  const { relanceType, mode, category, subject, intro, outro, imageUrl, testMode, testEmail, ccEmail, customData } = req.body;
+  const { relanceType, mode, category, subject, intro, outro, imageUrl, testMode, testEmail, ccEmail, customData, selectedLicences } = req.body;
 
   const resend = getResend();
   if (!resend) {
@@ -2651,6 +2651,18 @@ router.post('/send-relance', authenticateToken, async (req, res) => {
 
     if (participants.length === 0) {
       return res.status(400).json({ error: 'Aucun participant trouvé' });
+    }
+
+    // Filter participants by selectedLicences if provided (not in test mode)
+    if (!testMode && selectedLicences && Array.isArray(selectedLicences) && selectedLicences.length > 0) {
+      participants = participants.filter(p => {
+        const participantLicence = (p.licence || '').replace(/\s/g, '');
+        return selectedLicences.some(sl => (sl || '').replace(/\s/g, '') === participantLicence);
+      });
+
+      if (participants.length === 0) {
+        return res.status(400).json({ error: 'Aucun participant sélectionné' });
+      }
     }
 
     const results = { sent: [], failed: [], skipped: [] };
