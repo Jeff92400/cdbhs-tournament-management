@@ -293,10 +293,10 @@ async function processScheduledEmails() {
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   try {
-    // Get emails that are due
+    // Get emails that are due (compare with Paris time)
     const scheduledEmails = await new Promise((resolve, reject) => {
       db.all(
-        `SELECT * FROM scheduled_emails WHERE status = 'pending' AND scheduled_at <= CURRENT_TIMESTAMP`,
+        `SELECT * FROM scheduled_emails WHERE status = 'pending' AND scheduled_at <= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')`,
         [],
         (err, rows) => {
           if (err) reject(err);
@@ -310,8 +310,10 @@ async function processScheduledEmails() {
     console.log(`[Email Scheduler] Processing ${scheduledEmails.length} scheduled email(s)`);
 
     for (const scheduled of scheduledEmails) {
-      // Check if this email type was already sent manually (block if so)
-      if (scheduled.email_type) {
+      const isTestMode = scheduled.test_mode === true || scheduled.test_mode === 1;
+
+      // Check if this email type was already sent manually (block if so) - but NOT for test mode
+      if (scheduled.email_type && !isTestMode) {
         const alreadySent = await checkIfAlreadySentManually(
           db,
           scheduled.email_type,
