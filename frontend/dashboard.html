@@ -47,94 +47,87 @@
     <div id="errorMessage" class="error" style="display: none;"></div>
     <div id="successMessage" class="success" style="display: none;"></div>
 
-    <!-- Tournament Alerts - Admin Only (Compact) -->
-    <div id="tournamentAlertsCard" class="card admin-only" style="display: none; background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 15px; padding: 12px 15px;">
-      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-        <span style="font-size: 16px;">⚠️</span>
-        <strong style="color: #856404; font-size: 14px;">Tournois à relancer</strong>
-      </div>
-      <div id="tournamentAlertsList" style="display: flex; flex-wrap: wrap; gap: 8px;">
-        <!-- Alerts will be loaded here -->
+    <!-- Tournament Alerts - Admin Only (Ultra Compact) -->
+    <div id="tournamentAlertsCard" class="admin-only" style="display: none; background: #fff3cd; border-left: 3px solid #ffc107; margin-bottom: 10px; padding: 6px 10px; border-radius: 4px;">
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+        <span style="font-size: 13px; color: #856404; font-weight: bold;">⚠️ Relances:</span>
+        <div id="tournamentAlertsList" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
       </div>
     </div>
 
-    <!-- Actions Rapides - moved to top -->
-    <div class="card" style="margin-bottom: 20px;">
-      <h3>Actions Rapides</h3>
-      <div class="action-buttons">
-        <button class="btn" style="background: #dc3545;" onclick="window.location.href='generate-poules.html'">
-          Compétitions à jouer
-        </button>
-        <button class="btn btn-success admin-only" onclick="window.location.href='import-tournament.html'">
-          Importer une compétition
-        </button>
-        <button class="btn" onclick="window.location.href='tournaments-list.html'">
-          Compétitions jouées
-        </button>
-        <button class="btn" onclick="window.location.href='rankings.html'">
-          Voir les Classements
-        </button>
-        <button class="btn" onclick="window.location.href='calendar.html'">
-          Calendrier
-        </button>
-      </div>
+    <!-- Actions Rapides - Compact -->
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+      <button class="btn" style="background: #dc3545; padding: 8px 14px; font-size: 13px;" onclick="window.location.href='generate-poules.html'">Compétitions à jouer</button>
+      <button class="btn btn-success admin-only" style="padding: 8px 14px; font-size: 13px;" onclick="window.location.href='import-tournament.html'">Importer</button>
+      <button class="btn" style="padding: 8px 14px; font-size: 13px;" onclick="window.location.href='tournaments-list.html'">Compétitions jouées</button>
+      <button class="btn" style="padding: 8px 14px; font-size: 13px;" onclick="window.location.href='rankings.html'">Classements</button>
+      <button class="btn" style="padding: 8px 14px; font-size: 13px;" onclick="window.location.href='calendar.html'">Calendrier</button>
     </div>
 
     <!-- Season selector -->
-    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-      <label style="font-weight: bold; color: #333;">Saison :</label>
-      <select id="seasonSelect" style="padding: 8px 15px; border: 2px solid #1F4788; border-radius: 8px; font-size: 16px; font-weight: bold; color: #1F4788; background: white; cursor: pointer; min-width: 150px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+      <label style="font-weight: bold; color: #333; font-size: 13px;">Saison :</label>
+      <select id="seasonSelect" style="padding: 5px 10px; border: 2px solid #1F4788; border-radius: 6px; font-size: 14px; font-weight: bold; color: #1F4788; background: white; cursor: pointer;">
         <option value="">Chargement...</option>
       </select>
     </div>
 
+    <!-- Compact Stats Grid -->
+    <style>
+      .compact-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+      .compact-stat { padding: 12px; border-radius: 8px; text-align: center; color: white; }
+      .compact-stat h5 { margin: 0 0 4px 0; font-size: 11px; opacity: 0.9; text-transform: uppercase; }
+      .compact-stat .val { font-size: 28px; font-weight: bold; line-height: 1; }
+      .compact-section-title { font-size: 12px; color: #666; margin: 8px 0 6px 0; font-weight: bold; }
+    </style>
+
     <!-- Joueurs stats -->
-    <div class="stats-grid" style="margin-bottom: 20px;">
-      <div class="stat-card">
-        <h4>Joueurs Actifs</h4>
-        <div class="stat-value" id="activePlayerCount">-</div>
+    <div class="compact-stats">
+      <div class="compact-stat" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h5>Joueurs Actifs</h5>
+        <div class="val" id="activePlayerCount">-</div>
       </div>
-      <div class="stat-card">
-        <h4>Compétitions jouées</h4>
-        <div class="stat-value" id="tournamentCount">-</div>
+      <div class="compact-stat" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h5>Compétitions jouées</h5>
+        <div class="val" id="tournamentCount">-</div>
       </div>
-      <div class="stat-card">
-        <h4>Participants cumulés</h4>
-        <div class="stat-value" id="cumulativeParticipants">-</div>
+      <div class="compact-stat" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h5>Participants cumulés</h5>
+        <div class="val" id="cumulativeParticipants">-</div>
       </div>
     </div>
 
     <!-- Inscriptions saison en cours (green) -->
-    <h4 id="inscSectionTitle" style="margin: 20px 0 10px 0; color: #666;">Inscriptions saison en cours</h4>
-    <div class="stats-grid" style="margin-bottom: 20px;">
-      <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-        <h4>Total</h4>
-        <div class="stat-value" id="inscTotalSeason">-</div>
+    <div class="compact-section-title" id="inscSectionTitle">Inscriptions saison 2025-2026</div>
+    <div class="compact-stats">
+      <div class="compact-stat" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+        <h5>Total</h5>
+        <div class="val" id="inscTotalSeason">-</div>
       </div>
-      <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-        <h4>Convoqués</h4>
-        <div class="stat-value" id="inscConvoquesSeason">-</div>
+      <div class="compact-stat" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+        <h5>Convoqués</h5>
+        <div class="val" id="inscConvoquesSeason">-</div>
       </div>
-      <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-        <h4>Forfaits</h4>
-        <div class="stat-value" id="inscForfaitsSeason">-</div>
+      <div class="compact-stat" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+        <h5>Forfaits</h5>
+        <div class="val" id="inscForfaitsSeason">-</div>
       </div>
     </div>
 
     <!-- Compétitions saison en cours (green) -->
-    <h4 id="tournoiSectionTitle" style="margin: 20px 0 10px 0; color: #666;">Compétitions saison en cours</h4>
-    <div class="stats-grid" style="margin-bottom: 20px;">
-      <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-        <h4>Total</h4>
-        <div class="stat-value" id="tournoiTotalSeason">-</div>
+    <div class="compact-section-title" id="tournoiSectionTitle">Compétitions saison 2025-2026</div>
+    <div class="compact-stats">
+      <div class="compact-stat" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+        <h5>Total</h5>
+        <div class="val" id="tournoiTotalSeason">-</div>
       </div>
-      <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-        <h4>A venir</h4>
-        <div class="stat-value" id="tournoiUpcomingSeason">-</div>
+      <div class="compact-stat" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+        <h5>A venir</h5>
+        <div class="val" id="tournoiUpcomingSeason">-</div>
       </div>
-      <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-        <h4>Passés</h4>
-        <div class="stat-value" id="tournoiPastSeason">-</div>
+      <div class="compact-stat" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+        <h5>Passés</h5>
+        <div class="val" id="tournoiPastSeason">-</div>
       </div>
     </div>
 
@@ -177,21 +170,17 @@
 
           alertsList.innerHTML = data.needs_relance.map(tournoi => {
             const dateObj = new Date(tournoi.debut);
-            const dateStr = dateObj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
             const daysLeft = Math.ceil((dateObj - new Date()) / (1000 * 60 * 60 * 24));
+            const urgentColor = daysLeft <= 7 ? '#dc3545' : '#28a745';
 
             return `
-              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #ddd; font-size: 13px;">
-                <div style="flex: 1; min-width: 0;">
-                  <strong style="color: #333;">${tournoi.nom}</strong>
-                  <span style="color: #666; margin-left: 5px;">${tournoi.mode} ${tournoi.categorie}</span>
-                  <span style="color: ${daysLeft <= 7 ? '#dc3545' : '#856404'}; font-weight: bold; margin-left: 5px;">(${daysLeft}j)</span>
-                </div>
-                <button onclick="goToRelance(${tournoi.tournoi_id}, '${tournoi.mode}', '${tournoi.categorie}')"
-                        class="btn" style="background: #28a745; padding: 5px 12px; font-size: 12px; white-space: nowrap;">
-                  Relancer
-                </button>
-              </div>
+              <button onclick="goToRelance(${tournoi.tournoi_id}, '${tournoi.mode}', '${tournoi.categorie}')"
+                      style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: white; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap;">
+                <span style="color: #333; font-weight: 500;">${tournoi.nom}</span>
+                <span style="color: #666;">${tournoi.mode} ${tournoi.categorie}</span>
+                <span style="color: ${urgentColor}; font-weight: bold;">(${daysLeft}j)</span>
+                <span style="background: ${urgentColor}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">Relancer</span>
+              </button>
             `;
           }).join('');
         } else {
