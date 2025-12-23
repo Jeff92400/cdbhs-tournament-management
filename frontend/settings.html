@@ -45,7 +45,7 @@
     <div id="successMessage" class="success" style="display: none;"></div>
 
     <div class="card">
-      <h3>Changer le mot de passe administrateur</h3>
+      <h3>Mon mot de passe</h3>
       <form id="changePasswordForm">
         <div class="form-group">
           <label for="oldPassword">Mot de passe actuel :</label>
@@ -80,10 +80,14 @@
       <!-- Add New User Form -->
       <div style="margin-bottom: 25px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
         <h4 style="margin-top: 0; margin-bottom: 15px; color: #1F4788;">Ajouter un utilisateur</h4>
-        <form id="addUserForm" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 15px; align-items: end;">
+        <form id="addUserForm" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 15px; align-items: end;">
           <div class="form-group" style="margin-bottom: 0;">
             <label for="newUsername">Nom d'utilisateur :</label>
             <input type="text" id="newUsername" required minlength="3" placeholder="ex: jean.dupont">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="newUserEmail">Email :</label>
+            <input type="email" id="newUserEmail" placeholder="ex: jean@email.com">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label for="newUserPassword">Mot de passe :</label>
@@ -386,6 +390,7 @@
             </div>
             <div>
               <strong>${user.username}</strong>
+              ${user.email ? `<span style="margin-left: 8px; color: #666; font-size: 13px;">(${user.email})</span>` : ''}
               <span style="display: inline-block; margin-left: 10px; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: ${user.role === 'admin' ? '#d4edda' : '#e2e3e5'}; color: ${user.role === 'admin' ? '#155724' : '#383d41'};">
                 ${user.role === 'admin' ? 'Administrateur' : 'Viewer'}
               </span>
@@ -394,6 +399,9 @@
           </div>
           <div style="display: flex; gap: 10px;">
             ${user.id !== 1 ? `
+              <button onclick="editUserEmail(${user.id}, '${user.username}', '${user.email || ''}')" class="btn" style="background: #6f42c1; padding: 6px 12px; font-size: 13px;">
+                Email
+              </button>
               <button onclick="toggleUserRole(${user.id}, '${user.role}')" class="btn" style="background: #17a2b8; padding: 6px 12px; font-size: 13px;">
                 ${user.role === 'admin' ? 'Rétrograder' : 'Promouvoir'}
               </button>
@@ -417,6 +425,7 @@
       e.preventDefault();
 
       const username = document.getElementById('newUsername').value.trim();
+      const email = document.getElementById('newUserEmail').value.trim();
       const password = document.getElementById('newUserPassword').value;
       const role = document.getElementById('newUserRole').value;
 
@@ -427,7 +436,7 @@
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ username, password, role })
+          body: JSON.stringify({ username, email: email || null, password, role })
         });
 
         const data = await response.json();
@@ -483,6 +492,63 @@
         console.error('Error updating user role:', error);
         document.getElementById('errorMessage').textContent = error.message;
         document.getElementById('errorMessage').style.display = 'block';
+      }
+    }
+
+    // Edit user email - Open modal
+    function editUserEmail(userId, username, currentEmail) {
+      document.getElementById('editEmailUserId').value = userId;
+      document.getElementById('editEmailUsername').textContent = username;
+      document.getElementById('editEmailInput').value = currentEmail || '';
+      document.getElementById('editEmailError').style.display = 'none';
+      document.getElementById('editEmailModal').style.display = 'flex';
+      document.getElementById('editEmailInput').focus();
+    }
+
+    // Close edit email modal
+    function closeEditEmailModal() {
+      document.getElementById('editEmailModal').style.display = 'none';
+    }
+
+    // Submit email update
+    async function submitEmailUpdate() {
+      const userId = document.getElementById('editEmailUserId').value;
+      const username = document.getElementById('editEmailUsername').textContent;
+      const newEmail = document.getElementById('editEmailInput').value.trim();
+      const errorDiv = document.getElementById('editEmailError');
+
+      // Basic email validation if not empty
+      if (newEmail && !newEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        errorDiv.textContent = 'Format d\'email invalide';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/auth/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email: newEmail || null })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Erreur lors de la modification');
+        }
+
+        closeEditEmailModal();
+        loadUsers();
+        document.getElementById('successMessage').textContent = `Email de "${username}" modifié avec succès !`;
+        document.getElementById('successMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+
+      } catch (error) {
+        console.error('Error updating email:', error);
+        errorDiv.textContent = error.message;
+        errorDiv.style.display = 'block';
       }
     }
 
@@ -1364,6 +1430,29 @@
       <div style="display: flex; gap: 10px;">
         <button onclick="submitPasswordReset()" class="btn" style="flex: 1; background: #28a745; padding: 12px; font-size: 14px;">Enregistrer</button>
         <button onclick="closeResetPasswordModal()" class="btn" style="flex: 1; background: #6c757d; padding: 12px; font-size: 14px;">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Email Modal -->
+  <div id="editEmailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+      <h3 style="margin: 0 0 20px 0; color: #1F4788;">Modifier l'email</h3>
+      <p id="editEmailUsername" style="margin: 0 0 20px 0; color: #333; background: #f8f9fa; padding: 10px; border-radius: 6px; text-align: center; font-weight: bold;"></p>
+
+      <input type="hidden" id="editEmailUserId">
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">Adresse email</label>
+        <input type="email" id="editEmailInput" placeholder="ex: utilisateur@email.com" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box;">
+        <small style="color: #666; display: block; margin-top: 5px;">L'email permet la réinitialisation du mot de passe en self-service</small>
+      </div>
+
+      <div id="editEmailError" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8d7da; color: #721c24; border-radius: 4px; font-size: 13px;"></div>
+
+      <div style="display: flex; gap: 10px;">
+        <button onclick="submitEmailUpdate()" class="btn" style="flex: 1; background: #28a745; padding: 12px; font-size: 14px;">Enregistrer</button>
+        <button onclick="closeEditEmailModal()" class="btn" style="flex: 1; background: #6c757d; padding: 12px; font-size: 14px;">Annuler</button>
       </div>
     </div>
   </div>

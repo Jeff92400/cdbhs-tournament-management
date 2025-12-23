@@ -47,6 +47,11 @@ async function initializeDatabase() {
       )
     `);
 
+    // Add email and password reset columns to users
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT`);
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expiry TIMESTAMP`);
+
     // Players table
     await client.query(`
       CREATE TABLE IF NOT EXISTS players (

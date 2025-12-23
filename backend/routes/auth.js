@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const db = require('../db-loader');
 
 const router = express.Router();
@@ -10,75 +11,49 @@ const JWT_SECRET = process.env.JWT_SECRET || 'billard-ranking-jwt-secret-key-202
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
 
-  // Support both new (username/password) and legacy (password only) login
-  if (username) {
-    // New multi-user login
-    db.get('SELECT * FROM users WHERE username = $1 AND is_active = 1', [username], (err, user) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid username or password' });
-      }
-
-      bcrypt.compare(password, user.password_hash, (err, result) => {
-        if (err || !result) {
-          return res.status(401).json({ error: 'Invalid username or password' });
-        }
-
-        // Update last login
-        db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id], () => {});
-
-        const token = jwt.sign(
-          {
-            userId: user.id,
-            username: user.username,
-            role: user.role
-          },
-          JWT_SECRET,
-          { expiresIn: '24h' }
-        );
-
-        res.json({
-          token,
-          message: 'Login successful',
-          user: {
-            id: user.id,
-            username: user.username,
-            role: user.role
-          }
-        });
-      });
-    });
-  } else if (password) {
-    // Legacy password-only login (backwards compatibility)
-    db.get('SELECT * FROM admin LIMIT 1', [], (err, admin) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
-      }
-
-      if (!admin) {
-        return res.status(500).json({ error: 'Admin not configured' });
-      }
-
-      bcrypt.compare(password, admin.password_hash, (err, result) => {
-        if (err || !result) {
-          return res.status(401).json({ error: 'Invalid password' });
-        }
-
-        const token = jwt.sign({ admin: true, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({
-          token,
-          message: 'Login successful',
-          user: { role: 'admin' }
-        });
-      });
-    });
-  } else {
-    return res.status(400).json({ error: 'Username and password required' });
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Nom d\'utilisateur et mot de passe requis' });
   }
+
+  db.get('SELECT * FROM users WHERE username = $1 AND is_active = 1', [username], (err, user) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Erreur de base de données' });
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: 'Nom d\'utilisateur ou mot de passe incorrect' });
+    }
+
+    bcrypt.compare(password, user.password_hash, (err, result) => {
+      if (err || !result) {
+        return res.status(401).json({ error: 'Nom d\'utilisateur ou mot de passe incorrect' });
+      }
+
+      // Update last login
+      db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id], () => {});
+
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          username: user.username,
+          role: user.role
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      res.json({
+        token,
+        message: 'Connexion réussie',
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role
+        }
+      });
+    });
+  });
 });
 
 // Get current user info
@@ -90,81 +65,170 @@ router.get('/me', authenticateToken, (req, res) => {
   });
 });
 
-// Change password (for current user)
+// Change password (for current logged-in user)
 router.post('/change-password', authenticateToken, (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
   if (!oldPassword || !newPassword) {
-    return res.status(400).json({ error: 'Old and new passwords required' });
+    return res.status(400).json({ error: 'Mot de passe actuel et nouveau mot de passe requis' });
   }
 
   if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 6 caractères' });
   }
 
-  // Handle legacy admin or new user system
-  if (req.user.userId) {
-    // New user system
-    db.get('SELECT * FROM users WHERE id = $1', [req.user.userId], (err, user) => {
+  if (!req.user.userId) {
+    return res.status(400).json({ error: 'Session invalide, veuillez vous reconnecter' });
+  }
+
+  db.get('SELECT * FROM users WHERE id = $1', [req.user.userId], (err, user) => {
+    if (err || !user) {
+      return res.status(500).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    bcrypt.compare(oldPassword, user.password_hash, (err, result) => {
+      if (err || !result) {
+        return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+      }
+
+      bcrypt.hash(newPassword, 10, (err, hash) => {
+        if (err) {
+          return res.status(500).json({ error: 'Erreur lors du changement de mot de passe' });
+        }
+
+        db.run('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id], (err) => {
+          if (err) {
+            return res.status(500).json({ error: 'Erreur lors de la mise à jour' });
+          }
+
+          res.json({ message: 'Mot de passe changé avec succès' });
+        });
+      });
+    });
+  });
+});
+
+// ==================== SELF-SERVICE PASSWORD RESET ====================
+
+// Forgot password - send reset email
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email requis' });
+  }
+
+  // Find user by email
+  db.get('SELECT * FROM users WHERE email = $1 AND is_active = 1', [email.toLowerCase().trim()], async (err, user) => {
+    // Always return success to prevent email enumeration
+    if (err || !user) {
+      return res.json({ message: 'Si un compte existe avec cette adresse email, vous recevrez un lien de réinitialisation.' });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    // Save token to user
+    db.run(
+      'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3',
+      [resetToken, resetTokenExpiry.toISOString(), user.id],
+      async (err) => {
+        if (err) {
+          console.error('Error saving reset token:', err);
+          return res.json({ message: 'Si un compte existe avec cette adresse email, vous recevrez un lien de réinitialisation.' });
+        }
+
+        // Send email with reset link
+        try {
+          const { Resend } = require('resend');
+          const resend = new Resend(process.env.RESEND_API_KEY);
+
+          const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
+          const resetLink = `${baseUrl}/reset-password.html?token=${resetToken}`;
+
+          await resend.emails.send({
+            from: 'CDBHS <convocations@cdbhs.net>',
+            to: user.email,
+            subject: 'Réinitialisation de votre mot de passe CDBHS',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #1F4788;">Réinitialisation de mot de passe</h2>
+                <p>Bonjour ${user.username},</p>
+                <p>Vous avez demandé la réinitialisation de votre mot de passe CDBHS.</p>
+                <p>Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :</p>
+                <p style="text-align: center; margin: 30px 0;">
+                  <a href="${resetLink}" style="background: #1F4788; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                    Réinitialiser mon mot de passe
+                  </a>
+                </p>
+                <p style="color: #666; font-size: 14px;">Ce lien expire dans 1 heure.</p>
+                <p style="color: #666; font-size: 14px;">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                <p style="color: #999; font-size: 12px;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
+              </div>
+            `
+          });
+
+          console.log(`Password reset email sent to ${user.email}`);
+        } catch (emailErr) {
+          console.error('Error sending reset email:', emailErr);
+        }
+
+        res.json({ message: 'Si un compte existe avec cette adresse email, vous recevrez un lien de réinitialisation.' });
+      }
+    );
+  });
+});
+
+// Reset password with token
+router.post('/reset-password-token', (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: 'Token et nouveau mot de passe requis' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+  }
+
+  // Find user with valid token
+  db.get(
+    'SELECT * FROM users WHERE reset_token = $1 AND reset_token_expiry > $2',
+    [token, new Date().toISOString()],
+    (err, user) => {
       if (err || !user) {
-        return res.status(500).json({ error: 'User not found' });
+        return res.status(400).json({ error: 'Lien invalide ou expiré' });
       }
 
-      bcrypt.compare(oldPassword, user.password_hash, (err, result) => {
-        if (err || !result) {
-          return res.status(401).json({ error: 'Invalid old password' });
+      bcrypt.hash(newPassword, 10, (err, hash) => {
+        if (err) {
+          return res.status(500).json({ error: 'Erreur lors du changement de mot de passe' });
         }
 
-        bcrypt.hash(newPassword, 10, (err, hash) => {
-          if (err) {
-            return res.status(500).json({ error: 'Error hashing password' });
-          }
-
-          db.run('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id], (err) => {
+        // Update password and clear reset token
+        db.run(
+          'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE id = $2',
+          [hash, user.id],
+          (err) => {
             if (err) {
-              return res.status(500).json({ error: 'Error updating password' });
+              return res.status(500).json({ error: 'Erreur lors de la mise à jour' });
             }
 
-            res.json({ message: 'Password changed successfully' });
-          });
-        });
-      });
-    });
-  } else {
-    // Legacy admin system
-    db.get('SELECT * FROM admin LIMIT 1', [], (err, admin) => {
-      if (err) {
-        return res.status(500).json({ error: 'Database error' });
-      }
-
-      bcrypt.compare(oldPassword, admin.password_hash, (err, result) => {
-        if (err || !result) {
-          return res.status(401).json({ error: 'Invalid old password' });
-        }
-
-        bcrypt.hash(newPassword, 10, (err, hash) => {
-          if (err) {
-            return res.status(500).json({ error: 'Error hashing password' });
+            res.json({ message: 'Mot de passe réinitialisé avec succès' });
           }
-
-          db.run('UPDATE admin SET password_hash = $1 WHERE id = $2', [hash, admin.id], (err) => {
-            if (err) {
-              return res.status(500).json({ error: 'Error updating password' });
-            }
-
-            res.json({ message: 'Password changed successfully' });
-          });
-        });
+        );
       });
-    });
-  }
+    }
+  );
 });
 
 // ==================== USER MANAGEMENT (Admin only) ====================
 
 // Get all users (admin only)
 router.get('/users', authenticateToken, requireAdmin, (req, res) => {
-  db.all('SELECT id, username, role, is_active, created_at, last_login FROM users ORDER BY username', [], (err, users) => {
+  db.all('SELECT id, username, email, role, is_active, created_at, last_login FROM users ORDER BY username', [], (err, users) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -174,7 +238,7 @@ router.get('/users', authenticateToken, requireAdmin, (req, res) => {
 
 // Create new user (admin only)
 router.post('/users', authenticateToken, requireAdmin, (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password, role, email } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password required' });
@@ -186,6 +250,7 @@ router.post('/users', authenticateToken, requireAdmin, (req, res) => {
 
   const validRoles = ['admin', 'viewer'];
   const userRole = validRoles.includes(role) ? role : 'viewer';
+  const userEmail = email ? email.toLowerCase().trim() : null;
 
   // Check if username exists
   db.get('SELECT id FROM users WHERE username = $1', [username], (err, existing) => {
@@ -203,8 +268,8 @@ router.post('/users', authenticateToken, requireAdmin, (req, res) => {
       }
 
       db.run(
-        'INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id',
-        [username, hash, userRole],
+        'INSERT INTO users (username, password_hash, role, email) VALUES ($1, $2, $3, $4) RETURNING id',
+        [username, hash, userRole, userEmail],
         function(err) {
           if (err) {
             return res.status(500).json({ error: 'Error creating user' });
@@ -212,7 +277,7 @@ router.post('/users', authenticateToken, requireAdmin, (req, res) => {
 
           res.json({
             message: 'User created successfully',
-            user: { id: this.lastID, username, role: userRole }
+            user: { id: this.lastID, username, role: userRole, email: userEmail }
           });
         }
       );
@@ -223,7 +288,7 @@ router.post('/users', authenticateToken, requireAdmin, (req, res) => {
 // Update user (admin only)
 router.put('/users/:id', authenticateToken, requireAdmin, (req, res) => {
   const userId = req.params.id;
-  const { username, password, role, is_active } = req.body;
+  const { username, password, role, is_active, email } = req.body;
 
   // Prevent admin from deactivating themselves
   if (req.user.userId == userId && is_active === 0) {
@@ -256,6 +321,12 @@ router.put('/users/:id', authenticateToken, requireAdmin, (req, res) => {
     if (typeof is_active === 'number') {
       updates.push(`is_active = $${paramIndex++}`);
       params.push(is_active);
+    }
+
+    // Handle email update (can be set to null to remove)
+    if (email !== undefined) {
+      updates.push(`email = $${paramIndex++}`);
+      params.push(email ? email.toLowerCase().trim() : null);
     }
 
     if (password && password.length >= 6) {
