@@ -56,20 +56,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
     let updated = 0;
     let errors = [];
 
-    const stmt = db.prepare(`
-      INSERT INTO players (licence, club, first_name, last_name, rank_libre, rank_cadre, rank_bande, rank_3bandes, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(licence) DO UPDATE SET
-        club = excluded.club,
-        first_name = excluded.first_name,
-        last_name = excluded.last_name,
-        rank_libre = excluded.rank_libre,
-        rank_cadre = excluded.rank_cadre,
-        rank_bande = excluded.rank_bande,
-        rank_3bandes = excluded.rank_3bandes,
-        is_active = excluded.is_active
-    `);
-
+    // Process records sequentially for PostgreSQL
     for (const record of records) {
       try {
         // Parse CSV format: "licence","club","first_name","last_name","libre","cadre","bande","3bandes","?","?","active"
@@ -87,45 +74,63 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
 
         if (!licence || !firstName || !lastName) continue;
 
-        stmt.run(licence, club, firstName, lastName, rankLibre, rankCadre, rankBande, rank3Bandes, isActive, (err) => {
-          if (err) {
-            if (err.message.includes('UNIQUE constraint')) {
-              updated++;
-            } else {
-              errors.push({ licence, error: err.message });
-            }
-          } else {
-            imported++;
-          }
+        // Check if player exists
+        const existing = await new Promise((resolve, reject) => {
+          db.get('SELECT licence FROM players WHERE licence = $1', [licence], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          });
         });
+
+        if (existing) {
+          // Update existing player
+          await new Promise((resolve, reject) => {
+            db.run(`
+              UPDATE players SET
+                club = $1, first_name = $2, last_name = $3,
+                rank_libre = $4, rank_cadre = $5, rank_bande = $6, rank_3bandes = $7, is_active = $8
+              WHERE licence = $9
+            `, [club, firstName, lastName, rankLibre, rankCadre, rankBande, rank3Bandes, isActive, licence], (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+          updated++;
+        } else {
+          // Insert new player
+          await new Promise((resolve, reject) => {
+            db.run(`
+              INSERT INTO players (licence, club, first_name, last_name, rank_libre, rank_cadre, rank_bande, rank_3bandes, is_active)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            `, [licence, club, firstName, lastName, rankLibre, rankCadre, rankBande, rank3Bandes, isActive], (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+          imported++;
+        }
       } catch (err) {
         errors.push({ record: record[0], error: err.message });
       }
     }
 
-    stmt.finalize((err) => {
-      // Clean up uploaded file
-      fs.unlinkSync(req.file.path);
+    // Clean up uploaded file
+    fs.unlinkSync(req.file.path);
 
-      if (err) {
-        return res.status(500).json({ error: 'Error finalizing import' });
-      }
+    // Record import in history
+    const historyQuery = `
+      INSERT INTO import_history (file_type, record_count, filename, imported_by)
+      VALUES ($1, $2, $3, $4)
+    `;
+    db.run(historyQuery, ['joueurs', records.length, req.file.originalname, req.user?.username || 'unknown'], (histErr) => {
+      if (histErr) console.error('Error recording import history:', histErr);
+    });
 
-      // Record import in history
-      const historyQuery = `
-        INSERT INTO import_history (file_type, record_count, filename, imported_by)
-        VALUES ($1, $2, $3, $4)
-      `;
-      db.run(historyQuery, ['joueurs', records.length, req.file.originalname, req.user?.username || 'unknown'], (histErr) => {
-        if (histErr) console.error('Error recording import history:', histErr);
-      });
-
-      res.json({
-        message: 'Import completed',
-        imported,
-        updated,
-        errors: errors.length > 0 ? errors : undefined
-      });
+    res.json({
+      message: 'Import completed',
+      imported,
+      updated,
+      errors: errors.length > 0 ? errors : undefined
     });
 
   } catch (error) {

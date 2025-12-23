@@ -185,12 +185,15 @@
             const dateObj = new Date(tournoi.debut);
             const daysLeft = Math.ceil((dateObj - new Date()) / (1000 * 60 * 60 * 24));
             const urgentColor = daysLeft <= 7 ? '#dc3545' : '#28a745';
+            const lieu = (tournoi.lieu || '').replace(/'/g, "\\'");
+            const debut = tournoi.debut || '';
 
             return `
-              <button onclick="goToRelance(${tournoi.tournoi_id}, '${tournoi.mode}', '${tournoi.categorie}', '${tournoi.nom.replace(/'/g, "\\'")}')"
+              <button onclick="goToRelance(${tournoi.tournoi_id}, '${tournoi.mode}', '${tournoi.categorie}', '${tournoi.nom.replace(/'/g, "\\'")}', '${lieu}', '${debut}')"
                       style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: white; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap;">
                 <span style="color: #333; font-weight: 500;">${tournoi.nom}</span>
                 <span style="color: #666;">${tournoi.mode} ${tournoi.categorie}</span>
+                ${lieu ? `<span style="color: #17a2b8;">${lieu}</span>` : ''}
                 <span style="color: ${urgentColor}; font-weight: bold;">(${daysLeft}j)</span>
                 <span style="background: ${urgentColor}; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">Relancer</span>
               </button>
@@ -205,9 +208,9 @@
     }
 
     // Navigate to emailing page with tournament pre-selected
-    function goToRelance(tournoiId, mode, categorie, nom) {
+    function goToRelance(tournoiId, mode, categorie, nom, lieu, debut) {
       // Store the tournament info for the emailing page
-      localStorage.setItem('relanceTournoi', JSON.stringify({ tournoiId, mode, categorie, nom }));
+      localStorage.setItem('relanceTournoi', JSON.stringify({ tournoiId, mode, categorie, nom, lieu, debut }));
       window.location.href = 'emailing.html?action=relance&tournoi=' + tournoiId;
     }
 

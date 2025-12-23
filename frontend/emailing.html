@@ -4094,6 +4094,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         let mode = '';
         let category = '';
         let nom = '';
+        let lieu = '';
+        let debut = '';
 
         if (relanceInfo) {
           try {
@@ -4101,6 +4103,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             mode = info.mode || '';
             category = info.categorie || '';
             nom = info.nom || '';
+            lieu = info.lieu || '';
+            debut = info.debut || '';
             // Clear after use
             localStorage.removeItem('relanceTournoi');
           } catch (e) {
@@ -4115,12 +4119,17 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             mode = tournoi.mode;
             category = tournoi.categorie;
             nom = tournoi.nom;
+            lieu = tournoi.lieu || '';
+            debut = tournoi.debut || '';
           }
         }
 
         if (mode && category) {
           // Store tournoiId for marking relance as sent later
           window.currentRelanceTournoiId = tournoiId;
+          // Store lieu and debut for pre-filling after template loads
+          window.pendingRelanceLieu = lieu;
+          window.pendingRelanceDebut = debut;
 
           // Switch to relances tab
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -4160,13 +4169,55 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             const typeSelect = document.getElementById('relanceTypeSelect');
             typeSelect.value = relanceType;
             updateRelanceTemplate();
+
+            // Pre-fill date and location after a short delay (to let the DOM update)
+            setTimeout(() => {
+              // Set the date field
+              if (debut) {
+                const dateStr = debut.split('T')[0]; // Get YYYY-MM-DD format
+                if (relanceType === 't2') {
+                  const dateInput = document.getElementById('relanceT2Date');
+                  if (dateInput) dateInput.value = dateStr;
+                } else if (relanceType === 't3') {
+                  const dateInput = document.getElementById('relanceT3Date');
+                  if (dateInput) dateInput.value = dateStr;
+                } else if (relanceType === 'finale') {
+                  const dateInput = document.getElementById('relanceFinaleDate');
+                  if (dateInput) dateInput.value = dateStr;
+                }
+              }
+
+              // Set the location dropdown
+              if (lieu) {
+                let lieuSelectId = '';
+                if (relanceType === 't2') lieuSelectId = 'relanceT2Lieu';
+                else if (relanceType === 't3') lieuSelectId = 'relanceT3Lieu';
+                else if (relanceType === 'finale') lieuSelectId = 'relanceFinaleLieu';
+
+                if (lieuSelectId) {
+                  const lieuSelect = document.getElementById(lieuSelectId);
+                  if (lieuSelect) {
+                    // Try to match the lieu value in the dropdown
+                    const lieuUpper = lieu.toUpperCase();
+                    for (let i = 0; i < lieuSelect.options.length; i++) {
+                      if (lieuSelect.options[i].value.toUpperCase() === lieuUpper ||
+                          lieuSelect.options[i].text.toUpperCase().includes(lieuUpper)) {
+                        lieuSelect.selectedIndex = i;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            }, 100);
           }
 
           // Load relance templates
           await loadRelanceTemplates();
 
           // Show info message
-          showSuccess(`Préparation de relance pour: ${mode} ${category}. Sélectionnez le type de relance et chargez les destinataires.`);
+          const lieuInfo = lieu ? ` @ ${lieu}` : '';
+          showSuccess(`Préparation de relance pour: ${mode} ${category}${lieuInfo}. Chargez les destinataires pour continuer.`);
 
           // Clean URL without reloading
           window.history.replaceState({}, document.title, 'emailing.html');
