@@ -4172,6 +4172,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             const typeSelect = document.getElementById('relanceTypeSelect');
             typeSelect.value = relanceType;
             updateRelanceTemplate();
+            // IMPORTANT: Enable the "Charger" button after setting the type
+            updateRelanceTypeEnabled();
 
             // Pre-fill date and location after a short delay (to let the DOM update)
             setTimeout(() => {
@@ -4200,19 +4202,32 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
                 if (lieuSelectId) {
                   const lieuSelect = document.getElementById(lieuSelectId);
                   if (lieuSelect) {
-                    // Try to match the lieu value in the dropdown
-                    const lieuUpper = lieu.toUpperCase();
+                    // Try to match the lieu value in the dropdown (case-insensitive)
+                    const lieuLower = lieu.toLowerCase().trim();
+                    let found = false;
                     for (let i = 0; i < lieuSelect.options.length; i++) {
-                      if (lieuSelect.options[i].value.toUpperCase() === lieuUpper ||
-                          lieuSelect.options[i].text.toUpperCase().includes(lieuUpper)) {
+                      const optValue = lieuSelect.options[i].value.toLowerCase().trim();
+                      const optText = lieuSelect.options[i].text.toLowerCase().trim();
+                      if (optValue === lieuLower || optText === lieuLower ||
+                          optValue.includes(lieuLower) || optText.includes(lieuLower) ||
+                          lieuLower.includes(optValue) || lieuLower.includes(optText)) {
                         lieuSelect.selectedIndex = i;
+                        found = true;
                         break;
                       }
+                    }
+                    // If not found, try to add it as an option
+                    if (!found && lieu) {
+                      const newOption = document.createElement('option');
+                      newOption.value = lieu;
+                      newOption.text = lieu;
+                      lieuSelect.add(newOption);
+                      lieuSelect.value = lieu;
                     }
                   }
                 }
               }
-            }, 100);
+            }, 200);
           }
 
           // Show info message
