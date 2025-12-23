@@ -55,13 +55,26 @@
       </div>
     </div>
 
-    <!-- Actions Rapides - Compact -->
-    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
-      <button class="btn" style="background: #dc3545; padding: 8px 14px; font-size: 13px;" onclick="window.location.href='generate-poules.html'">Compétitions à jouer</button>
-      <button class="btn btn-success admin-only" style="padding: 8px 14px; font-size: 13px;" onclick="window.location.href='import-tournament.html'">Importer</button>
-      <button class="btn" style="padding: 8px 14px; font-size: 13px;" onclick="window.location.href='tournaments-list.html'">Compétitions jouées</button>
-      <button class="btn" style="padding: 8px 14px; font-size: 13px;" onclick="window.location.href='rankings.html'">Classements</button>
-      <button class="btn" style="padding: 8px 14px; font-size: 13px;" onclick="window.location.href='calendar.html'">Calendrier</button>
+    <!-- Actions Rapides -->
+    <div class="card" style="margin-bottom: 15px; padding: 15px;">
+      <h3 style="margin-top: 0; margin-bottom: 12px;">Actions Rapides</h3>
+      <div class="action-buttons">
+        <button class="btn" style="background: #dc3545;" onclick="window.location.href='generate-poules.html'">
+          Compétitions à jouer
+        </button>
+        <button class="btn btn-success admin-only" onclick="window.location.href='import-tournament.html'">
+          Importer une compétition
+        </button>
+        <button class="btn" onclick="window.location.href='tournaments-list.html'">
+          Compétitions jouées
+        </button>
+        <button class="btn" onclick="window.location.href='rankings.html'">
+          Voir les Classements
+        </button>
+        <button class="btn" onclick="window.location.href='calendar.html'">
+          Calendrier
+        </button>
+      </div>
     </div>
 
     <!-- Season selector -->
