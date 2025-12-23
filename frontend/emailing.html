@@ -2875,6 +2875,27 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
         if (response.ok) {
           showSuccess(result.message);
+
+          // Mark tournament relance as sent if coming from dashboard alert (not in test mode)
+          if (!testMode && window.currentRelanceTournoiId) {
+            try {
+              await fetch(`${API_URL}/inscriptions/relances/${window.currentRelanceTournoiId}`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  recipients_count: selectedCount
+                })
+              });
+              console.log('Tournament relance marked as sent');
+              // Clear the tournoiId
+              window.currentRelanceTournoiId = null;
+            } catch (e) {
+              console.error('Error marking relance as sent:', e);
+            }
+          }
         } else {
           showError(result.error || 'Erreur lors de l\'envoi.');
         }
@@ -4056,6 +4077,80 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       await loadCcEmail();
       await loadResultsTemplate();
       await loadSummaryEmailSetting();
+
+      // Check for relance action from URL params (from dashboard alert)
+      await handleRelanceFromDashboard();
+    }
+
+    // Handle relance action when coming from dashboard
+    async function handleRelanceFromDashboard() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const action = urlParams.get('action');
+      const tournoiId = urlParams.get('tournoi');
+
+      if (action === 'relance' && tournoiId) {
+        // Get tournament info from localStorage (set by dashboard)
+        const relanceInfo = localStorage.getItem('relanceTournoi');
+        let mode = '';
+        let category = '';
+
+        if (relanceInfo) {
+          try {
+            const info = JSON.parse(relanceInfo);
+            mode = info.mode || '';
+            category = info.categorie || '';
+            // Clear after use
+            localStorage.removeItem('relanceTournoi');
+          } catch (e) {
+            console.error('Error parsing relance info:', e);
+          }
+        }
+
+        // If we don't have mode/category from localStorage, try to find from allTournois
+        if ((!mode || !category) && allTournois.length > 0) {
+          const tournoi = allTournois.find(t => t.tournoi_id == tournoiId);
+          if (tournoi) {
+            mode = tournoi.mode;
+            category = tournoi.categorie;
+          }
+        }
+
+        if (mode && category) {
+          // Store tournoiId for marking relance as sent later
+          window.currentRelanceTournoiId = tournoiId;
+
+          // Switch to relances tab
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+          const relancesTab = document.querySelector('.tab[data-tab="relances"]');
+          if (relancesTab) {
+            relancesTab.classList.add('active');
+            document.getElementById('tab-relances').classList.add('active');
+          }
+
+          // Pre-select mode
+          const modeSelect = document.getElementById('relanceModeFilter');
+          modeSelect.value = mode.toUpperCase();
+
+          // Update and pre-select category
+          updateRelanceCategoryFilter();
+          const categorySelect = document.getElementById('relanceCategoryFilter');
+          categorySelect.value = category.toUpperCase();
+
+          // Enable type select
+          updateRelanceTypeEnabled();
+
+          // Load relance templates
+          await loadRelanceTemplates();
+
+          // Show info message
+          showSuccess(`Préparation de relance pour: ${mode} ${category}. Sélectionnez le type de relance et chargez les destinataires.`);
+
+          // Clean URL without reloading
+          window.history.replaceState({}, document.title, 'emailing.html');
+        }
+      }
     }
 
     initialize();
