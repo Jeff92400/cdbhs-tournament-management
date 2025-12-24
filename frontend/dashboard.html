@@ -197,14 +197,18 @@
               const debut = tournoi.debut || '';
 
               return `
-                <button onclick="goToRelance(${tournoi.tournoi_id}, '${tournoi.mode}', '${tournoi.categorie}', '${tournoi.nom.replace(/'/g, "\\'")}', '${lieu}', '${debut}')"
-                        style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: white; border: 1px solid ${urgentColor}; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap;">
-                  <span style="color: #333; font-weight: 500;">${tournoi.nom}</span>
-                  <span style="color: #666;">${tournoi.mode} ${tournoi.categorie}</span>
-                  ${lieu ? `<span style="color: #17a2b8;">${lieu}</span>` : ''}
-                  <span style="color: ${urgentColor}; font-weight: bold;">(${daysLeft}j)</span>
-                  <span style="background: ${urgentColor}; color: ${urgentColor === '#ffc107' ? '#333' : 'white'}; padding: 2px 6px; border-radius: 3px; font-size: 10px;">Relancer</span>
-                </button>
+                <div style="display: inline-flex; align-items: center; gap: 2px;">
+                  <button onclick="goToRelance(${tournoi.tournoi_id}, '${tournoi.mode}', '${tournoi.categorie}', '${tournoi.nom.replace(/'/g, "\\'")}', '${lieu}', '${debut}')"
+                          style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: white; border: 1px solid ${urgentColor}; border-radius: 4px 0 0 4px; font-size: 12px; cursor: pointer; white-space: nowrap;">
+                    <span style="color: #333; font-weight: 500;">${tournoi.nom}</span>
+                    <span style="color: #666;">${tournoi.mode} ${tournoi.categorie}</span>
+                    ${lieu ? `<span style="color: #17a2b8;">${lieu}</span>` : ''}
+                    <span style="color: ${urgentColor}; font-weight: bold;">(${daysLeft}j)</span>
+                    <span style="background: ${urgentColor}; color: ${urgentColor === '#ffc107' ? '#333' : 'white'}; padding: 2px 6px; border-radius: 3px; font-size: 10px;">Relancer</span>
+                  </button>
+                  <button onclick="markRelanceAsSent(${tournoi.tournoi_id})" title="Marquer comme déjà envoyé"
+                          style="padding: 4px 8px; background: #28a745; border: 1px solid #28a745; border-radius: 0 4px 4px 0; font-size: 12px; cursor: pointer; color: white;">✓</button>
+                </div>
               `;
             }).join('');
           }
@@ -245,6 +249,32 @@
       // Store the tournament info for the emailing page
       localStorage.setItem('relanceTournoi', JSON.stringify({ tournoiId, mode, categorie, nom, lieu, debut }));
       window.location.href = 'emailing.html?action=relance&tournoi=' + tournoiId;
+    }
+
+    // Mark a relance as sent without actually sending (for already-sent relances)
+    async function markRelanceAsSent(tournoiId) {
+      if (!confirm('Marquer cette relance comme déjà envoyée ?')) return;
+
+      try {
+        const response = await fetch(`${API_URL}/inscriptions/relances/${tournoiId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ recipients_count: 0 })
+        });
+
+        if (response.ok) {
+          // Reload the alerts to show the updated status
+          loadTournamentAlerts();
+        } else {
+          alert('Erreur lors du marquage de la relance');
+        }
+      } catch (error) {
+        console.error('Error marking relance:', error);
+        alert('Erreur: ' + error.message);
+      }
     }
 
     // Logout

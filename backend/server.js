@@ -316,6 +316,24 @@ async function checkTournamentAlerts() {
       return;
     }
 
+    // Check if we already sent an alert today (prevent duplicates on server restart)
+    const todayDate = parisNow.toISOString().split('T')[0];
+    const lastAlertSent = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT sent_at FROM email_campaigns
+        WHERE campaign_type = 'tournament_alert' AND DATE(sent_at) = $1
+        LIMIT 1
+      `, [todayDate], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (lastAlertSent) {
+      console.log(`[Tournament Alerts] Already sent today at ${lastAlertSent.sent_at}, skipping`);
+      return;
+    }
+
     const today = new Date();
     const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
 
@@ -413,6 +431,14 @@ async function checkTournamentAlerts() {
         console.error(`[Tournament Alerts] Error sending to ${user.email}:`, error.message);
       }
     }
+
+    // Record that we sent the alert today (to prevent duplicates on server restart)
+    await new Promise((resolve) => {
+      db.run(`
+        INSERT INTO email_campaigns (subject, body, template_key, recipients_count, sent_count, failed_count, status, sent_at, campaign_type)
+        VALUES ($1, $2, 'tournament_alert', $3, $3, 0, 'completed', CURRENT_TIMESTAMP, 'tournament_alert')
+      `, [`Rappel Tournois - ${tournamentsNeeding.length} tournoi(s)`, 'Auto-generated tournament alert', usersToNotify.length], () => resolve());
+    });
 
     console.log('[Tournament Alerts] Completed');
 
