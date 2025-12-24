@@ -1290,36 +1290,8 @@ router.get('/upcoming-relances', authenticateToken, async (req, res) => {
   }
 });
 
-// Mark a tournament relance as sent
-router.post('/relances/:tournoi_id', authenticateToken, async (req, res) => {
-  const { tournoi_id } = req.params;
-  const { recipients_count } = req.body;
-  const sent_by = req.user.username;
-
-  try {
-    await new Promise((resolve, reject) => {
-      db.run(`
-        INSERT INTO tournament_relances (tournoi_id, sent_by, recipients_count)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (tournoi_id) DO UPDATE SET
-          relance_sent_at = CURRENT_TIMESTAMP,
-          sent_by = $2,
-          recipients_count = $3
-      `, [tournoi_id, sent_by, recipients_count || 0], (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-
-    res.json({ success: true, message: 'Relance marked as sent' });
-
-  } catch (error) {
-    console.error('Error marking relance as sent:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // Mark relance by mode/category/type (auto-find the tournament)
+// NOTE: This route MUST come BEFORE /relances/:tournoi_id to avoid Express matching 'mark-by-type' as a tournoi_id
 router.post('/relances/mark-by-type', authenticateToken, async (req, res) => {
   const { mode, category, relanceType, recipients_count } = req.body;
   const sent_by = req.user.username;
@@ -1385,6 +1357,35 @@ router.post('/relances/mark-by-type', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error marking relance by type:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark a tournament relance as sent (by tournoi_id)
+router.post('/relances/:tournoi_id', authenticateToken, async (req, res) => {
+  const { tournoi_id } = req.params;
+  const { recipients_count } = req.body;
+  const sent_by = req.user.username;
+
+  try {
+    await new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO tournament_relances (tournoi_id, sent_by, recipients_count)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (tournoi_id) DO UPDATE SET
+          relance_sent_at = CURRENT_TIMESTAMP,
+          sent_by = $2,
+          recipients_count = $3
+      `, [tournoi_id, sent_by, recipients_count || 0], (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    res.json({ success: true, message: 'Relance marked as sent' });
+
+  } catch (error) {
+    console.error('Error marking relance as sent:', error);
     res.status(500).json({ error: error.message });
   }
 });
