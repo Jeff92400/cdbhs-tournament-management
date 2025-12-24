@@ -2120,7 +2120,7 @@ Vous avez participé au premier tournoi {category} qui s'est déroulé le {t1_da
 
 Le deuxième tournoi de la saison aura lieu le {tournament_date} à {tournament_lieu}.
 
-Pour participer, merci de confirmer votre inscription en répondant à cet email ou en vous inscrivant sur le site.`,
+Pour participer, merci de confirmer votre inscription en répondant à cet email avant le {deadline_date}.`,
         outro: `Sportivement,
 Le Comité Départemental de Billard des Hauts-de-Seine`
       },
@@ -2132,7 +2132,7 @@ Vous êtes actuellement classé(e) {rank_position}ème au classement général {
 
 Le troisième et dernier tournoi qualificatif aura lieu le {tournament_date} à {tournament_lieu}.
 
-Ce tournoi est déterminant pour la qualification à la finale départementale. Pour participer, merci de confirmer votre inscription en répondant à cet email.`,
+Ce tournoi est déterminant pour la qualification à la finale départementale. Pour participer, merci de confirmer votre inscription en répondant à cet email avant le {deadline_date}.`,
         outro: `Sportivement,
 Le Comité Départemental de Billard des Hauts-de-Seine`
       },
@@ -2172,9 +2172,9 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
       // Set extra vars based on template type
       if (key === 'relance_t2') {
-        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code>';
+        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code>';
       } else if (key === 'relance_t3') {
-        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code>';
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code>';
       } else if (key === 'relance_finale') {
         extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{qualified_count}</code> <code>{finale_date}</code> <code>{finale_lieu}</code> <code>{deadline_date}</code>';
       }
@@ -2490,7 +2490,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
       // Update extra variables based on type
       if (relanceType === 't2') {
-        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code>';
+        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code>';
         customFieldsContent.innerHTML = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div>
@@ -2507,7 +2507,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         `;
         customFieldsDiv.style.display = 'block';
       } else if (relanceType === 't3') {
-        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code>';
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code>';
         customFieldsContent.innerHTML = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div>

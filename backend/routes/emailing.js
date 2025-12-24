@@ -2327,7 +2327,7 @@ Vous avez participé au premier tournoi {category} qui s'est déroulé le {t1_da
 
 Le deuxième tournoi de la saison aura lieu le {tournament_date} à {tournament_lieu}.
 
-Pour participer, merci de confirmer votre inscription en répondant à cet email ou en vous inscrivant sur le site.`,
+Pour participer, merci de confirmer votre inscription en répondant à cet email avant le {deadline_date}.`,
     outro: `Sportivement,
 Le Comité Départemental de Billard des Hauts-de-Seine`
   },
@@ -2339,7 +2339,7 @@ Vous êtes actuellement classé(e) {rank_position}ème au classement général {
 
 Le troisième et dernier tournoi qualificatif aura lieu le {tournament_date} à {tournament_lieu}.
 
-Ce tournoi est déterminant pour la qualification à la finale départementale. Pour participer, merci de confirmer votre inscription en répondant à cet email.`,
+Ce tournoi est déterminant pour la qualification à la finale départementale. Pour participer, merci de confirmer votre inscription en répondant à cet email avant le {deadline_date}.`,
     outro: `Sportivement,
 Le Comité Départemental de Billard des Hauts-de-Seine`
   },
@@ -2987,11 +2987,21 @@ router.post('/send-relance', authenticateToken, async (req, res) => {
         );
       });
 
+      // Calculate deadline (tournament date - 7 days)
+      let deadlineDate = '';
+      if (customData?.tournament_date) {
+        const tournamentDate = new Date(customData.tournament_date);
+        const deadline = new Date(tournamentDate);
+        deadline.setDate(deadline.getDate() - 7);
+        deadlineDate = deadline.toLocaleDateString('fr-FR');
+      }
+
       tournamentInfo = {
         category: categoryRow.display_name,
         t1_date: t1Tournament.tournament_date ? new Date(t1Tournament.tournament_date).toLocaleDateString('fr-FR') : '',
         tournament_date: customData?.tournament_date || '',
-        tournament_lieu: customData?.tournament_lieu || ''
+        tournament_lieu: customData?.tournament_lieu || '',
+        deadline_date: deadlineDate
       };
 
     } else if (relanceType === 't3') {
@@ -3033,10 +3043,20 @@ router.post('/send-relance', authenticateToken, async (req, res) => {
         );
       });
 
+      // Calculate deadline (tournament date - 7 days)
+      let deadlineDate = '';
+      if (customData?.tournament_date) {
+        const tournamentDate = new Date(customData.tournament_date);
+        const deadline = new Date(tournamentDate);
+        deadline.setDate(deadline.getDate() - 7);
+        deadlineDate = deadline.toLocaleDateString('fr-FR');
+      }
+
       tournamentInfo = {
         category: categoryRow.display_name,
         tournament_date: customData?.tournament_date || '',
-        tournament_lieu: customData?.tournament_lieu || ''
+        tournament_lieu: customData?.tournament_lieu || '',
+        deadline_date: deadlineDate
       };
 
     } else if (relanceType === 'finale') {
