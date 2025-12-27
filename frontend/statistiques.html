@@ -1304,6 +1304,7 @@
               <div>
                 <div class="player-list-name">${player.player_name}</div>
                 <div class="player-list-club">${player.club || 'Club non renseigné'}</div>
+                ${player.game_types ? `<div style="font-size: 11px; color: #1F4788; margin-top: 3px;">${player.game_types}</div>` : ''}
               </div>
             </div>
           `).join('');

@@ -862,7 +862,7 @@ router.get('/players/multi-category', authenticateToken, async (req, res) => {
   });
 });
 
-// Get list of players by number of categories played
+// Get list of players by number of categories played (with game types detail)
 router.get('/players/multi-category/list', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
   const { season, categories } = req.query;
@@ -873,7 +873,8 @@ router.get('/players/multi-category/list', authenticateToken, async (req, res) =
     WITH player_categories AS (
       SELECT
         tr.licence,
-        COUNT(DISTINCT c.game_type) as num_categories
+        COUNT(DISTINCT c.game_type) as num_categories,
+        STRING_AGG(DISTINCT c.game_type, ', ' ORDER BY c.game_type) as game_types
       FROM tournament_results tr
       JOIN tournaments t ON tr.tournament_id = t.id
       JOIN categories c ON t.category_id = c.id
@@ -884,7 +885,8 @@ router.get('/players/multi-category/list', authenticateToken, async (req, res) =
       pc.licence,
       COALESCE(p.first_name || ' ' || p.last_name, pc.licence) as player_name,
       p.club,
-      pc.num_categories
+      pc.num_categories,
+      pc.game_types
     FROM player_categories pc
     LEFT JOIN players p ON REPLACE(pc.licence, ' ', '') = REPLACE(p.licence, ' ', '')
     WHERE pc.num_categories = $2
