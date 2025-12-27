@@ -7,6 +7,15 @@ const router = express.Router();
 // Helper function to add delay between emails (avoid rate limiting)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper function to convert email addresses to mailto links in HTML
+function convertEmailsToMailtoLinks(text) {
+  // Match email addresses and convert to mailto links
+  return text.replace(
+    /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+    '<a href="mailto:$1" style="color: #1F4788;">$1</a>'
+  );
+}
+
 // Helper function to parse dates that might be in French format (DD/MM/YYYY)
 function parseDateSafe(dateStr) {
   if (!dateStr) return null;
@@ -128,6 +137,8 @@ const DEFAULT_GENERAL_TEMPLATE = {
   body: `Bonjour {player_name},
 
 {message}
+
+Pour toute question ou information, écrivez à cdbhs92@gmail.com
 
 Cordialement,
 Comite Departemental Billard Hauts-de-Seine`
@@ -662,7 +673,7 @@ router.post('/send', authenticateToken, async (req, res) => {
 
         const emailSubject = replaceTemplateVariables(subject, templateVariables);
         const emailBody = replaceTemplateVariables(body, templateVariables);
-        const emailBodyHtml = emailBody.replace(/\n/g, '<br>');
+        const emailBodyHtml = convertEmailsToMailtoLinks(emailBody.replace(/\n/g, '<br>'));
 
         // Build optional image HTML
         const imageHtml = imageUrl ? `<div style="text-align: center; margin: 20px 0;"><img src="${imageUrl}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px;"></div>` : '';
@@ -683,7 +694,7 @@ router.post('/send', authenticateToken, async (req, res) => {
                 ${emailBodyHtml}
               </div>
               <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-                <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+                <p style="margin: 0;">CDBHS - <a href="mailto:cdbhs92@gmail.com" style="color: white;">cdbhs92@gmail.com</a></p>
               </div>
             </div>
           `
@@ -1160,7 +1171,7 @@ router.post('/process-scheduled', async (req, res) => {
 
           const emailSubject = replaceTemplateVariables(scheduled.subject, templateVariables);
           const emailBody = replaceTemplateVariables(scheduled.body, templateVariables);
-          const emailBodyHtml = emailBody.replace(/\n/g, '<br>');
+          const emailBodyHtml = convertEmailsToMailtoLinks(emailBody.replace(/\n/g, '<br>'));
 
           await resend.emails.send({
             from: 'CDBHS <communication@cdbhs.net>',
@@ -1176,7 +1187,7 @@ router.post('/process-scheduled', async (req, res) => {
                   ${emailBodyHtml}
                 </div>
                 <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-                  <p style="margin: 0;">Comite Departemental Billard Hauts-de-Seine - cdbhs92@gmail.com</p>
+                  <p style="margin: 0;">Comite Departemental Billard Hauts-de-Seine - <a href="mailto:cdbhs92@gmail.com" style="color: white;">cdbhs92@gmail.com</a></p>
                 </div>
               </div>
             `
@@ -1595,7 +1606,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
             </div>
             <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
               ${imageHtml}
-              <p>${personalizedIntro.replace(/\n/g, '<br>')}</p>
+              <p>${convertEmailsToMailtoLinks(personalizedIntro.replace(/\n/g, '<br>'))}</p>
 
               <h3 style="color: #1F4788; margin-top: 30px;">Résultats du Tournoi</h3>
               ${resultsTableHtml.replace('{{RESULTS_ROWS}}', resultsRows)}
@@ -1607,10 +1618,10 @@ router.post('/send-results', authenticateToken, async (req, res) => {
 
               ${qualificationMessage}
 
-              <p style="margin-top: 30px;">${personalizedOutro.replace(/\n/g, '<br>')}</p>
+              <p style="margin-top: 30px;">${convertEmailsToMailtoLinks(personalizedOutro.replace(/\n/g, '<br>'))}</p>
             </div>
             <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-              <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+              <p style="margin: 0;">CDBHS - <a href="mailto:cdbhs92@gmail.com" style="color: white;">cdbhs92@gmail.com</a></p>
             </div>
           </div>
         `;
@@ -1741,7 +1752,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
               </table>
             </div>
             <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-              <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+              <p style="margin: 0;">CDBHS - <a href="mailto:cdbhs92@gmail.com" style="color: white;">cdbhs92@gmail.com</a></p>
             </div>
           </div>
         `;
@@ -2118,7 +2129,7 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
                 Vous êtes qualifié(e) pour la finale départementale !
               </div>
 
-              <p>${personalizedIntro.replace(/\n/g, '<br>')}</p>
+              <p>${convertEmailsToMailtoLinks(personalizedIntro.replace(/\n/g, '<br>'))}</p>
 
               <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #ddd;">
                 <h3 style="margin-top: 0; color: #1F4788;">📍 Informations de la Finale</h3>
@@ -2130,10 +2141,10 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
               <h3 style="color: #28a745;">Liste des Finalistes</h3>
               ${finalistsTableHtml}
 
-              <p style="margin-top: 30px;">${personalizedOutro.replace(/\n/g, '<br>')}</p>
+              <p style="margin-top: 30px;">${convertEmailsToMailtoLinks(personalizedOutro.replace(/\n/g, '<br>'))}</p>
             </div>
             <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-              <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+              <p style="margin: 0;">CDBHS - <a href="mailto:cdbhs92@gmail.com" style="color: white;">cdbhs92@gmail.com</a></p>
             </div>
           </div>
         `;
@@ -2261,7 +2272,7 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
               </table>
             </div>
             <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-              <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+              <p style="margin: 0;">CDBHS - <a href="mailto:cdbhs92@gmail.com" style="color: white;">cdbhs92@gmail.com</a></p>
             </div>
           </div>
         `;
@@ -2354,7 +2365,9 @@ Vous avez participé au premier tournoi {category} qui s'est déroulé le {t1_da
 Le deuxième tournoi de la saison aura lieu le {tournament_date} à {tournament_lieu}.
 
 Pour participer, merci de confirmer votre inscription en répondant à cet email avant le {deadline_date}.`,
-    outro: `Sportivement,
+    outro: `Pour toute question ou information, écrivez à cdbhs92@gmail.com
+
+Sportivement,
 Le Comité Départemental de Billard des Hauts-de-Seine`
   },
   relance_t3: {
@@ -2366,7 +2379,9 @@ Vous êtes actuellement classé(e) {rank_position}ème au classement général {
 Le troisième et dernier tournoi qualificatif aura lieu le {tournament_date} à {tournament_lieu}.
 
 Ce tournoi est déterminant pour la qualification à la finale départementale. Pour participer, merci de confirmer votre inscription en répondant à cet email avant le {deadline_date}.`,
-    outro: `Sportivement,
+    outro: `Pour toute question ou information, écrivez à cdbhs92@gmail.com
+
+Sportivement,
 Le Comité Départemental de Billard des Hauts-de-Seine`
   },
   relance_finale: {
@@ -2381,6 +2396,8 @@ La finale aura lieu le {finale_date} à {finale_lieu}.
 
 Merci de confirmer votre participation en répondant à cet email avant le {deadline_date}.`,
     outro: `Nous comptons sur votre présence !
+
+Pour toute question ou information, écrivez à cdbhs92@gmail.com
 
 Sportivement,
 Le Comité Départemental de Billard des Hauts-de-Seine`
@@ -3230,12 +3247,12 @@ router.post('/send-relance', authenticateToken, async (req, res) => {
             </div>
             <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
               ${imageHtml}
-              <p>${emailIntro.replace(/\n/g, '<br>')}</p>
+              <p>${convertEmailsToMailtoLinks(emailIntro.replace(/\n/g, '<br>'))}</p>
               <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
-              <p>${emailOutro.replace(/\n/g, '<br>')}</p>
+              <p>${convertEmailsToMailtoLinks(emailOutro.replace(/\n/g, '<br>'))}</p>
             </div>
             <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-              <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+              <p style="margin: 0;">CDBHS - <a href="mailto:cdbhs92@gmail.com" style="color: white;">cdbhs92@gmail.com</a></p>
             </div>
           </div>
         `;
