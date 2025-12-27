@@ -625,7 +625,8 @@ router.post('/send', authenticateToken, async (req, res) => {
     const campaignId = await new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, status)
-         VALUES ($1, $2, $3, $4, 'sending')`,
+         VALUES ($1, $2, $3, $4, 'sending')
+         RETURNING id`,
         [subject, body, templateKey || null, testMode ? 1 : (recipientIds ? recipientIds.length : 0)],
         function(err) {
           if (err) reject(err);
@@ -1470,7 +1471,8 @@ router.post('/send-results', authenticateToken, async (req, res) => {
     const campaignId = await new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, status, campaign_type, mode, category, tournament_id, sent_by, test_mode)
-         VALUES ($1, $2, 'tournament_results', $3, 'sending', 'tournament_results', $4, $5, $6, $7, $8)`,
+         VALUES ($1, $2, 'tournament_results', $3, 'sending', 'tournament_results', $4, $5, $6, $7, $8)
+         RETURNING id`,
         [`Résultats - ${tournament.display_name}`, introText, results.filter(r => r.email).length,
          tournament.game_type, tournament.level, tournamentId, req.user?.username || 'unknown', testMode ? true : false],
         function(err) {
@@ -2028,7 +2030,8 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
     const campaignId = await new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, status, campaign_type, mode, category, tournament_id, sent_by, test_mode)
-         VALUES ($1, $2, 'finale_convocation', $3, 'sending', 'finale_convocation', $4, $5, $6, $7, $8)`,
+         VALUES ($1, $2, 'finale_convocation', $3, 'sending', 'finale_convocation', $4, $5, $6, $7, $8)
+         RETURNING id`,
         [`Convocation Finale - ${category.display_name}`, introText, finalists.filter(f => f.email).length,
          finale.mode, finale.categorie, finaleId, req.user?.username || 'unknown', testMode ? true : false],
         function(err) {
@@ -3159,7 +3162,8 @@ router.post('/send-relance', authenticateToken, async (req, res) => {
     const campaignId = await new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, status, campaign_type, mode, category, sent_by, test_mode)
-         VALUES ($1, $2, $3, $4, 'sending', $5, $6, $7, $8, $9)`,
+         VALUES ($1, $2, $3, $4, 'sending', $5, $6, $7, $8, $9)
+         RETURNING id`,
         [subject, intro, `relance_${relanceType}`, testMode ? 1 : participants.filter(p => p.email).length,
          `relance_${relanceType}`, mode, category, req.user?.username || 'unknown', testMode ? true : false],
         function(err) {
