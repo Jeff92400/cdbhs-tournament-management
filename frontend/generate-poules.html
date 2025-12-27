@@ -1197,6 +1197,9 @@
       loadUpcomingTournaments();
     }
 
+    // Pending location to preselect (stored when preselectLocation is called before clubs load)
+    let pendingLocationToPreselect = null;
+
     // Load clubs for location selection
     async function loadClubs() {
       try {
@@ -1206,6 +1209,11 @@
         if (response.ok) {
           clubs = await response.json();
           populateLocationDropdowns();
+          // Apply pending preselection if any
+          if (pendingLocationToPreselect) {
+            preselectLocation(pendingLocationToPreselect);
+            pendingLocationToPreselect = null;
+          }
         }
       } catch (error) {
         console.error('Error loading clubs:', error);
@@ -1234,7 +1242,13 @@
     }
 
     function preselectLocation(locationName) {
-      if (!locationName || clubs.length === 0) return;
+      if (!locationName) return;
+
+      // If clubs not loaded yet, store for later
+      if (clubs.length === 0) {
+        pendingLocationToPreselect = locationName;
+        return;
+      }
 
       const select1 = document.getElementById('locationSelect1');
       const locationLower = locationName.toLowerCase();
