@@ -503,19 +503,17 @@
 
       players.forEach(player => {
         const row = document.createElement('tr');
-        if (player.is_active === 0) {
-          row.style.opacity = '0.5';
-        }
+        const inactiveStyle = player.is_active === 0 ? 'opacity: 0.5;' : '';
 
         row.innerHTML = `
-          <td>${player.licence}</td>
-          <td><a href="player-history.html?licence=${player.licence}" class="player-link">${player.last_name}</a></td>
-          <td><a href="player-history.html?licence=${player.licence}" class="player-link">${player.first_name}</a></td>
-          <td>${player.club || '-'}</td>
-          <td style="text-align: center;">${player.rank_libre || 'NC'}</td>
-          <td style="text-align: center;">${player.rank_cadre || 'NC'}</td>
-          <td style="text-align: center;">${player.rank_bande || 'NC'}</td>
-          <td style="text-align: center;">${player.rank_3bandes || 'NC'}</td>
+          <td style="${inactiveStyle}">${player.licence}</td>
+          <td style="${inactiveStyle}"><a href="player-history.html?licence=${player.licence}" class="player-link">${player.last_name}</a></td>
+          <td style="${inactiveStyle}"><a href="player-history.html?licence=${player.licence}" class="player-link">${player.first_name}</a></td>
+          <td style="${inactiveStyle}">${player.club || '-'}</td>
+          <td style="text-align: center; ${inactiveStyle}">${player.rank_libre || 'NC'}</td>
+          <td style="text-align: center; ${inactiveStyle}">${player.rank_cadre || 'NC'}</td>
+          <td style="text-align: center; ${inactiveStyle}">${player.rank_bande || 'NC'}</td>
+          <td style="text-align: center; ${inactiveStyle}">${player.rank_3bandes || 'NC'}</td>
           <td style="text-align: center;">
             <span style="color: ${player.is_active ? '#4CAF50' : '#999'}; font-weight: bold;">
               ${player.is_active ? '✓ Actif' : '✗ Inactif'}
