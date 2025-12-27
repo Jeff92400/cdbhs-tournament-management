@@ -284,6 +284,96 @@
         align-items: flex-start;
       }
     }
+
+    /* Modal styles */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+      background: linear-gradient(135deg, #1F4788 0%, #3B5998 100%);
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 20px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .player-list-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .player-list-item:last-child {
+      border-bottom: none;
+    }
+
+    .player-list-name {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .player-list-club {
+      font-size: 12px;
+      color: #888;
+    }
+
+    /* Clickable stat card */
+    .stat-card-clickable {
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card-clickable:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
   </style>
 </head>
 <body>
@@ -1068,7 +1158,7 @@
                 const count = data[`cat_${cat.count}`] || 0;
                 const percent = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
                 return `
-                  <div style="background: ${cat.color}15; border-left: 4px solid ${cat.color}; padding: 15px; border-radius: 8px;">
+                  <div class="stat-card-clickable" onclick="showPlayerListModal(${cat.count}, '${targetSeason}')" style="background: ${cat.color}15; border-left: 4px solid ${cat.color}; padding: 15px; border-radius: 8px;">
                     <div style="font-size: 28px; font-weight: bold; color: ${cat.color};">${count}</div>
                     <div style="color: #666; margin-top: 5px;">${cat.label}</div>
                     <div style="color: ${cat.color}; font-weight: bold; font-size: 14px; margin-top: 5px;">${percent}%</div>
@@ -1077,7 +1167,7 @@
               }).join('')}
             </div>
             <div style="text-align: center; color: #666; font-size: 14px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
-              Total joueurs actifs inscrits: <strong>${total}</strong>
+              Total joueurs: <strong>${total}</strong>
             </div>
           `;
         }
@@ -1179,8 +1269,72 @@
       }
     }
 
+    // Show player list modal
+    async function showPlayerListModal(numCategories, season) {
+      const modal = document.getElementById('playerListModal');
+      const modalTitle = document.getElementById('playerListModalTitle');
+      const modalBody = document.getElementById('playerListModalBody');
+
+      const labels = {
+        4: '4 catégories',
+        3: '3 catégories',
+        2: '2 catégories',
+        1: '1 catégorie'
+      };
+
+      modalTitle.textContent = `Joueurs en ${labels[numCategories]} (${season})`;
+      modalBody.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
+      modal.classList.add('active');
+
+      try {
+        const response = await fetch(`${API_URL}/statistics/players/multi-category/list?season=${season}&categories=${numCategories}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const players = await response.json();
+
+          if (players.length === 0) {
+            modalBody.innerHTML = '<div class="empty-state">Aucun joueur trouvé</div>';
+            return;
+          }
+
+          modalBody.innerHTML = players.map(player => `
+            <div class="player-list-item">
+              <div>
+                <div class="player-list-name">${player.player_name}</div>
+                <div class="player-list-club">${player.club || 'Club non renseigné'}</div>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Error loading player list:', error);
+        modalBody.innerHTML = '<div class="empty-state">Erreur de chargement</div>';
+      }
+    }
+
+    // Close modal when clicking overlay or close button
+    document.getElementById('playerListModal').addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close')) {
+        document.getElementById('playerListModal').classList.remove('active');
+      }
+    });
+
     // Initialize
     loadSeasons();
   </script>
+
+  <!-- Player List Modal -->
+  <div id="playerListModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="playerListModalTitle">Joueurs</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body" id="playerListModalBody">
+      </div>
+    </div>
+  </div>
 </body>
 </html>
