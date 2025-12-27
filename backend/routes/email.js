@@ -1,4 +1,6 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const { Resend } = require('resend');
 const PDFDocument = require('pdfkit');
 const { authenticateToken } = require('./auth');
@@ -118,6 +120,16 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
 
       const pageWidth = doc.page.width - 80;
       let y = 40;
+
+      // Add CDBHS logo
+      const logoPath = path.join(__dirname, '../../frontend/images/billiard-icon.png');
+      try {
+        if (fs.existsSync(logoPath)) {
+          doc.image(logoPath, 45, y, { width: 40 });
+        }
+      } catch (err) {
+        console.log('Logo not found for PDF:', err.message);
+      }
 
       // Header - CONVOCATION
       const isFinale = tournamentInfo.tournamentNum === '4' || tournamentInfo.tournamentNum === 'Finale' || tournamentInfo.isFinale;
@@ -314,6 +326,16 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
 
       const pageWidth = doc.page.width - 80;
       let y = 40;
+
+      // Add CDBHS logo
+      const logoPath = path.join(__dirname, '../../frontend/images/billiard-icon.png');
+      try {
+        if (fs.existsSync(logoPath)) {
+          doc.image(logoPath, 45, y, { width: 40 });
+        }
+      } catch (err) {
+        console.log('Logo not found for PDF:', err.message);
+      }
 
       // Header - CONVOCATION
       const isFinale = tournamentInfo.tournamentNum === '4' || tournamentInfo.tournamentNum === 'Finale' || tournamentInfo.isFinale;
