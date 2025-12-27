@@ -16,6 +16,11 @@ function convertEmailsToMailtoLinks(text) {
   );
 }
 
+// Contact phrase to be added before signature in all emails
+const CONTACT_PHRASE_HTML = `<p style="margin-top: 20px; padding: 10px; background: #e8f4f8; border-left: 3px solid #1F4788; font-size: 14px;">
+  Pour toute question ou information, écrivez à <a href="mailto:cdbhs92@gmail.com" style="color: #1F4788;">cdbhs92@gmail.com</a>
+</p>`;
+
 // Helper function to parse dates that might be in French format (DD/MM/YYYY)
 function parseDateSafe(dateStr) {
   if (!dateStr) return null;
@@ -692,6 +697,7 @@ router.post('/send', authenticateToken, async (req, res) => {
               <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
                 ${imageHtml}
                 ${emailBodyHtml}
+                ${CONTACT_PHRASE_HTML}
               </div>
               <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
                 <p style="margin: 0;">CDBHS - <a href="mailto:cdbhs92@gmail.com" style="color: white;">cdbhs92@gmail.com</a></p>
@@ -1185,6 +1191,7 @@ router.post('/process-scheduled', async (req, res) => {
                 </div>
                 <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
                   ${emailBodyHtml}
+                  ${CONTACT_PHRASE_HTML}
                 </div>
                 <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
                   <p style="margin: 0;">Comite Departemental Billard Hauts-de-Seine - <a href="mailto:cdbhs92@gmail.com" style="color: white;">cdbhs92@gmail.com</a></p>
@@ -1618,6 +1625,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
 
               ${qualificationMessage}
 
+              ${CONTACT_PHRASE_HTML}
               <p style="margin-top: 30px;">${convertEmailsToMailtoLinks(personalizedOutro.replace(/\n/g, '<br>'))}</p>
             </div>
             <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
@@ -2141,6 +2149,7 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
               <h3 style="color: #28a745;">Liste des Finalistes</h3>
               ${finalistsTableHtml}
 
+              ${CONTACT_PHRASE_HTML}
               <p style="margin-top: 30px;">${convertEmailsToMailtoLinks(personalizedOutro.replace(/\n/g, '<br>'))}</p>
             </div>
             <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
@@ -3248,6 +3257,7 @@ router.post('/send-relance', authenticateToken, async (req, res) => {
             <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
               ${imageHtml}
               <p>${convertEmailsToMailtoLinks(emailIntro.replace(/\n/g, '<br>'))}</p>
+              ${CONTACT_PHRASE_HTML}
               <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
               <p>${convertEmailsToMailtoLinks(emailOutro.replace(/\n/g, '<br>'))}</p>
             </div>
