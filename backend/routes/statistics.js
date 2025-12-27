@@ -831,16 +831,22 @@ router.get('/players/multi-category', authenticateToken, async (req, res) => {
   const { season } = req.query;
   const targetSeason = season || getCurrentSeason();
 
+  // Parse season to get date range (e.g., "2024-2025" -> Sept 2024 to June 2025)
+  const [startYear] = targetSeason.split('-');
+  const seasonStart = `${startYear}-09-01`;
+  const seasonEnd = `${parseInt(startYear) + 1}-06-30`;
+
   // Count distinct game types (modes) each active player is registered in for the season
-  // Based on inscriptions table - shows who is actually playing this season
+  // Based on inscriptions table joined with tournoi_ext for mode and date filtering
   const query = `
     WITH player_categories AS (
       SELECT
         i.licence,
-        COUNT(DISTINCT i.mode) as num_categories
+        COUNT(DISTINCT te.mode) as num_categories
       FROM inscriptions i
+      JOIN tournoi_ext te ON i.tournoi_id = te.tournoi_id
       JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-      WHERE i.season = $1
+      WHERE te.debut >= $1 AND te.debut <= $2
         AND p.is_active = 1
       GROUP BY i.licence
     )
@@ -853,7 +859,7 @@ router.get('/players/multi-category', authenticateToken, async (req, res) => {
     FROM player_categories
   `;
 
-  db.get(query, [targetSeason], (err, row) => {
+  db.get(query, [seasonStart, seasonEnd], (err, row) => {
     if (err) {
       console.error('Error fetching multi-category stats:', err);
       return res.status(500).json({ error: err.message });
