@@ -923,6 +923,30 @@ router.get('/players/multi-category/list', authenticateToken, async (req, res) =
   });
 });
 
+// Debug: Get all distinct game_type values
+router.get('/debug/game-types', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { season } = req.query;
+  const targetSeason = season || getCurrentSeason();
+
+  const query = `
+    SELECT DISTINCT c.game_type, COUNT(*) as count
+    FROM tournament_results tr
+    JOIN tournaments t ON tr.tournament_id = t.id
+    JOIN categories c ON t.category_id = c.id
+    WHERE t.season = $1
+    GROUP BY c.game_type
+    ORDER BY c.game_type
+  `;
+
+  db.all(query, [targetSeason], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows || []);
+  });
+});
+
 // Debug: Get tournament results for a specific player
 router.get('/players/debug/:licence', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
