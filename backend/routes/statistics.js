@@ -923,4 +923,36 @@ router.get('/players/multi-category/list', authenticateToken, async (req, res) =
   });
 });
 
+// Debug: Get tournament results for a specific player
+router.get('/players/debug/:licence', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { licence } = req.params;
+  const { season } = req.query;
+  const targetSeason = season || getCurrentSeason();
+
+  const query = `
+    SELECT
+      tr.licence,
+      tr.player_name,
+      c.display_name as category,
+      c.game_type,
+      t.tournament_number,
+      t.season
+    FROM tournament_results tr
+    JOIN tournaments t ON tr.tournament_id = t.id
+    JOIN categories c ON t.category_id = c.id
+    WHERE REPLACE(tr.licence, ' ', '') = REPLACE($1, ' ', '')
+      AND t.season = $2
+    ORDER BY c.game_type, t.tournament_number
+  `;
+
+  db.all(query, [licence, targetSeason], (err, rows) => {
+    if (err) {
+      console.error('Error fetching player debug:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows || []);
+  });
+});
+
 module.exports = router;
