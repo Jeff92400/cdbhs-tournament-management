@@ -825,4 +825,41 @@ router.get('/players/veterans', authenticateToken, async (req, res) => {
   });
 });
 
+// Get multi-category players stats (how many players play in 1, 2, 3 or 4 categories)
+router.get('/players/multi-category', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { season } = req.query;
+  const targetSeason = season || getCurrentSeason();
+
+  // Count distinct game types (modes) each active player is registered in for the season
+  const query = `
+    WITH player_categories AS (
+      SELECT
+        i.licence,
+        COUNT(DISTINCT c.game_type) as num_categories
+      FROM inscriptions i
+      JOIN categories c ON i.mode = c.game_type AND i.categorie = c.level
+      JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+      WHERE i.season = $1
+        AND p.is_active = 1
+      GROUP BY i.licence
+    )
+    SELECT
+      COUNT(*) FILTER (WHERE num_categories = 4) as cat_4,
+      COUNT(*) FILTER (WHERE num_categories = 3) as cat_3,
+      COUNT(*) FILTER (WHERE num_categories = 2) as cat_2,
+      COUNT(*) FILTER (WHERE num_categories = 1) as cat_1,
+      COUNT(*) as total
+    FROM player_categories
+  `;
+
+  db.get(query, [targetSeason], (err, row) => {
+    if (err) {
+      console.error('Error fetching multi-category stats:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(row || { cat_4: 0, cat_3: 0, cat_2: 0, cat_1: 0, total: 0 });
+  });
+});
+
 module.exports = router;

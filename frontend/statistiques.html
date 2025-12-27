@@ -457,6 +457,24 @@
             </div>
           </div>
         </div>
+
+        <!-- Multi-Category Players -->
+        <div class="stats-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <h2 class="stats-section-title" style="margin-bottom: 0;">🎯 Joueurs Multi-Catégories</h2>
+            <select id="multiCatSeasonSelect" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 8px; background: white; font-size: 14px; min-width: 150px;">
+              <option value="">Chargement...</option>
+            </select>
+          </div>
+          <div class="stats-card">
+            <div class="stats-card-header">Répartition des joueurs actifs par nombre de catégories</div>
+            <div class="stats-card-body" id="multiCatTable">
+              <div class="loading">
+                <div class="loading-spinner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Tab: General -->
@@ -575,6 +593,12 @@
             `<option value="${s}" ${i === 0 ? 'selected' : ''}>${s}</option>`
           ).join('');
 
+          // Also populate multi-category season dropdown
+          const multiCatSeasonSelect = document.getElementById('multiCatSeasonSelect');
+          multiCatSeasonSelect.innerHTML = seasons.map((s, i) =>
+            `<option value="${s}" ${i === 0 ? 'selected' : ''}>${s}</option>`
+          ).join('');
+
           currentSeason = seasons[0] || '';
           loadAllStats();
         }
@@ -603,6 +627,11 @@
       loadNewPlayers(e.target.value);
     });
 
+    // Multi-category season selector
+    document.getElementById('multiCatSeasonSelect').addEventListener('change', (e) => {
+      loadMultiCatStats(e.target.value);
+    });
+
     // Load all statistics
     async function loadAllStats() {
       loadSummary();
@@ -611,6 +640,7 @@
       loadActivePlayers();
       loadStatCategories(); // Load categories for dropdowns (wins, moyenne, serie)
       loadNewPlayers();
+      loadMultiCatStats();
       loadParticipation();
       loadCategories();
     }
@@ -1000,6 +1030,59 @@
         }
       } catch (error) {
         console.error('Error loading new players:', error);
+        container.innerHTML = '<div class="empty-state">Erreur de chargement</div>';
+      }
+    }
+
+    // Load multi-category players stats
+    async function loadMultiCatStats(season = null) {
+      const container = document.getElementById('multiCatTable');
+      const targetSeason = season || currentSeason;
+
+      container.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
+
+      try {
+        const response = await fetch(`${API_URL}/statistics/players/multi-category?season=${targetSeason}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const total = data.total || 0;
+
+          if (total === 0) {
+            container.innerHTML = '<div class="empty-state">Aucun joueur actif pour cette saison</div>';
+            return;
+          }
+
+          const categories = [
+            { count: 4, label: '4 catégories', color: '#1F4788' },
+            { count: 3, label: '3 catégories', color: '#28a745' },
+            { count: 2, label: '2 catégories', color: '#ffc107' },
+            { count: 1, label: '1 catégorie', color: '#6c757d' }
+          ];
+
+          container.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+              ${categories.map(cat => {
+                const count = data[`cat_${cat.count}`] || 0;
+                const percent = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                return `
+                  <div style="background: ${cat.color}15; border-left: 4px solid ${cat.color}; padding: 15px; border-radius: 8px;">
+                    <div style="font-size: 28px; font-weight: bold; color: ${cat.color};">${count}</div>
+                    <div style="color: #666; margin-top: 5px;">${cat.label}</div>
+                    <div style="color: ${cat.color}; font-weight: bold; font-size: 14px; margin-top: 5px;">${percent}%</div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            <div style="text-align: center; color: #666; font-size: 14px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+              Total joueurs actifs inscrits: <strong>${total}</strong>
+            </div>
+          `;
+        }
+      } catch (error) {
+        console.error('Error loading multi-category stats:', error);
         container.innerHTML = '<div class="empty-state">Erreur de chargement</div>';
       }
     }
