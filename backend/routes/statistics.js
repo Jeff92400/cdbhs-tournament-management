@@ -831,29 +831,29 @@ router.get('/players/multi-category', authenticateToken, async (req, res) => {
   const { season } = req.query;
   const targetSeason = season || getCurrentSeason();
 
-  // Alternative approach: count non-NC ranks directly from players table
-  // This counts how many categories (LIBRE, CADRE, BANDE, 3BANDES) each active player has a rank in
+  // Count distinct game types (modes) each active player is registered in for the season
+  // Based on inscriptions table - shows who is actually playing this season
   const query = `
     WITH player_categories AS (
       SELECT
-        licence,
-        (CASE WHEN rank_libre IS NOT NULL AND rank_libre != 'NC' THEN 1 ELSE 0 END +
-         CASE WHEN rank_cadre IS NOT NULL AND rank_cadre != 'NC' THEN 1 ELSE 0 END +
-         CASE WHEN rank_bande IS NOT NULL AND rank_bande != 'NC' THEN 1 ELSE 0 END +
-         CASE WHEN rank_3bandes IS NOT NULL AND rank_3bandes != 'NC' THEN 1 ELSE 0 END) as num_categories
-      FROM players
-      WHERE is_active = 1
+        i.licence,
+        COUNT(DISTINCT i.mode) as num_categories
+      FROM inscriptions i
+      JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+      WHERE i.season = $1
+        AND p.is_active = 1
+      GROUP BY i.licence
     )
     SELECT
       COUNT(*) FILTER (WHERE num_categories = 4) as cat_4,
       COUNT(*) FILTER (WHERE num_categories = 3) as cat_3,
       COUNT(*) FILTER (WHERE num_categories = 2) as cat_2,
       COUNT(*) FILTER (WHERE num_categories = 1) as cat_1,
-      COUNT(*) FILTER (WHERE num_categories >= 1) as total
+      COUNT(*) as total
     FROM player_categories
   `;
 
-  db.get(query, [], (err, row) => {
+  db.get(query, [targetSeason], (err, row) => {
     if (err) {
       console.error('Error fetching multi-category stats:', err);
       return res.status(500).json({ error: err.message });
