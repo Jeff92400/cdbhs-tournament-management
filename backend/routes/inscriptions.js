@@ -599,6 +599,55 @@ router.get('/', authenticateToken, (req, res) => {
   });
 });
 
+// Create a new inscription manually (admin only)
+router.post('/create', authenticateToken, async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { tournoi_id, licence, email, telephone, convoque, forfait, commentaire } = req.body;
+
+  if (!tournoi_id || !licence) {
+    return res.status(400).json({ error: 'tournoi_id and licence are required' });
+  }
+
+  try {
+    // Get the next inscription_id
+    const maxIdResult = await new Promise((resolve, reject) => {
+      db.get('SELECT MAX(inscription_id) as max_id FROM inscriptions', [], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    const nextId = (maxIdResult?.max_id || 0) + 1;
+
+    // Clean up licence (remove spaces)
+    const cleanLicence = (licence || '').replace(/\s+/g, '').trim();
+
+    // Insert the new inscription
+    await new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO inscriptions (inscription_id, tournoi_id, licence, email, telephone, convoque, forfait, commentaire, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      `, [nextId, tournoi_id, cleanLicence, email || null, telephone || null, convoque || 0, forfait || 0, commentaire || null], function(err) {
+        if (err) reject(err);
+        else resolve({ id: nextId, changes: this.changes });
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Inscription created successfully',
+      inscription_id: nextId
+    });
+
+  } catch (error) {
+    console.error('Error creating inscription:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete all tournoi_ext
 router.delete('/tournoi/all', authenticateToken, (req, res) => {
   db.run('DELETE FROM tournoi_ext', [], function(err) {

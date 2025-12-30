@@ -111,9 +111,14 @@
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3 style="margin: 0;">Inscriptions CDBHS</h3>
-        <button class="btn btn-success admin-only" onclick="window.location.href='import-inscriptions.html'" style="background: #28a745;">
-          📤 Importer depuis IONOS
-        </button>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn admin-only" onclick="openCreateModal()" style="background: #1F4788;">
+            ➕ Ajouter
+          </button>
+          <button class="btn btn-success admin-only" onclick="window.location.href='import-inscriptions.html'" style="background: #28a745;">
+            📤 Importer depuis IONOS
+          </button>
+        </div>
       </div>
 
       <div class="filter-bar">
@@ -157,6 +162,64 @@
             <tbody id="inscriptionsBody"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+
+    <!-- Create Inscription Modal -->
+    <div id="createInscriptionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+      <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <h3 style="margin-top: 0; color: #1F4788;">➕ Nouvelle inscription</h3>
+        <form id="createInscriptionForm">
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Tournoi *</label>
+            <select id="create_tournoi_id" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+              <option value="">-- Sélectionner un tournoi --</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Licence *</label>
+            <input type="text" id="create_licence" required placeholder="Ex: 123456A" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <small style="color: #666;">Le joueur doit exister dans le fichier joueurs</small>
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Email</label>
+            <input type="email" id="create_email" placeholder="email@exemple.com" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Téléphone</label>
+            <input type="text" id="create_telephone" placeholder="06..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Convoqué</label>
+              <select id="create_convoque" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="0">Non</option>
+                <option value="1">Oui</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Forfait</label>
+              <select id="create_forfait" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="0">Non</option>
+                <option value="1">Oui</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Commentaire</label>
+            <textarea id="create_commentaire" rows="2" placeholder="Optionnel" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" class="btn" style="flex: 1; background: #1F4788;">Créer</button>
+            <button type="button" onclick="closeCreateModal()" class="btn" style="flex: 1; background: #999;">Annuler</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -633,6 +696,105 @@
     document.getElementById('tournoiFilter').addEventListener('change', applyFilters);
     document.getElementById('statusFilter').addEventListener('change', applyFilters);
     document.getElementById('searchInput').addEventListener('input', applyFilters);
+
+    // ========== CREATE INSCRIPTION FUNCTIONS ==========
+
+    // Open create modal
+    function openCreateModal() {
+      // Populate tournoi select with all tournaments
+      const select = document.getElementById('create_tournoi_id');
+      select.innerHTML = '<option value="">-- Sélectionner un tournoi --</option>';
+
+      // Group by mode/categorie and sort by date (most recent first)
+      const sortedTournois = [...allTournois].sort((a, b) => {
+        const dateA = a.debut ? new Date(a.debut) : new Date(0);
+        const dateB = b.debut ? new Date(b.debut) : new Date(0);
+        return dateB - dateA;
+      });
+
+      // Group by mode/categorie
+      const grouped = {};
+      sortedTournois.forEach(t => {
+        const key = `${t.mode} - ${t.categorie}`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(t);
+      });
+
+      Object.keys(grouped).sort().forEach(key => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = key;
+
+        grouped[key].forEach(t => {
+          const option = document.createElement('option');
+          option.value = t.tournoi_id;
+          const date = t.debut ? new Date(t.debut).toLocaleDateString('fr-FR') : '';
+          option.textContent = `${t.nom} ${date ? `(${date})` : ''}`;
+          optgroup.appendChild(option);
+        });
+
+        select.appendChild(optgroup);
+      });
+
+      // Clear form
+      document.getElementById('create_licence').value = '';
+      document.getElementById('create_email').value = '';
+      document.getElementById('create_telephone').value = '';
+      document.getElementById('create_convoque').value = '0';
+      document.getElementById('create_forfait').value = '0';
+      document.getElementById('create_commentaire').value = '';
+
+      document.getElementById('createInscriptionModal').style.display = 'flex';
+    }
+
+    // Close create modal
+    function closeCreateModal() {
+      document.getElementById('createInscriptionModal').style.display = 'none';
+    }
+
+    // Create inscription form submit
+    document.getElementById('createInscriptionForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        tournoi_id: parseInt(document.getElementById('create_tournoi_id').value),
+        licence: document.getElementById('create_licence').value.trim(),
+        email: document.getElementById('create_email').value.trim() || null,
+        telephone: document.getElementById('create_telephone').value.trim() || null,
+        convoque: parseInt(document.getElementById('create_convoque').value),
+        forfait: parseInt(document.getElementById('create_forfait').value),
+        commentaire: document.getElementById('create_commentaire').value.trim() || null
+      };
+
+      if (!data.tournoi_id || !data.licence) {
+        alert('Veuillez sélectionner un tournoi et entrer une licence');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/inscriptions/create`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create inscription');
+        }
+
+        closeCreateModal();
+        await loadInscriptions();
+        alert(`Inscription créée avec succès (ID: ${result.inscription_id})`);
+
+      } catch (error) {
+        console.error('Error creating inscription:', error);
+        alert('Erreur lors de la création: ' + error.message);
+      }
+    });
 
     // Initialize
     async function initialize() {
