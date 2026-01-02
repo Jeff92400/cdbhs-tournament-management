@@ -898,32 +898,62 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
     }
   }
 
-  // Update convoque status for players who received their convocation email
+  // Update convoque status and store convocation details for players who received their convocation email
   if (tournoiId && results.sent.length > 0) {
     try {
-      // Get licences of players who received emails
-      const sentLicences = players
-        .filter(p => results.sent.some(s => s.email === p.email))
-        .map(p => p.licence);
+      // Get players who received emails with their convocation details
+      const sentPlayers = players.filter(p => results.sent.some(s => s.email === p.email));
 
-      if (sentLicences.length > 0) {
-        // Update convoque = 1 for these players
-        const placeholders = sentLicences.map((_, i) => `$${i + 2}`).join(', ');
+      for (const player of sentPlayers) {
+        // Find which poule and location this player is in
+        let playerPouleNumber = null;
+        let playerLocation = null;
+
+        for (const poule of poules) {
+          const found = poule.players.find(p => p.licence === player.licence);
+          if (found) {
+            playerPouleNumber = poule.number;
+            const locNum = poule.locationNum || '1';
+            playerLocation = locations.find(l => l.locationNum === locNum) || locations[0];
+            break;
+          }
+        }
+
+        // Build full address
+        const fullAddress = playerLocation
+          ? [playerLocation.street, playerLocation.zip_code, playerLocation.city].filter(Boolean).join(' ')
+          : '';
+
+        // Update inscription with convocation details
         await new Promise((resolve, reject) => {
           db.run(
             `UPDATE inscriptions
-             SET convoque = 1
-             WHERE tournoi_id = $1
-             AND REPLACE(licence, ' ', '') IN (${sentLicences.map((_, i) => `REPLACE($${i + 2}, ' ', '')`).join(', ')})`,
-            [tournoiId, ...sentLicences],
+             SET convoque = 1,
+                 convocation_poule = $1,
+                 convocation_lieu = $2,
+                 convocation_adresse = $3,
+                 convocation_heure = $4,
+                 convocation_notes = $5
+             WHERE tournoi_id = $6
+             AND REPLACE(licence, ' ', '') = REPLACE($7, ' ', '')`,
+            [
+              playerPouleNumber ? String(playerPouleNumber) : null,
+              playerLocation?.name || null,
+              fullAddress || null,
+              playerLocation?.startTime || null,
+              specialNote || null,
+              tournoiId,
+              player.licence
+            ],
             (err) => {
               if (err) reject(err);
               else resolve();
             }
           );
         });
-        console.log(`Updated convoque status for ${sentLicences.length} players in tournament ${tournoiId}`);
       }
+
+      console.log(`Updated convoque status and convocation details for ${sentPlayers.length} players in tournament ${tournoiId}`);
     } catch (convoqueError) {
       console.error('Error updating convoque status:', convoqueError);
       // Don't fail the whole operation if convoque update fails

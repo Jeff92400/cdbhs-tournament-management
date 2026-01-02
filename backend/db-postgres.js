@@ -210,6 +210,13 @@ async function initializeDatabase() {
       )
     `);
 
+    // Add convocation details columns to inscriptions (migration)
+    await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS convocation_poule VARCHAR(10)`);
+    await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS convocation_lieu VARCHAR(255)`);
+    await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS convocation_adresse TEXT`);
+    await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS convocation_heure VARCHAR(10)`);
+    await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS convocation_notes TEXT`);
+
     // Calendar storage table
     await client.query(`
       CREATE TABLE IF NOT EXISTS calendar (
