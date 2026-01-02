@@ -575,7 +575,7 @@ function replaceTemplateVariables(template, variables) {
 
 // Send convocation emails
 router.post('/send-convocations', authenticateToken, async (req, res) => {
-  const { players, poules, category, season, tournament, tournamentDate, locations, sendToAll, specialNote, gameParams, selectedDistance, mockRankingData, isFinale } = req.body;
+  const { players, poules, category, season, tournament, tournamentDate, tournoiId, locations, sendToAll, specialNote, gameParams, selectedDistance, mockRankingData, isFinale } = req.body;
 
   const resend = getResend();
   if (!resend) {
@@ -895,6 +895,38 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
       console.log('Campaign record updated:', campaignId);
     } catch (updateError) {
       console.error('Error updating campaign record:', updateError);
+    }
+  }
+
+  // Update convoque status for players who received their convocation email
+  if (tournoiId && results.sent.length > 0) {
+    try {
+      // Get licences of players who received emails
+      const sentLicences = players
+        .filter(p => results.sent.some(s => s.email === p.email))
+        .map(p => p.licence);
+
+      if (sentLicences.length > 0) {
+        // Update convoque = 1 for these players
+        const placeholders = sentLicences.map((_, i) => `$${i + 2}`).join(', ');
+        await new Promise((resolve, reject) => {
+          db.run(
+            `UPDATE inscriptions
+             SET convoque = 1
+             WHERE tournoi_id = $1
+             AND REPLACE(licence, ' ', '') IN (${sentLicences.map((_, i) => `REPLACE($${i + 2}, ' ', '')`).join(', ')})`,
+            [tournoiId, ...sentLicences],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+        console.log(`Updated convoque status for ${sentLicences.length} players in tournament ${tournoiId}`);
+      }
+    } catch (convoqueError) {
+      console.error('Error updating convoque status:', convoqueError);
+      // Don't fail the whole operation if convoque update fails
     }
   }
 

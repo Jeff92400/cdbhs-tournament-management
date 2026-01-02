@@ -2146,6 +2146,7 @@
           storeGenerationData({
             poules: poules,
             tournamentDate: matchingTournoi?.debut || null,
+            tournoiId: matchingTournoi?.tournoi_id || null,
             locations: [
               location1 ? { ...location1, startTime: startTime1, locationNum: '1' } : null,
               location2 ? { ...location2, startTime: startTime2, locationNum: '2' } : null
@@ -2711,6 +2712,7 @@
             season: currentSeason,
             tournament: currentTournament,
             tournamentDate: lastGeneratedData.tournamentDate,
+            tournoiId: lastGeneratedData.tournoiId,
             locations: lastGeneratedData.locations,
             specialNote: document.getElementById('specialNoteField').value.trim(),
             gameParams: lastGeneratedData.gameParams,
