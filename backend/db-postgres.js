@@ -380,6 +380,20 @@ async function initializeDatabase() {
       )
     `);
 
+    // Player accounts table (for Espace Joueur app)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS player_accounts (
+        id SERIAL PRIMARY KEY,
+        licence VARCHAR(50) NOT NULL UNIQUE,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        email_verified BOOLEAN DEFAULT true,
+        is_admin BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW(),
+        last_login TIMESTAMP
+      )
+    `);
+
     await client.query('COMMIT');
 
     // Initialize default admin (legacy)
