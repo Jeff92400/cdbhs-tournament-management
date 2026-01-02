@@ -334,13 +334,29 @@
       }
     }
 
-    // Populate tournoi filter
+    // Populate tournoi filter (filtered by selected season)
     function populateTournoiFilter() {
       const select = document.getElementById('tournoiFilter');
+      const selectedSeason = document.getElementById('seasonFilter').value;
+
+      // Clear existing options except the first one
+      while (select.options.length > 1) {
+        select.remove(1);
+      }
+
+      // Filter tournaments by selected season
+      let filteredTournois = allTournois;
+      if (selectedSeason) {
+        filteredTournois = allTournois.filter(t => {
+          if (!t.debut) return false;
+          const date = new Date(t.debut);
+          return getSeasonForDate(date) === selectedSeason;
+        });
+      }
 
       // Group by mode/categorie
       const grouped = {};
-      allTournois.forEach(t => {
+      filteredTournois.forEach(t => {
         const key = `${t.mode} - ${t.categorie}`;
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(t);
@@ -477,6 +493,8 @@
 
       if (sortedSeasons.includes(currentSeason)) {
         select.value = currentSeason;
+        // Re-populate tournament filter with tournaments for current season
+        populateTournoiFilter();
         applyFilters();
       }
     }
@@ -692,7 +710,12 @@
     document.getElementById('cancelEditBtn').addEventListener('click', closeEditModal);
 
     // Filter event listeners
-    document.getElementById('seasonFilter').addEventListener('change', applyFilters);
+    document.getElementById('seasonFilter').addEventListener('change', () => {
+      // Reset tournament filter and re-populate with tournaments for selected season
+      document.getElementById('tournoiFilter').value = '';
+      populateTournoiFilter();
+      applyFilters();
+    });
     document.getElementById('tournoiFilter').addEventListener('change', applyFilters);
     document.getElementById('statusFilter').addEventListener('change', applyFilters);
     document.getElementById('searchInput').addEventListener('input', applyFilters);
