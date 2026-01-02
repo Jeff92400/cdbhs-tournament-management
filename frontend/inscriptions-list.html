@@ -339,10 +339,10 @@
       const select = document.getElementById('tournoiFilter');
       const selectedSeason = document.getElementById('seasonFilter').value;
 
-      // Clear existing options except the first one
-      while (select.options.length > 1) {
-        select.remove(1);
-      }
+      // Clear all optgroups and options except the first "Tous les tournois" option
+      const firstOption = select.options[0];
+      select.innerHTML = '';
+      select.appendChild(firstOption);
 
       // Filter tournaments by selected season
       let filteredTournois = allTournois;
