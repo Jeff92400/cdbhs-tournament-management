@@ -316,6 +316,29 @@
     let allInscriptions = [];
     let allTournois = [];
 
+    // Parse date that might be in various formats (ISO, DD/MM/YYYY, etc.)
+    function parseDate(dateStr) {
+      if (!dateStr) return null;
+      // If it's already a Date object
+      if (dateStr instanceof Date) return dateStr;
+      // Try ISO format first (2026-01-03 or 2026-01-03T00:00:00)
+      if (dateStr.includes('-')) {
+        return new Date(dateStr);
+      }
+      // Try DD/MM/YYYY format
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1; // months are 0-indexed
+          const year = parseInt(parts[2], 10);
+          return new Date(year, month, day);
+        }
+      }
+      // Fallback to default parsing
+      return new Date(dateStr);
+    }
+
     // Load tournois for filter and display
     async function loadTournois() {
       try {
@@ -349,8 +372,10 @@
       if (selectedSeason) {
         filteredTournois = allTournois.filter(t => {
           if (!t.debut) return false;
-          const date = new Date(t.debut);
-          return getSeasonForDate(date) === selectedSeason;
+          const date = parseDate(t.debut);
+          if (!date || isNaN(date.getTime())) return false;
+          const season = getSeasonForDate(date);
+          return season === selectedSeason;
         });
       }
 
@@ -448,7 +473,8 @@
       const seasonInscriptions = allInscriptions.filter(i => {
         const tournoi = getTournoiById(i.tournoi_id);
         if (!tournoi.debut) return false;
-        const date = new Date(tournoi.debut);
+        const date = parseDate(tournoi.debut);
+        if (!date || isNaN(date.getTime())) return false;
         return getSeasonForDate(date) === currentSeason;
       });
 
@@ -473,8 +499,10 @@
       allInscriptions.forEach(i => {
         const tournoi = getTournoiById(i.tournoi_id);
         if (tournoi.debut) {
-          const date = new Date(tournoi.debut);
-          seasons.add(getSeasonForDate(date));
+          const date = parseDate(tournoi.debut);
+          if (date && !isNaN(date.getTime())) {
+            seasons.add(getSeasonForDate(date));
+          }
         }
       });
 
@@ -607,7 +635,8 @@
         filtered = filtered.filter(i => {
           const tournoi = getTournoiById(i.tournoi_id);
           if (!tournoi.debut) return false;
-          const date = new Date(tournoi.debut);
+          const date = parseDate(tournoi.debut);
+          if (!date || isNaN(date.getTime())) return false;
           return getSeasonForDate(date) === seasonFilter;
         });
       }
