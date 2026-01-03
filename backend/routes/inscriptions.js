@@ -203,6 +203,8 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
           continue;
         }
 
+        // Note: convoque uses GREATEST to preserve convoque=1 if already set (don't overwrite with 0 from import)
+        // convocation_* fields are NOT updated by import - they're set when sending convocation emails
         const query = `
           INSERT INTO inscriptions (inscription_id, joueur_id, tournoi_id, timestamp, email, telephone, licence, convoque, forfait, commentaire)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -213,8 +215,8 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
             email = EXCLUDED.email,
             telephone = EXCLUDED.telephone,
             licence = EXCLUDED.licence,
-            convoque = EXCLUDED.convoque,
-            forfait = EXCLUDED.forfait,
+            convoque = GREATEST(inscriptions.convoque, EXCLUDED.convoque),
+            forfait = GREATEST(inscriptions.forfait, EXCLUDED.forfait),
             commentaire = EXCLUDED.commentaire
         `;
 
