@@ -279,6 +279,26 @@
         </form>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteInscriptionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+      <div style="background: white; padding: 30px; border-radius: 12px; max-width: 450px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <h3 style="margin-top: 0; color: #dc3545;">Confirmer la suppression</h3>
+        <input type="hidden" id="delete_inscription_id">
+        <p style="margin-bottom: 20px;">Etes-vous sur de vouloir supprimer cette inscription ?</p>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="margin: 0 0 8px 0;"><strong>ID:</strong> <span id="delete_inscription_id_display"></span></p>
+          <p style="margin: 0 0 8px 0;"><strong>Licence:</strong> <span id="delete_licence_display"></span></p>
+          <p style="margin: 0 0 8px 0;"><strong>Tournoi:</strong> <span id="delete_tournoi_display"></span></p>
+          <p style="margin: 0;"><strong>Email:</strong> <span id="delete_email_display"></span></p>
+        </div>
+        <p style="color: #dc3545; font-size: 13px; margin-bottom: 20px;">Cette action est irreversible.</p>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" onclick="confirmDelete()" class="btn" style="flex: 1; background: #dc3545;">Supprimer</button>
+          <button type="button" onclick="closeDeleteModal()" class="btn" style="flex: 1; background: #999;">Annuler</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -643,19 +663,27 @@
           ${isAdmin ? `
           <td style="text-align: center;">
             <button class="btn btn-small edit-inscription-btn" style="background: #4CAF50; padding: 5px 10px; font-size: 12px;">Modifier</button>
+            <button class="btn btn-small delete-inscription-btn" style="background: #dc3545; padding: 5px 10px; font-size: 12px; margin-left: 5px;">Supprimer</button>
           </td>
           ` : ''}
         `;
 
         tbody.appendChild(row);
 
-        // Add click event to edit button (only for admin)
+        // Add click event to edit and delete buttons (only for admin)
         if (isAdmin) {
           const editBtn = row.querySelector('.edit-inscription-btn');
           if (editBtn) {
             editBtn.onclick = (e) => {
               e.stopPropagation();
               openEditModal(inscription);
+            };
+          }
+          const deleteBtn = row.querySelector('.delete-inscription-btn');
+          if (deleteBtn) {
+            deleteBtn.onclick = (e) => {
+              e.stopPropagation();
+              openDeleteModal(inscription);
             };
           }
         }
@@ -727,6 +755,56 @@
     // Close edit modal
     function closeEditModal() {
       document.getElementById('editInscriptionModal').style.display = 'none';
+    }
+
+    // Open delete confirmation modal
+    function openDeleteModal(inscription) {
+      const tournoi = getTournoiById(inscription.tournoi_id);
+      document.getElementById('delete_inscription_id').value = inscription.inscription_id;
+      document.getElementById('delete_inscription_id_display').textContent = inscription.inscription_id;
+      document.getElementById('delete_licence_display').textContent = inscription.licence || '-';
+      document.getElementById('delete_tournoi_display').textContent = inscription.tournoi_nom || tournoi.nom || `Tournoi #${inscription.tournoi_id}`;
+      document.getElementById('delete_email_display').textContent = inscription.email || '-';
+      document.getElementById('deleteInscriptionModal').style.display = 'flex';
+    }
+
+    // Close delete modal
+    function closeDeleteModal() {
+      document.getElementById('deleteInscriptionModal').style.display = 'none';
+    }
+
+    // Confirm and execute deletion
+    async function confirmDelete() {
+      const inscriptionId = document.getElementById('delete_inscription_id').value;
+
+      try {
+        const response = await fetch(`${API_URL}/inscriptions/${inscriptionId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to delete inscription');
+        }
+
+        closeDeleteModal();
+
+        // Preserve current filter values
+        const savedSeason = document.getElementById('seasonFilter').value;
+        const savedTournoi = document.getElementById('tournoiFilter').value;
+        const savedStatus = document.getElementById('statusFilter').value;
+        const savedSearch = document.getElementById('searchInput').value;
+
+        await loadInscriptionsKeepFilters(savedSeason, savedTournoi, savedStatus, savedSearch);
+        alert('Inscription supprimee avec succes!');
+
+      } catch (error) {
+        console.error('Error deleting inscription:', error);
+        alert('Erreur lors de la suppression: ' + error.message);
+      }
     }
 
     // Update inscription

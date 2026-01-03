@@ -1165,6 +1165,27 @@ router.put('/:id', authenticateToken, (req, res) => {
   });
 });
 
+// Delete a single inscription (admin only)
+router.delete('/:id', authenticateToken, (req, res) => {
+  // Check admin role
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { id } = req.params;
+
+  db.run('DELETE FROM inscriptions WHERE inscription_id = $1', [id], function(err) {
+    if (err) {
+      console.error('Error deleting inscription:', err);
+      return res.status(500).json({ error: err.message });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Inscription not found' });
+    }
+    res.json({ success: true, message: 'Inscription deleted', deleted: this.changes });
+  });
+});
+
 // TEMPORARY: Create test finale data for testing the finale convocation workflow
 router.post('/create-test-finale', authenticateToken, async (req, res) => {
   if (req.user?.role !== 'admin') {
