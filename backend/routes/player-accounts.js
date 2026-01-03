@@ -50,8 +50,18 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Licence, email et mot de passe requis' });
     }
 
+    // Password validation - strong: 8+ chars, uppercase, number, special char
     if (password.length < 8) {
-      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères' });
+      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caracteres' });
+    }
+    if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins une majuscule' });
+    }
+    if (!/[0-9]/.test(password)) {
+      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins un chiffre' });
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/~`]/.test(password)) {
+      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins un caractere special' });
     }
 
     // Check if player exists
@@ -130,8 +140,18 @@ router.put('/:id', async (req, res) => {
   try {
     // Handle password update
     if (password) {
-      if (password.length < 6) {
-        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+      // Password validation - strong: 8+ chars, uppercase, number, special char
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caracteres' });
+      }
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins une majuscule' });
+      }
+      if (!/[0-9]/.test(password)) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins un chiffre' });
+      }
+      if (!/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/~`]/.test(password)) {
+        return res.status(400).json({ error: 'Le mot de passe doit contenir au moins un caractere special' });
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
