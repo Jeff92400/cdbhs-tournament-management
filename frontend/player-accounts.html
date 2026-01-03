@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comptes Joueurs - Billard Ranking</title>
+  <link rel="icon" type="image/png" href="images/billiard-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .admin-badge {
+      background: #d32f2f;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    .admin-toggle {
+      width: 50px;
+      height: 26px;
+      background: #ccc;
+      border-radius: 13px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .admin-toggle.active {
+      background: #d32f2f;
+    }
+    .admin-toggle::after {
+      content: '';
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: left 0.3s;
+    }
+    .admin-toggle.active::after {
+      left: 26px;
+    }
+    .account-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="navbar">
+      <h2><img src="images/billiard-icon.png" alt="🎱" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;">🎱</span> CDBHS Tournois</h2>
+      <div class="nav-links">
+        <a href="dashboard.html">Accueil</a>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-btn">Fichiers</button>
+          <div class="nav-dropdown-content">
+            <a href="players-list.html"><span class="nav-icon">👥</span> Joueurs</a>
+            <a href="tournaments-list.html"><span class="nav-icon">🏆</span> Compétitions jouées</a>
+            <a href="tournois-list.html"><span class="nav-icon">📋</span> Tournois CDBHS</a>
+            <a href="inscriptions-list.html"><span class="nav-icon">📝</span> Inscriptions CDBHS</a>
+            <a href="clubs.html"><span class="nav-icon">🏢</span> Clubs</a>
+          </div>
+        </div>
+        <a href="rankings.html">Classements</a>
+        <div class="nav-dropdown">
+          <button class="nav-dropdown-btn">Compétitions</button>
+          <div class="nav-dropdown-content">
+            <a href="tournaments-list.html"><span class="nav-icon">🏆</span> Jouées</a>
+            <a href="generate-poules.html"><span class="nav-icon">📋</span> A jouer</a>
+          </div>
+        </div>
+        <a href="calendar.html">Calendrier</a>
+        <a href="statistiques.html">Statistiques</a>
+        <a href="emailing.html" class="admin-only">Emailing</a>
+        <a href="settings.html" class="admin-only">Paramètres</a>
+        <a href="#" id="logoutBtn" class="nav-logout">Déconnexion</a>
+      </div>
+    </div>
+
+    <div id="errorMessage" class="error" style="display: none;"></div>
+
+    <div class="stats-grid" style="margin-bottom: 20px;">
+      <div class="stat-card">
+        <h4>Total Comptes</h4>
+        <div class="stat-value" id="totalCount">-</div>
+      </div>
+      <div class="stat-card">
+        <h4>Admins</h4>
+        <div class="stat-value" id="adminCount" style="color: #d32f2f;">-</div>
+      </div>
+      <div class="stat-card">
+        <h4>Joueurs</h4>
+        <div class="stat-value" id="playerCount">-</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0;">Comptes Espace Joueur</h3>
+        <input type="text" id="searchInput" placeholder="Rechercher par nom, licence ou email..."
+               style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; width: 300px;">
+      </div>
+
+      <div id="loadingAccounts" class="loading">
+        <div class="spinner"></div>
+        Chargement des comptes...
+      </div>
+
+      <div id="accountsTable" style="display: none;">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Joueur</th>
+                <th>Licence</th>
+                <th>Email</th>
+                <th>Club</th>
+                <th>Admin</th>
+                <th>Dernière connexion</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="accountsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+      <h3>Confirmer la suppression</h3>
+      <p>Êtes-vous sûr de vouloir supprimer ce compte ?</p>
+      <p><strong id="deleteAccountName"></strong></p>
+      <p style="color: #666; font-size: 0.875rem;">Le joueur pourra recréer un compte ultérieurement.</p>
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button id="confirmDeleteBtn" class="btn btn-danger">Supprimer</button>
+        <button id="cancelDeleteBtn" class="btn btn-secondary">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = '/api';
+
+    // Check authentication
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    // Check admin role
+    const userRole = localStorage.getItem('userRole');
+    if (userRole !== 'admin') {
+      window.location.href = 'dashboard.html';
+    }
+
+    // Show admin-only elements
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('username');
+      window.location.href = 'login.html';
+    });
+
+    let allAccounts = [];
+    let accountToDelete = null;
+
+    // Load accounts
+    async function loadAccounts() {
+      try {
+        const response = await fetch(`${API_URL}/player-accounts`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load accounts');
+
+        allAccounts = await response.json();
+
+        // Update stats
+        const admins = allAccounts.filter(a => a.is_admin);
+        document.getElementById('totalCount').textContent = allAccounts.length;
+        document.getElementById('adminCount').textContent = admins.length;
+        document.getElementById('playerCount').textContent = allAccounts.length - admins.length;
+
+        displayAccounts(allAccounts);
+
+        document.getElementById('loadingAccounts').style.display = 'none';
+        document.getElementById('accountsTable').style.display = 'block';
+
+      } catch (error) {
+        console.error('Error loading accounts:', error);
+        document.getElementById('loadingAccounts').style.display = 'none';
+        document.getElementById('errorMessage').textContent = 'Erreur lors du chargement des comptes';
+        document.getElementById('errorMessage').style.display = 'block';
+      }
+    }
+
+    // Display accounts
+    function displayAccounts(accounts) {
+      const tbody = document.getElementById('accountsBody');
+      tbody.innerHTML = '';
+
+      accounts.forEach(account => {
+        const row = document.createElement('tr');
+        const lastLogin = account.last_login
+          ? new Date(account.last_login).toLocaleDateString('fr-FR', {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit'
+            })
+          : 'Jamais';
+
+        row.innerHTML = `
+          <td>
+            ${account.player_name || '<em style="color:#999">Non lié</em>'}
+            ${account.is_admin ? '<span class="admin-badge" style="margin-left: 8px;">ADMIN</span>' : ''}
+          </td>
+          <td>${account.licence}</td>
+          <td>${account.email}</td>
+          <td>${account.club || '-'}</td>
+          <td>
+            <div class="admin-toggle ${account.is_admin ? 'active' : ''}"
+                 onclick="toggleAdmin(${account.id}, ${!account.is_admin})"
+                 title="${account.is_admin ? 'Retirer les droits admin' : 'Donner les droits admin'}">
+            </div>
+          </td>
+          <td style="font-size: 0.875rem; color: #666;">${lastLogin}</td>
+          <td>
+            <div class="account-actions">
+              <button class="btn btn-danger btn-sm" onclick="confirmDelete(${account.id}, '${account.player_name || account.email}')">
+                Supprimer
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Toggle admin status
+    async function toggleAdmin(id, newStatus) {
+      try {
+        const response = await fetch(`${API_URL}/player-accounts/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ isAdmin: newStatus })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to update');
+        }
+
+        // Reload accounts
+        await loadAccounts();
+
+      } catch (error) {
+        console.error('Error toggling admin:', error);
+        alert('Erreur: ' + error.message);
+      }
+    }
+
+    // Confirm delete
+    function confirmDelete(id, name) {
+      accountToDelete = id;
+      document.getElementById('deleteAccountName').textContent = name;
+      document.getElementById('deleteModal').style.display = 'flex';
+    }
+
+    // Delete account
+    async function deleteAccount() {
+      if (!accountToDelete) return;
+
+      try {
+        const response = await fetch(`${API_URL}/player-accounts/${accountToDelete}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to delete');
+        }
+
+        document.getElementById('deleteModal').style.display = 'none';
+        accountToDelete = null;
+
+        // Reload accounts
+        await loadAccounts();
+
+      } catch (error) {
+        console.error('Error deleting account:', error);
+        alert('Erreur: ' + error.message);
+      }
+    }
+
+    // Search filter
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase();
+      const filtered = allAccounts.filter(a =>
+        (a.player_name || '').toLowerCase().includes(term) ||
+        (a.licence || '').toLowerCase().includes(term) ||
+        (a.email || '').toLowerCase().includes(term) ||
+        (a.club || '').toLowerCase().includes(term)
+      );
+      displayAccounts(filtered);
+    });
+
+    // Modal buttons
+    document.getElementById('confirmDeleteBtn').addEventListener('click', deleteAccount);
+    document.getElementById('cancelDeleteBtn').addEventListener('click', () => {
+      document.getElementById('deleteModal').style.display = 'none';
+      accountToDelete = null;
+    });
+
+    // Initialize
+    loadAccounts();
+  </script>
+</body>
+</html>
