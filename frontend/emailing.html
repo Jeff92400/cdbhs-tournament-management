@@ -4223,9 +4223,10 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             document.getElementById('tab-relances').classList.add('active');
           }
 
-          // Pre-select mode
+          // Pre-select mode (normalize: remove spaces and uppercase to match dropdown values like "3BANDES")
           const modeSelect = document.getElementById('relanceModeFilter');
-          modeSelect.value = mode.toUpperCase();
+          const normalizedMode = mode.toUpperCase().replace(/\s+/g, '');
+          modeSelect.value = normalizedMode;
 
           // Update and pre-select category
           updateRelanceCategoryFilter();
