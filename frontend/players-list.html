@@ -132,6 +132,8 @@
                 <th>Nom</th>
                 <th>Prénom</th>
                 <th>Club</th>
+                <th>Email</th>
+                <th>Téléphone</th>
                 <th>Libre</th>
                 <th>Cadre</th>
                 <th>Bande</th>
@@ -496,7 +498,7 @@
       tbody.innerHTML = '';
 
       if (players.length === 0) {
-        const colspan = isAdmin ? 10 : 9;
+        const colspan = isAdmin ? 12 : 11;
         tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center; padding: 20px;">Aucun joueur trouvé</td></tr>`;
         return;
       }
@@ -510,6 +512,8 @@
           <td style="${inactiveStyle}"><a href="player-history.html?licence=${player.licence}" class="player-link">${player.last_name}</a></td>
           <td style="${inactiveStyle}"><a href="player-history.html?licence=${player.licence}" class="player-link">${player.first_name}</a></td>
           <td style="${inactiveStyle}">${player.club || '-'}</td>
+          <td style="${inactiveStyle}; font-size: 0.85em;">${player.email || '-'}</td>
+          <td style="${inactiveStyle}">${player.telephone || '-'}</td>
           <td style="text-align: center; ${inactiveStyle}">${player.rank_libre || 'NC'}</td>
           <td style="text-align: center; ${inactiveStyle}">${player.rank_cadre || 'NC'}</td>
           <td style="text-align: center; ${inactiveStyle}">${player.rank_bande || 'NC'}</td>
