@@ -138,8 +138,8 @@
 
     <div id="tournamentContent" style="display: none;">
       <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
-          <div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+          <div style="flex: 1;">
             <h3 id="tournamentTitle" style="margin: 0 0 10px 0;">-</h3>
             <p style="color: #666; margin: 0;">
               <strong>Saison :</strong> <span id="tournamentSeason">-</span> &nbsp;|&nbsp;
@@ -147,7 +147,7 @@
               <strong>Participants :</strong> <span id="participantCount">-</span>
             </p>
           </div>
-          <button class="btn btn-primary" id="exportExcelBtn" style="white-space: nowrap;">
+          <button class="btn" id="exportExcelBtn" style="background: #28a745; color: white; white-space: nowrap; flex-shrink: 0; padding: 10px 20px; border-radius: 6px;">
             📊 Exporter en Excel
           </button>
         </div>
