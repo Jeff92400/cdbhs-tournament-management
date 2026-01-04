@@ -196,7 +196,9 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    res.status(500).json({ error: error.message });
+    console.error('Import error:', error);
+    console.error('Stack:', error.stack);
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 });
 
