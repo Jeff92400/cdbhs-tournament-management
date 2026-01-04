@@ -1098,6 +1098,53 @@ function generateMatchSchedule(pouleSize) {
   return matches;
 }
 
+// Create a new tournament (admin only)
+router.post('/tournoi', authenticateToken, async (req, res) => {
+  // Check admin role
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { nom, mode, categorie, taille, debut, fin, grand_coin, taille_cadre, lieu } = req.body;
+
+  if (!nom || !mode || !categorie) {
+    return res.status(400).json({ error: 'nom, mode, and categorie are required' });
+  }
+
+  try {
+    // Get the next tournoi_id
+    const maxIdResult = await new Promise((resolve, reject) => {
+      db.get('SELECT MAX(tournoi_id) as max_id FROM tournoi_ext', [], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    const nextId = (maxIdResult?.max_id || 0) + 1;
+
+    // Insert the new tournament
+    await new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO tournoi_ext (tournoi_id, nom, mode, categorie, taille, debut, fin, grand_coin, taille_cadre, lieu)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `, [nextId, nom, mode, categorie, taille || null, debut || null, fin || null, grand_coin || 0, taille_cadre || null, lieu || null], function(err) {
+        if (err) reject(err);
+        else resolve({ id: nextId, changes: this.changes });
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Tournament created successfully',
+      tournoi_id: nextId
+    });
+
+  } catch (error) {
+    console.error('Error creating tournament:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Update a tournament (admin only)
 router.put('/tournoi/:id', authenticateToken, (req, res) => {
   // Check admin role

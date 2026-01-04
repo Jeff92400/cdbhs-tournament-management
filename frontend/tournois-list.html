@@ -111,9 +111,14 @@
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3 style="margin: 0;">Tournois CDBHS</h3>
-        <button class="btn btn-success admin-only" onclick="window.location.href='import-tournois.html'" style="background: #28a745;">
-          📤 Importer depuis IONOS
-        </button>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn admin-only" onclick="openCreateModal()" style="background: #007bff;">
+            + Créer un tournoi
+          </button>
+          <button class="btn btn-success admin-only" onclick="window.location.href='import-tournois.html'" style="background: #28a745;">
+            📤 Importer depuis IONOS
+          </button>
+        </div>
       </div>
 
       <div class="filter-bar">
@@ -217,6 +222,67 @@
           <div style="display: flex; gap: 10px; margin-top: 20px;">
             <button type="submit" class="btn" style="flex: 1; background: #4CAF50;">Enregistrer</button>
             <button type="button" id="cancelEditBtn" class="btn" style="flex: 1; background: #999;">Annuler</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Create Tournoi Modal -->
+    <div id="createTournoiModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+      <div style="background: white; padding: 30px; border-radius: 12px; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <h3 style="margin-top: 0;">Créer un nouveau tournoi</h3>
+        <form id="createTournoiForm">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Nom *</label>
+              <input type="text" id="create_nom" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Ex: Tournoi 1, Finale Départementale...">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Mode *</label>
+              <select id="create_mode" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">-- Sélectionner --</option>
+                <option value="LIBRE">LIBRE</option>
+                <option value="CADRE">CADRE</option>
+                <option value="BANDE">BANDE</option>
+                <option value="3 BANDES">3 BANDES</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Categorie *</label>
+              <input type="text" id="create_categorie" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Ex: R1, R2, R3, N3...">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Date debut</label>
+              <input type="date" id="create_debut" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Date fin</label>
+              <input type="date" id="create_fin" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Lieu</label>
+              <input type="text" id="create_lieu" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Ex: Courbevoie, Antony...">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Taille (distance)</label>
+              <input type="number" id="create_taille" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Ex: 280, 300...">
+            </div>
+
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Taille cadre</label>
+              <input type="text" id="create_taille_cadre" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Ex: 47/2, 71/2...">
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" class="btn" style="flex: 1; background: #007bff;">Créer le tournoi</button>
+            <button type="button" id="cancelCreateBtn" class="btn" style="flex: 1; background: #999;">Annuler</button>
           </div>
         </form>
       </div>
@@ -561,6 +627,71 @@
 
     // Cancel button
     document.getElementById('cancelEditBtn').addEventListener('click', closeEditModal);
+
+    // ==================== CREATE TOURNAMENT ====================
+
+    // Open create modal
+    function openCreateModal() {
+      // Reset form
+      document.getElementById('createTournoiForm').reset();
+      document.getElementById('createTournoiModal').style.display = 'flex';
+    }
+
+    // Close create modal
+    function closeCreateModal() {
+      document.getElementById('createTournoiModal').style.display = 'none';
+    }
+
+    // Create tournoi
+    async function createTournoi(data) {
+      try {
+        const response = await fetch(`${API_URL}/inscriptions/tournoi`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to create tournoi');
+        }
+
+        return await response.json();
+      } catch (error) {
+        console.error('Error creating tournoi:', error);
+        alert('Erreur lors de la création: ' + error.message);
+        return null;
+      }
+    }
+
+    // Create form submission
+    document.getElementById('createTournoiForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        nom: document.getElementById('create_nom').value,
+        mode: document.getElementById('create_mode').value,
+        categorie: document.getElementById('create_categorie').value,
+        debut: document.getElementById('create_debut').value || null,
+        fin: document.getElementById('create_fin').value || null,
+        lieu: document.getElementById('create_lieu').value || null,
+        taille: parseInt(document.getElementById('create_taille').value) || null,
+        taille_cadre: document.getElementById('create_taille_cadre').value || null
+      };
+
+      const result = await createTournoi(data);
+      if (result && result.success) {
+        closeCreateModal();
+        await loadTournois();
+        alert('Tournoi créé avec succès! (ID: ' + result.tournoi_id + ')');
+      }
+    });
+
+    // Cancel create button
+    document.getElementById('cancelCreateBtn').addEventListener('click', closeCreateModal);
 
     // Filter event listeners
     document.getElementById('seasonFilter').addEventListener('change', applyFilters);
