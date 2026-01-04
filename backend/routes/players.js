@@ -76,6 +76,9 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
         if (record.length < 11) continue;
 
         const licence = record[0]?.replace(/"/g, '').replace(/\s+/g, '').trim();
+
+        // Skip header row (detect by checking if first column looks like a header)
+        if (licence.toUpperCase() === 'LICENCE' || licence.toUpperCase() === 'LICENSE') continue;
         const club = record[1]?.replace(/"/g, '').trim();
         const firstName = record[2]?.replace(/"/g, '').trim();
         const lastName = record[3]?.replace(/"/g, '').trim();
