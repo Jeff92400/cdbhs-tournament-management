@@ -102,29 +102,50 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
             });
           });
         } else {
-          // Full import: insert or update all fields
-          await new Promise((resolve, reject) => {
-            db.run(`
-              INSERT INTO players (licence, club, first_name, last_name, rank_libre, rank_cadre, rank_bande, rank_3bandes, is_active)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-              ON CONFLICT (licence) DO UPDATE SET
-                club = EXCLUDED.club,
-                first_name = EXCLUDED.first_name,
-                last_name = EXCLUDED.last_name,
-                rank_libre = EXCLUDED.rank_libre,
-                rank_cadre = EXCLUDED.rank_cadre,
-                rank_bande = EXCLUDED.rank_bande,
-                rank_3bandes = EXCLUDED.rank_3bandes,
-                is_active = EXCLUDED.is_active
-            `, [licence, club, firstName, lastName, rankLibre, rankCadre, rankBande, rank3Bandes, isActive], function(err) {
-              if (err) {
-                reject(err);
-              } else {
-                resolve(this.changes);
-              }
+          // Full import: check if player exists (with space-normalized licence matching)
+          const existingPlayer = await new Promise((resolve, reject) => {
+            db.get(`
+              SELECT licence FROM players
+              WHERE REPLACE(licence, ' ', '') = REPLACE($1, ' ', '')
+            `, [licence], (err, row) => {
+              if (err) reject(err);
+              else resolve(row);
             });
           });
-          imported++;
+
+          if (existingPlayer) {
+            // Update existing player (using normalized licence match)
+            await new Promise((resolve, reject) => {
+              db.run(`
+                UPDATE players SET
+                  club = $1,
+                  first_name = $2,
+                  last_name = $3,
+                  rank_libre = $4,
+                  rank_cadre = $5,
+                  rank_bande = $6,
+                  rank_3bandes = $7,
+                  is_active = $8
+                WHERE REPLACE(licence, ' ', '') = REPLACE($9, ' ', '')
+              `, [club, firstName, lastName, rankLibre, rankCadre, rankBande, rank3Bandes, isActive, licence], function(err) {
+                if (err) reject(err);
+                else resolve(this.changes);
+              });
+            });
+            updated++;
+          } else {
+            // Insert new player
+            await new Promise((resolve, reject) => {
+              db.run(`
+                INSERT INTO players (licence, club, first_name, last_name, rank_libre, rank_cadre, rank_bande, rank_3bandes, is_active)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+              `, [licence, club, firstName, lastName, rankLibre, rankCadre, rankBande, rank3Bandes, isActive], function(err) {
+                if (err) reject(err);
+                else resolve(this.changes);
+              });
+            });
+            imported++;
+          }
         }
       } catch (err) {
         errors.push({ record: record[0], error: err.message });
@@ -153,7 +174,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
       res.json({
         message: 'Import completed',
         imported,
-        updated: 0,
+        updated,
         errors: errors.length > 0 ? errors : undefined
       });
     }
