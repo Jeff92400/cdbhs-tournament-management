@@ -1662,13 +1662,15 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
         if (response.ok) {
           showSuccess(result.message);
-          // Clear form
-          document.getElementById('emailSubject').value = '';
-          document.getElementById('emailBody').value = '';
-          document.getElementById('imageUrl').value = '';
-          selectedContactIds.clear();
-          updateSelectedCount();
-          applyContactFilters();
+          // Only clear form if NOT in test mode (keep content for final send)
+          if (!isTestMode) {
+            document.getElementById('emailSubject').value = '';
+            document.getElementById('emailBody').value = '';
+            document.getElementById('imageUrl').value = '';
+            selectedContactIds.clear();
+            updateSelectedCount();
+            applyContactFilters();
+          }
         } else {
           showError(result.error || 'Erreur lors de l\'envoi.');
         }
