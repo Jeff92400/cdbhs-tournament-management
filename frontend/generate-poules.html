@@ -1353,18 +1353,25 @@
           // Find matching tournament - prefer using stored tournoiId if available
           const targetName = tournamentNum === '4' ? 'FINALE' : `TOURNOI ${tournamentNum}`;
 
+          console.log('DEBUG: selectedTournoiId =', selectedTournoiId);
+          console.log('DEBUG: externalTournois count =', externalTournois.length);
+          console.log('DEBUG: externalTournois IDs =', externalTournois.map(t => t.tournoi_id));
+
           if (selectedTournoiId) {
             // First try to find by exact tournoi_id in the API response
             matchingTournoi = externalTournois.find(t => t.tournoi_id == selectedTournoiId);
+            console.log('DEBUG: Found in externalTournois?', !!matchingTournoi);
 
             // If not found in filtered results, fetch it directly by ID
             if (!matchingTournoi) {
               try {
+                console.log('DEBUG: Fetching tournament directly by ID:', selectedTournoiId);
                 const directResponse = await fetch(`${API_URL}/inscriptions/tournoi/${selectedTournoiId}`, {
                   headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (directResponse.ok) {
                   matchingTournoi = await directResponse.json();
+                  console.log('DEBUG: Direct fetch result:', matchingTournoi);
                 }
               } catch (e) {
                 console.log('Could not fetch tournament directly:', e);
@@ -1380,15 +1387,20 @@
             );
           }
 
+          console.log('DEBUG: matchingTournoi =', matchingTournoi);
+
           if (matchingTournoi) {
             // Load inscription count
+            console.log('DEBUG: Loading inscriptions for tournoi_id:', matchingTournoi.tournoi_id);
             const inscResponse = await fetch(`${API_URL}/inscriptions/tournoi/${matchingTournoi.tournoi_id}/inscriptions`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             let inscCount = 0;
             if (inscResponse.ok) {
               const inscriptions = await inscResponse.json();
+              console.log('DEBUG: inscriptions loaded:', inscriptions.length, inscriptions);
               inscCount = inscriptions.filter(i => i.forfait !== 1).length;
+              console.log('DEBUG: inscCount (non-forfait):', inscCount);
             }
 
             // Format date
