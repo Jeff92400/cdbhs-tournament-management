@@ -59,7 +59,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
     // Process records using PostgreSQL ON CONFLICT
     for (const record of records) {
       try {
-        // Parse CSV format: "licence","club","first_name","last_name","libre","cadre","bande","3bandes","?","?","active"
+        // Parse CSV format: "licence","club","first_name","last_name","libre","bande","cadre","3bandes","?","?","active"
         if (record.length < 11) continue;
 
         const licence = record[0]?.replace(/"/g, '').replace(/\s+/g, '').trim();
@@ -67,8 +67,8 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
         const firstName = record[2]?.replace(/"/g, '').trim();
         const lastName = record[3]?.replace(/"/g, '').trim();
         const rankLibre = record[4]?.replace(/"/g, '').trim() || 'NC';
-        const rankCadre = record[5]?.replace(/"/g, '').trim() || 'NC';
-        const rankBande = record[6]?.replace(/"/g, '').trim() || 'NC';
+        const rankBande = record[5]?.replace(/"/g, '').trim() || 'NC';
+        const rankCadre = record[6]?.replace(/"/g, '').trim() || 'NC';
         const rank3Bandes = record[7]?.replace(/"/g, '').trim() || 'NC';
         const isActive = record[10]?.replace(/"/g, '').trim() === '1' ? 1 : 0;
 

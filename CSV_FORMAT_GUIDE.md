@@ -9,7 +9,7 @@ Ce document explique les formats CSV attendus par l'application.
 Le fichier doit contenir les colonnes suivantes (séparées par des virgules) :
 
 ```
-Licence,Club,Prénom,Nom,Classement_Libre,Classement_Cadre,Classement_Bande,Classement_3Bandes,[colonne_9],[colonne_10],Actif
+Licence,Club,Prénom,Nom,Classement_Libre,Classement_Bande,Classement_Cadre,Classement_3Bandes,[colonne_9],[colonne_10],Actif
 ```
 
 ### Exemple
@@ -27,8 +27,8 @@ Licence,Club,Prénom,Nom,Classement_Libre,Classement_Cadre,Classement_Bande,Clas
 3. **Prénom** (obligatoire) : Prénom du joueur
 4. **Nom** (obligatoire) : Nom du joueur
 5. **Classement_Libre** : Classement en LIBRE (R1, R2, R3, R4, N3, NC, Master)
-6. **Classement_Cadre** : Classement en CADRE
-7. **Classement_Bande** : Classement en BANDE
+6. **Classement_Bande** : Classement en BANDE
+7. **Classement_Cadre** : Classement en CADRE
 8. **Classement_3Bandes** : Classement en 3 BANDES
 9. **Colonne 9** : (ignorée par l'application)
 10. **Colonne 10** : (ignorée par l'application)
