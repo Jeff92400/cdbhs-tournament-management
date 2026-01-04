@@ -85,6 +85,20 @@ async function initializeDatabase() {
         AND (p.player_app_role IS NULL OR p.player_app_role != 'admin')
     `);
 
+    // Set all players without a role to 'joueur', except admins
+    await client.query(`
+      UPDATE players
+      SET player_app_role = 'joueur'
+      WHERE player_app_role IS NULL
+    `);
+
+    // Ensure Rallet and Hui Bon Hoa are admins
+    await client.query(`
+      UPDATE players
+      SET player_app_role = 'admin'
+      WHERE UPPER(last_name) LIKE '%RALLET%' OR UPPER(last_name) LIKE '%HUI BON HOA%'
+    `);
+
     // Categories table
     await client.query(`
       CREATE TABLE IF NOT EXISTS categories (
