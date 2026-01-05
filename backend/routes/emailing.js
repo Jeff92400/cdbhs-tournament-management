@@ -2932,7 +2932,7 @@ router.get('/finale-qualified', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Category not found' });
     }
 
-    // Check that convocation has been sent before allowing relance finale
+    // Check that convocation has been sent
     const convocationSent = await new Promise((resolve, reject) => {
       db.get(
         `SELECT id, sent_at FROM email_campaigns
@@ -2949,13 +2949,6 @@ router.get('/finale-qualified', authenticateToken, async (req, res) => {
         }
       );
     });
-
-    if (!convocationSent) {
-      return res.status(400).json({
-        error: 'La convocation finale doit être envoyée avant de pouvoir envoyer une relance. Veuillez d\'abord envoyer la convocation aux finalistes.',
-        convocationRequired: true
-      });
-    }
 
     // Get finale from tournoi_ext
     const finale = await new Promise((resolve, reject) => {
@@ -3017,6 +3010,7 @@ router.get('/finale-qualified', authenticateToken, async (req, res) => {
       deadlineDate,
       qualifiedCount,
       totalInRanking: rankings.length,
+      convocationRequired: !convocationSent,
       participants: qualified.map(r => ({
         licence: r.licence,
         player_name: r.player_name,

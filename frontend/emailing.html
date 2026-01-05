@@ -2783,6 +2783,12 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
               deadlineInput.value = relanceData.deadlineDate;
             }
           }
+
+          // Show warning if convocation not sent
+          if (relanceData.convocationRequired) {
+            showError('La convocation finale doit être envoyée avant de pouvoir envoyer une relance. Veuillez d\'abord envoyer la convocation aux finalistes.');
+            document.getElementById('sendRelanceBtn').disabled = true;
+          }
         }
 
         // Update participants table with checkboxes
