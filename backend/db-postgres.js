@@ -461,6 +461,21 @@ async function initializeDatabase() {
       )
     `);
 
+    // Password reset codes table (replaces in-memory storage for security)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_codes (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL,
+        code TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        used BOOLEAN DEFAULT FALSE
+      )
+    `);
+    // Create index for faster lookups
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_reset_codes_email ON password_reset_codes(email)
+    `);
+
     // Player accounts table (for Espace Joueur app)
     await client.query(`
       CREATE TABLE IF NOT EXISTS player_accounts (

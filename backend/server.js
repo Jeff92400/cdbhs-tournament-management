@@ -1,7 +1,18 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
+
+// Validate required environment variables
+const requiredEnvVars = ['JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+if (missingEnvVars.length > 0 && process.env.NODE_ENV === 'production') {
+  console.error(`FATAL: Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  console.error('Server cannot start without these variables in production mode.');
+  process.exit(1);
+}
 
 // Ensure database directory exists for SQLite (when running locally)
 if (!process.env.DATABASE_URL) {
@@ -33,10 +44,71 @@ const PORT = process.env.PORT || 3000;
 
 console.log('Railway deployment - using PORT:', PORT);
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Security Middleware
+// Helmet - Sets security-related HTTP headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false // Allow images from external sources
+}));
+
+// CORS - Configure allowed origins
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : [
+      'http://localhost:3000',
+      'https://cdbhs-tournament-management-production.up.railway.app'
+    ];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Rate limiting for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: { error: 'Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: false
+});
+
+// General API rate limiter
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // Limit each IP to 100 requests per minute
+  message: { error: 'Trop de requêtes. Veuillez réessayer dans quelques instants.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' })); // Limit JSON payload size
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static frontend files
 // Check if frontend folder exists in current directory (Railway) or parent directory (local)
@@ -45,20 +117,20 @@ const frontendPath = fs.existsSync(path.join(__dirname, 'frontend'))
   : path.join(__dirname, '../frontend');
 app.use(express.static(frontendPath));
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/players', playersRoutes);
-app.use('/api/tournaments', tournamentsRoutes);
-app.use('/api/rankings', rankingsRoutes);
-app.use('/api/calendar', calendarRoutes);
-app.use('/api/clubs', clubsRoutes);
-app.use('/api/backup', backupRoutes);
-app.use('/api/inscriptions', inscriptionsRoutes);
-app.use('/api/email', emailRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/emailing', emailingRoutes);
-app.use('/api/statistics', statisticsRoutes);
-app.use('/api/player-accounts', playerAccountsRoutes);
+// API Routes with rate limiting
+app.use('/api/auth', authLimiter, authRoutes); // Strict rate limit on auth
+app.use('/api/players', apiLimiter, playersRoutes);
+app.use('/api/tournaments', apiLimiter, tournamentsRoutes);
+app.use('/api/rankings', apiLimiter, rankingsRoutes);
+app.use('/api/calendar', apiLimiter, calendarRoutes);
+app.use('/api/clubs', apiLimiter, clubsRoutes);
+app.use('/api/backup', apiLimiter, backupRoutes);
+app.use('/api/inscriptions', apiLimiter, inscriptionsRoutes);
+app.use('/api/email', apiLimiter, emailRoutes);
+app.use('/api/settings', apiLimiter, settingsRoutes);
+app.use('/api/emailing', apiLimiter, emailingRoutes);
+app.use('/api/statistics', apiLimiter, statisticsRoutes);
+app.use('/api/player-accounts', apiLimiter, playerAccountsRoutes);
 
 // Serve frontend pages
 app.get('/', (req, res) => {

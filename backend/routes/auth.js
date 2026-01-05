@@ -5,38 +5,112 @@ const crypto = require('crypto');
 const db = require('../db-loader');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'billard-ranking-jwt-secret-key-2024-change-in-production';
 
-// In-memory store for reset codes (email -> { code, timestamp })
-const resetCodes = new Map();
-const RESET_CODE_EXPIRY = 10 * 60 * 1000; // 10 minutes
+// Enforce JWT_SECRET from environment - NO fallback allowed
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is required');
+  console.error('Set JWT_SECRET in your environment before starting the server.');
+  console.error('Generate a secure secret with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
+
+const RESET_CODE_EXPIRY_MINUTES = 10;
 
 // Generate 6-digit reset code
 function generateResetCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Store reset code
+// Store reset code in database
 function storeResetCode(email, code) {
-  resetCodes.set(email.toLowerCase(), { code, timestamp: Date.now() });
+  return new Promise((resolve, reject) => {
+    const normalizedEmail = email.toLowerCase();
+    // First, invalidate any existing codes for this email
+    db.run(
+      'UPDATE password_reset_codes SET used = $1 WHERE email = $2 AND used = $3',
+      [true, normalizedEmail, false],
+      (err) => {
+        if (err) {
+          console.error('Error invalidating old reset codes:', err);
+        }
+        // Insert new code
+        db.run(
+          'INSERT INTO password_reset_codes (email, code) VALUES ($1, $2)',
+          [normalizedEmail, code],
+          (err) => {
+            if (err) {
+              console.error('Error storing reset code:', err);
+              reject(err);
+            } else {
+              resolve();
+            }
+          }
+        );
+      }
+    );
+  });
 }
 
-// Verify reset code
+// Verify reset code from database
 function verifyResetCode(email, code) {
-  const stored = resetCodes.get(email.toLowerCase());
-  if (!stored) {
-    return { valid: false, error: 'Code invalide ou expire' };
-  }
-  if (Date.now() - stored.timestamp > RESET_CODE_EXPIRY) {
-    resetCodes.delete(email.toLowerCase());
-    return { valid: false, error: 'Code expire' };
-  }
-  if (stored.code !== code) {
-    return { valid: false, error: 'Code incorrect' };
-  }
-  resetCodes.delete(email.toLowerCase());
-  return { valid: true };
+  return new Promise((resolve, reject) => {
+    const normalizedEmail = email.toLowerCase();
+    db.get(
+      `SELECT * FROM password_reset_codes
+       WHERE email = $1 AND code = $2 AND used = $3
+       ORDER BY created_at DESC LIMIT 1`,
+      [normalizedEmail, code, false],
+      (err, row) => {
+        if (err) {
+          console.error('Error verifying reset code:', err);
+          reject(err);
+          return;
+        }
+
+        if (!row) {
+          resolve({ valid: false, error: 'Code invalide ou expire' });
+          return;
+        }
+
+        // Check if code is expired (10 minutes)
+        const createdAt = new Date(row.created_at).getTime();
+        const now = Date.now();
+        if (now - createdAt > RESET_CODE_EXPIRY_MINUTES * 60 * 1000) {
+          // Mark as used (expired)
+          db.run('UPDATE password_reset_codes SET used = $1 WHERE id = $2', [true, row.id], () => {});
+          resolve({ valid: false, error: 'Code expire' });
+          return;
+        }
+
+        // Mark code as used
+        db.run('UPDATE password_reset_codes SET used = $1 WHERE id = $2', [true, row.id], (err) => {
+          if (err) {
+            console.error('Error marking reset code as used:', err);
+          }
+          resolve({ valid: true });
+        });
+      }
+    );
+  });
 }
+
+// Cleanup expired reset codes (run periodically)
+function cleanupExpiredResetCodes() {
+  const expiryTime = new Date(Date.now() - RESET_CODE_EXPIRY_MINUTES * 60 * 1000).toISOString();
+  db.run(
+    'DELETE FROM password_reset_codes WHERE created_at < $1 OR used = $2',
+    [expiryTime, true],
+    (err) => {
+      if (err) {
+        console.error('Error cleaning up expired reset codes:', err);
+      }
+    }
+  );
+}
+
+// Run cleanup every hour
+setInterval(cleanupExpiredResetCodes, 60 * 60 * 1000);
 
 // Login with username and password
 router.post('/login', (req, res) => {
@@ -324,9 +398,14 @@ router.post('/forgot', async (req, res) => {
 
     // Generate 6-digit reset code
     const code = generateResetCode();
-    storeResetCode(normalizedEmail, code);
+    try {
+      await storeResetCode(normalizedEmail, code);
+    } catch (storeErr) {
+      console.error('Error storing reset code:', storeErr);
+      return res.json(standardResponse);
+    }
 
-    console.log(`Password reset code generated for ${normalizedEmail}: ${code}`);
+    console.log(`Password reset code generated for ${normalizedEmail}`);
 
     // Send email with code
     try {
@@ -371,7 +450,7 @@ router.post('/forgot', async (req, res) => {
 });
 
 // Reset password with 6-digit code
-router.post('/reset-with-code', (req, res) => {
+router.post('/reset-with-code', async (req, res) => {
   const { email, code, password } = req.body;
 
   if (!email || !code || !password) {
@@ -381,7 +460,14 @@ router.post('/reset-with-code', (req, res) => {
   const normalizedEmail = email.toLowerCase().trim();
 
   // Verify code
-  const codeVerification = verifyResetCode(normalizedEmail, code);
+  let codeVerification;
+  try {
+    codeVerification = await verifyResetCode(normalizedEmail, code);
+  } catch (verifyErr) {
+    console.error('Error verifying reset code:', verifyErr);
+    return res.status(500).json({ error: 'Erreur lors de la verification du code' });
+  }
+
   if (!codeVerification.valid) {
     return res.status(400).json({ error: codeVerification.error });
   }

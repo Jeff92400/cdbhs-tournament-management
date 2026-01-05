@@ -183,6 +183,19 @@ function initializeDatabase() {
       )
     `);
 
+    // Password reset codes table (replaces in-memory storage for security)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS password_reset_codes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL,
+        code TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        used INTEGER DEFAULT 0
+      )
+    `);
+    // Create index for faster lookups
+    db.run(`CREATE INDEX IF NOT EXISTS idx_reset_codes_email ON password_reset_codes(email)`);
+
     // Initialize default admin password (admin123 - should be changed)
     db.get('SELECT COUNT(*) as count FROM admin', [], (err, row) => {
       if (!err && row.count === 0) {
