@@ -12,7 +12,12 @@
     <div class="navbar">
       <h2><img src="images/billiard-icon.png" alt="🎱" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;">🎱</span> CDBHS Tournois</h2>
       <div class="nav-links">
-        <a href="dashboard.html" class="nav-logout" style="background: #667eea !important;">← Accueil</a>
+        <a href="dashboard.html">Accueil</a>
+        <a href="rankings.html">Classements</a>
+        <a href="generate-poules.html">Compétitions</a>
+        <a href="emailing.html" class="admin-only">Emailing</a>
+        <a href="settings.html" class="admin-only">Paramètres</a>
+        <a href="#" id="logoutBtn" class="nav-logout">Déconnexion</a>
       </div>
     </div>
 
@@ -526,6 +531,14 @@
     // Auto-calculate season for today's date
     const season = calculateSeason(today);
     document.getElementById('season').value = season;
+
+    // Logout handler
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      window.location.href = 'login.html';
+    });
   </script>
 </body>
 </html>
