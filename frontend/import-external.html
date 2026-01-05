@@ -21,30 +21,7 @@
     <div id="successMessage" class="success" style="display: none;"></div>
 
     <div class="card">
-      <h3>1. Importer les Compétitions IONOS</h3>
-      <p style="color: #666; margin-bottom: 20px;">
-        Importez le fichier CSV des compétitions depuis la base IONOS.
-        <br><small>Colonnes attendues: TOURNOI_ID, NOM, MODE, CATEGORIE, TAILLE, DEBUT, FIN, GRAND_COIN, TAILLE_CADRE, LIEU</small>
-      </p>
-
-      <form id="importTournoiForm">
-        <div class="file-upload" id="tournoiFileUpload">
-          <p>📁 Cliquez pour sélectionner un fichier CSV (Tournois)</p>
-          <p style="font-size: 12px; color: #999; margin-top: 10px;">ou glissez-déposez le fichier ici</p>
-          <input type="file" id="tournoiFileInput" accept=".csv" required>
-          <div id="tournoiFileName" class="file-name" style="display: none;"></div>
-        </div>
-
-        <button type="submit" class="btn" id="importTournoiBtn">Importer les Tournois</button>
-      </form>
-
-      <div id="tournoiStats" style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; display: none;">
-        <strong>Tournois importés:</strong> <span id="tournoiCount">0</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>2. Importer les Inscriptions</h3>
+      <h3>Importer les Inscriptions</h3>
       <p style="color: #666; margin-bottom: 20px;">
         Importez le fichier CSV des inscriptions joueurs aux tournois.
         <br><small>Colonnes attendues: INSCRIPTION_ID, JOUEUR_ID, TOURNOI_ID, TIMESTAMP, EMAIL, TELEPHONE, LICENCE, CONVOQUE, FORFAIT, COMMENTAIRE</small>
@@ -79,8 +56,7 @@
         </div>
       </div>
 
-      <div style="margin-top: 20px; display: flex; gap: 10px;">
-        <button class="btn btn-danger" id="clearTournoiBtn" style="background: #dc3545;">Supprimer tous les tournois</button>
+      <div style="margin-top: 20px;">
         <button class="btn btn-danger" id="clearInscriptionBtn" style="background: #dc3545;">Supprimer toutes les inscriptions</button>
       </div>
     </div>
@@ -132,12 +108,6 @@
     }
 
     // Setup file uploads
-    setupFileUpload(
-      document.getElementById('tournoiFileUpload'),
-      document.getElementById('tournoiFileInput'),
-      document.getElementById('tournoiFileName')
-    );
-
     setupFileUpload(
       document.getElementById('inscriptionFileUpload'),
       document.getElementById('inscriptionFileInput'),
@@ -205,62 +175,6 @@
 
     loadStats();
 
-    // Import Tournois
-    document.getElementById('importTournoiForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const errorDiv = document.getElementById('errorMessage');
-      const successDiv = document.getElementById('successMessage');
-      const importBtn = document.getElementById('importTournoiBtn');
-      const fileInput = document.getElementById('tournoiFileInput');
-
-      errorDiv.style.display = 'none';
-      successDiv.style.display = 'none';
-
-      if (!fileInput.files[0]) {
-        errorDiv.textContent = 'Veuillez sélectionner un fichier';
-        errorDiv.style.display = 'block';
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-
-      importBtn.disabled = true;
-      importBtn.textContent = 'Import en cours...';
-
-      try {
-        const response = await fetch(`${API_URL}/inscriptions/tournoi/import`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          successDiv.textContent = `Import réussi ! ${data.imported} tournois importés.`;
-          successDiv.style.display = 'block';
-          document.getElementById('tournoiStats').style.display = 'block';
-          document.getElementById('tournoiCount').textContent = data.imported;
-          loadStats();
-
-          // Reset form
-          fileInput.value = '';
-          document.getElementById('tournoiFileName').style.display = 'none';
-        } else {
-          errorDiv.textContent = data.error || 'Erreur lors de l\'import';
-          errorDiv.style.display = 'block';
-        }
-      } catch (error) {
-        errorDiv.textContent = 'Erreur de connexion au serveur';
-        errorDiv.style.display = 'block';
-      } finally {
-        importBtn.disabled = false;
-        importBtn.textContent = 'Importer les Tournois';
-      }
-    });
-
     // Import Inscriptions
     document.getElementById('importInscriptionForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -317,26 +231,7 @@
       }
     });
 
-    // Clear buttons
-    document.getElementById('clearTournoiBtn').addEventListener('click', async () => {
-      if (!confirm('Êtes-vous sûr de vouloir supprimer tous les tournois externes ?')) return;
-
-      try {
-        const response = await fetch(`${API_URL}/inscriptions/tournoi/all`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          alert(`${data.deleted} tournois supprimés`);
-          loadStats();
-        }
-      } catch (error) {
-        alert('Erreur lors de la suppression');
-      }
-    });
-
+    // Clear button
     document.getElementById('clearInscriptionBtn').addEventListener('click', async () => {
       if (!confirm('Êtes-vous sûr de vouloir supprimer toutes les inscriptions ?')) return;
 
