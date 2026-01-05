@@ -609,14 +609,21 @@ router.get('/finales/upcoming', authenticateToken, async (req, res) => {
         const gameType = final.mode?.toUpperCase();
         const normalizedLevel = levelMapping[final.categorie?.toUpperCase()] || final.categorie?.toUpperCase();
 
+        console.log(`Processing final: mode=${final.mode}, categorie=${final.categorie} -> gameType=${gameType}, normalizedLevel=${normalizedLevel}, season=${season}`);
+
         // Find matching category
         const category = await new Promise((resolve, reject) => {
           db.get(
             `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND (UPPER(level) = $2 OR UPPER(level) LIKE $3)`,
             [gameType, normalizedLevel, `${normalizedLevel}%`],
             (err, row) => {
-              if (err) reject(err);
-              else resolve(row);
+              if (err) {
+                console.error(`Category query error:`, err);
+                reject(err);
+              } else {
+                console.log(`Category found:`, row ? `id=${row.id}, game_type=${row.game_type}, level=${row.level}` : 'NONE');
+                resolve(row);
+              }
             }
           );
         });
@@ -632,8 +639,13 @@ router.get('/finales/upcoming', authenticateToken, async (req, res) => {
             `SELECT r.licence FROM rankings r WHERE r.category_id = $1 AND r.season = $2 ORDER BY r.rank_position ASC`,
             [category.id, season],
             (err, rows) => {
-              if (err) reject(err);
-              else resolve(rows || []);
+              if (err) {
+                console.error(`Rankings query error:`, err);
+                reject(err);
+              } else {
+                console.log(`Rankings found: ${(rows || []).length} players for category_id=${category.id}, season=${season}`);
+                resolve(rows || []);
+              }
             }
           );
         });
@@ -641,6 +653,7 @@ router.get('/finales/upcoming', authenticateToken, async (req, res) => {
         // Determine number of finalists: 6 if >= 10 participants, otherwise 4
         const numFinalists = rankings.length >= 10 ? 6 : 4;
         const finalistLicences = rankings.slice(0, numFinalists).map(r => r.licence?.replace(/\s/g, ''));
+        console.log(`Finalists: ${finalistLicences.length} (top ${numFinalists} of ${rankings.length})`);
 
         // Get inscriptions for this tournament
         const inscriptions = await new Promise((resolve, reject) => {
@@ -648,8 +661,13 @@ router.get('/finales/upcoming', authenticateToken, async (req, res) => {
             `SELECT licence FROM inscriptions WHERE tournoi_id = $1 AND (forfait IS NULL OR forfait != 1)`,
             [final.tournoi_id],
             (err, rows) => {
-              if (err) reject(err);
-              else resolve(rows || []);
+              if (err) {
+                console.error(`Inscriptions query error:`, err);
+                reject(err);
+              } else {
+                console.log(`Inscriptions found: ${(rows || []).length} for tournoi_id=${final.tournoi_id}`);
+                resolve(rows || []);
+              }
             }
           );
         });
@@ -657,6 +675,7 @@ router.get('/finales/upcoming', authenticateToken, async (req, res) => {
         // Count how many finalists are inscribed
         const inscribedLicences = inscriptions.map(i => i.licence?.replace(/\s/g, ''));
         const inscribedFinalistCount = finalistLicences.filter(l => inscribedLicences.includes(l)).length;
+        console.log(`Result: ${inscribedFinalistCount}/${finalistLicences.length} finalists inscribed`);
 
         return {
           ...final,
