@@ -572,13 +572,6 @@ router.get('/finales/upcoming', authenticateToken, async (req, res) => {
 
     console.log(`Fetching upcoming finals from ${startDate} to ${endDate}`);
 
-    // Level mapping from IONOS format to internal format
-    const levelMapping = {
-      'N1': 'NATIONALE 1', 'N2': 'NATIONALE 2', 'N3': 'NATIONALE 3',
-      'R1': 'REGIONALE 1', 'R2': 'REGIONALE 2', 'R3': 'REGIONALE 3',
-      'D1': 'DEPARTEMENTALE 1', 'D2': 'DEPARTEMENTALE 2', 'D3': 'DEPARTEMENTALE 3'
-    };
-
     // Get current season
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
@@ -606,16 +599,17 @@ router.get('/finales/upcoming', authenticateToken, async (req, res) => {
     const enrichedFinals = await Promise.all(finals.map(async (final) => {
       try {
         // Map mode and categorie to find category
+        // Note: categories table stores levels like "N3" or "N3GC", not "NATIONALE 3"
         const gameType = final.mode?.toUpperCase();
-        const normalizedLevel = levelMapping[final.categorie?.toUpperCase()] || final.categorie?.toUpperCase();
+        const categoryLevel = final.categorie?.toUpperCase(); // Use directly, e.g., "N3"
 
-        console.log(`Processing final: mode=${final.mode}, categorie=${final.categorie} -> gameType=${gameType}, normalizedLevel=${normalizedLevel}, season=${season}`);
+        console.log(`Processing final: mode=${final.mode}, categorie=${final.categorie} -> gameType=${gameType}, categoryLevel=${categoryLevel}, season=${season}`);
 
         // Find matching category
         const category = await new Promise((resolve, reject) => {
           db.get(
             `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND (UPPER(level) = $2 OR UPPER(level) LIKE $3)`,
-            [gameType, normalizedLevel, `${normalizedLevel}%`],
+            [gameType, categoryLevel, `${categoryLevel}%`],
             (err, row) => {
               if (err) {
                 console.error(`Category query error:`, err);
@@ -629,7 +623,7 @@ router.get('/finales/upcoming', authenticateToken, async (req, res) => {
         });
 
         if (!category) {
-          console.log(`No category found for ${gameType} - ${normalizedLevel}`);
+          console.log(`No category found for ${gameType} - ${categoryLevel}`);
           return { ...final, finalist_count: 0, inscribed_finalist_count: 0 };
         }
 
