@@ -1089,7 +1089,7 @@
                   <span>📍 ${t.lieu || 'Lieu non défini'}</span>
                 </div>
                 <div class="tournament-inscrits">
-                  👥 ${t.inscrit_count || 0} inscrit(s)
+                  👥 ${t.isFinale ? 'Finalistes qualifiés' : `${t.inscrit_count || 0} inscrit(s)`}
                 </div>
               </div>
             `;
