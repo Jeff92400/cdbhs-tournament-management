@@ -2932,6 +2932,31 @@ router.get('/finale-qualified', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Category not found' });
     }
 
+    // Check that convocation has been sent before allowing relance finale
+    const convocationSent = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT id, sent_at FROM email_campaigns
+         WHERE campaign_type = 'finale_convocation'
+         AND UPPER(mode) = $1
+         AND (UPPER(category) = $2 OR UPPER(category) LIKE $3)
+         AND status = 'completed'
+         AND (test_mode = 0 OR test_mode IS NULL)
+         ORDER BY sent_at DESC LIMIT 1`,
+        [mode.toUpperCase(), categoryUpper, categoryUpper + '%'],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!convocationSent) {
+      return res.status(400).json({
+        error: 'La convocation finale doit être envoyée avant de pouvoir envoyer une relance. Veuillez d\'abord envoyer la convocation aux finalistes.',
+        convocationRequired: true
+      });
+    }
+
     // Get finale from tournoi_ext
     const finale = await new Promise((resolve, reject) => {
       db.get(
@@ -2969,14 +2994,27 @@ router.get('/finale-qualified', authenticateToken, async (req, res) => {
     const qualifiedCount = rankings.length < 9 ? 4 : 6;
     const qualified = rankings.filter(r => r.rank_position <= qualifiedCount);
 
+    // Calculate deadline date (7 days before finale)
+    let deadlineDate = null;
+    let finaleFormattedDate = null;
+    if (finale && finale.debut) {
+      const finaleDateTime = new Date(finale.debut);
+      finaleFormattedDate = finaleDateTime.toLocaleDateString('fr-FR');
+      const deadline = new Date(finaleDateTime);
+      deadline.setDate(deadline.getDate() - 7);
+      deadlineDate = deadline.toISOString().split('T')[0]; // YYYY-MM-DD format for input field
+    }
+
     res.json({
       category: categoryRow,
       finale: finale ? {
         tournoi_id: finale.tournoi_id,
         nom: finale.nom,
         date: finale.debut,
-        location: finale.lieu
+        location: finale.lieu,
+        formattedDate: finaleFormattedDate
       } : null,
+      deadlineDate,
       qualifiedCount,
       totalInRanking: rankings.length,
       participants: qualified.map(r => ({

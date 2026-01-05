@@ -2775,6 +2775,14 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             <strong>Qualifiés:</strong> ${relanceData.qualifiedCount} / ${relanceData.totalInRanking} joueurs au classement
             ${relanceData.finale ? `<br><strong>Finale:</strong> ${relanceData.finale.nom}` : ''}
           `;
+
+          // Auto-populate deadline date from backend calculation
+          if (relanceData.deadlineDate) {
+            const deadlineInput = document.getElementById('relanceDeadlineDate');
+            if (deadlineInput) {
+              deadlineInput.value = relanceData.deadlineDate;
+            }
+          }
         }
 
         // Update participants table with checkboxes
