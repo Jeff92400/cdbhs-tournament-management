@@ -658,6 +658,21 @@ router.get('/', authenticateToken, (req, res) => {
   });
 });
 
+// Mark ALL tournaments as results sent (bulk action for migration)
+// IMPORTANT: This must be defined BEFORE routes with :id parameter
+router.post('/mark-all-results-sent', authenticateToken, (req, res) => {
+  db.run(
+    `UPDATE tournaments SET results_email_sent = $1, results_email_sent_at = CURRENT_TIMESTAMP WHERE results_email_sent IS NULL OR results_email_sent = 0 OR results_email_sent = false`,
+    [true],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({ success: true, message: `${this.changes} tournaments marked as results sent` });
+    }
+  );
+});
+
 // Get tournament results by ID
 router.get('/:id/results', authenticateToken, (req, res) => {
   const tournamentId = req.params.id;
