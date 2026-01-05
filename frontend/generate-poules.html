@@ -1400,7 +1400,9 @@
               `${category.display_name} - ${matchingTournoi.nom}`;
             document.getElementById('tournamentInfoDate').textContent = dateStr;
             document.getElementById('tournamentInfoLieu').textContent = matchingTournoi.lieu || 'Non défini';
-            document.getElementById('tournamentInfoInscrits').textContent = `${inscCount} joueurs`;
+            // For finals, show "Finalistes qualifiés" instead of raw inscription count
+            const isFinaleTournoi = matchingTournoi.nom?.toUpperCase().includes('FINALE') || tournamentNum === 'Finale' || isFinale;
+            document.getElementById('tournamentInfoInscrits').textContent = isFinaleTournoi ? 'Finalistes qualifiés' : `${inscCount} joueurs`;
             document.getElementById('tournamentInfo').style.display = 'block';
           } else if (window.selectedUpcomingTournament && (tournamentNum === 'Finale' || isFinale)) {
             // For finals selected from upcoming tournaments card, use stored data
@@ -1436,7 +1438,8 @@
               `${category.display_name} - Finale Départementale`;
             document.getElementById('tournamentInfoDate').textContent = dateStr;
             document.getElementById('tournamentInfoLieu').textContent = upcomingData.lieu || 'Non défini';
-            document.getElementById('tournamentInfoInscrits').textContent = `${inscCount} joueurs`;
+            // For finals, don't show raw inscription count - finalists are determined from rankings
+            document.getElementById('tournamentInfoInscrits').textContent = 'Finalistes qualifiés';
             document.getElementById('tournamentInfo').style.display = 'block';
           } else {
             document.getElementById('tournamentInfo').style.display = 'none';
