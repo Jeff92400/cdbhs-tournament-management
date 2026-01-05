@@ -243,7 +243,7 @@
         if (response.ok) {
           const user = await response.json();
           document.getElementById('myEmail').value = user.email || '';
-          document.getElementById('myTournamentAlerts').checked = user.tournament_alerts === 1;
+          document.getElementById('myTournamentAlerts').checked = user.receive_tournament_alerts === true;
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -258,7 +258,7 @@
       const messageDiv = document.getElementById('mySettingsMessage');
 
       try {
-        const response = await fetch(`${API_URL}/auth/me`, {
+        const response = await fetch(`${API_URL}/auth/me/settings`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -266,7 +266,7 @@
           },
           body: JSON.stringify({
             email: document.getElementById('myEmail').value,
-            tournament_alerts: document.getElementById('myTournamentAlerts').checked ? 1 : 0
+            receive_tournament_alerts: document.getElementById('myTournamentAlerts').checked
           })
         });
 
