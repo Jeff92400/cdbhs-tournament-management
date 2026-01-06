@@ -216,7 +216,7 @@
           const emailSent = tournament.results_email_sent;
           const emailStatusBtn = emailSent
             ? `<button onclick="toggleEmailStatus(${tournament.id}, false)" title="Résultats envoyés${tournament.results_email_sent_at ? ' le ' + new Date(tournament.results_email_sent_at).toLocaleDateString('fr-FR') : ''}" style="background: #28a745; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 14px; font-weight: bold;">☑</button>`
-            : `<button onclick="sendResultsEmail(${tournament.id})" title="Résultats non envoyés - Cliquez pour envoyer" style="background: #dc3545; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 14px; font-weight: bold;">☐</button>`;
+            : `<button onclick="sendResultsEmail(${tournament.id})" title="Résultats non envoyés - Cliquez pour envoyer" style="background: #007bff; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 14px; font-weight: bold;">☐</button>`;
 
           row.innerHTML = `
             <td>${tournament.display_name}</td>

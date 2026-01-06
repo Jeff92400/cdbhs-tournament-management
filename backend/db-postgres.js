@@ -169,6 +169,18 @@ async function initializeDatabase() {
       ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS results_email_sent_at TIMESTAMP
     `);
 
+    // Mark all existing tournaments as results sent (one-time migration for existing data)
+    // Only runs if NO tournaments have been marked as sent yet (first deployment)
+    const sentCheck = await client.query(`SELECT COUNT(*) as cnt FROM tournaments WHERE results_email_sent = TRUE`);
+    if (parseInt(sentCheck.rows[0].cnt) === 0) {
+      console.log('Migration: Marking all existing tournaments as results sent');
+      await client.query(`
+        UPDATE tournaments
+        SET results_email_sent = TRUE, results_email_sent_at = CURRENT_TIMESTAMP
+        WHERE results_email_sent IS NULL OR results_email_sent = FALSE
+      `);
+    }
+
     // Tournament results table
     await client.query(`
       CREATE TABLE IF NOT EXISTS tournament_results (
