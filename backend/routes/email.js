@@ -1019,6 +1019,50 @@ router.post('/generate-summary-pdf', authenticateToken, async (req, res) => {
   }
 });
 
+// ============ INSCRIPTION EMAIL LOGS ============
+
+// Get inscription/desinscription email logs (for admin view)
+router.get('/inscription-logs', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { type, status, from, to } = req.query;
+
+  let query = 'SELECT * FROM inscription_email_logs WHERE 1=1';
+  const params = [];
+  let paramIndex = 1;
+
+  if (type) {
+    query += ` AND email_type = $${paramIndex++}`;
+    params.push(type);
+  }
+  if (status) {
+    query += ` AND status = $${paramIndex++}`;
+    params.push(status);
+  }
+  if (from) {
+    query += ` AND created_at >= $${paramIndex++}`;
+    params.push(from);
+  }
+  if (to) {
+    query += ` AND created_at <= $${paramIndex++}`;
+    params.push(to + ' 23:59:59');
+  }
+
+  query += ' ORDER BY created_at DESC LIMIT 200';
+
+  try {
+    const logs = await new Promise((resolve, reject) => {
+      db.all(query, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching inscription email logs:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============ INSCRIPTION CONFIRMATION EMAILS (for Player App) ============
 
 // Default templates for inscription confirmations

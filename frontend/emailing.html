@@ -1101,6 +1101,57 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
           </table>
         </div>
       </div>
+
+      <!-- Historique Inscriptions/Désinscriptions (Player App) -->
+      <div class="card" style="margin-top: 20px;">
+        <h3>Historique Inscriptions (App Joueur)</h3>
+        <p style="color: #666; font-size: 0.875rem; margin-bottom: 15px;">
+          Emails automatiques envoyés lors des inscriptions et désinscriptions via l'application joueur.
+        </p>
+
+        <div class="filter-bar" style="margin-bottom: 15px;">
+          <select id="inscriptionTypeFilter" style="min-width: 150px;">
+            <option value="">Tous les types</option>
+            <option value="inscription">Inscriptions</option>
+            <option value="desinscription">Désinscriptions</option>
+          </select>
+          <select id="inscriptionStatusFilter" style="min-width: 120px;">
+            <option value="">Tous statuts</option>
+            <option value="sent">Envoyé</option>
+            <option value="failed">Échec</option>
+          </select>
+          <input type="date" id="inscriptionDateFrom" title="Date début">
+          <input type="date" id="inscriptionDateTo" title="Date fin">
+          <button class="btn" onclick="loadInscriptionEmailLogs()" style="background: #1F4788;">Filtrer</button>
+        </div>
+
+        <div id="loadingInscriptionLogs" class="loading" style="display: none;">
+          <div class="spinner"></div>
+          Chargement...
+        </div>
+
+        <div class="table-container">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Joueur</th>
+                <th>Email</th>
+                <th>Tournoi</th>
+                <th>Mode</th>
+                <th>Catégorie</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="inscriptionLogsBody"></tbody>
+          </table>
+        </div>
+
+        <div id="noInscriptionLogs" style="display: none; text-align: center; padding: 30px; color: #666;">
+          Aucun email d'inscription/désinscription enregistré.
+        </div>
+      </div>
     </div>
 
     <!-- TAB: Scheduled -->
@@ -1190,7 +1241,10 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
           loadResultsTemplate();
           loadRelanceTemplates();
         }
-        if (tab.dataset.tab === 'history') loadHistory();
+        if (tab.dataset.tab === 'history') {
+          loadHistory();
+          loadInscriptionEmailLogs();
+        }
         if (tab.dataset.tab === 'scheduled') loadScheduled();
       });
     });
@@ -3262,6 +3316,81 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
           const newType = e.target.value;
           updateCampaignType(campaignId, newType);
         });
+      });
+    }
+
+    // ==================== INSCRIPTION EMAIL LOGS ====================
+
+    async function loadInscriptionEmailLogs() {
+      const loadingEl = document.getElementById('loadingInscriptionLogs');
+      const tbody = document.getElementById('inscriptionLogsBody');
+      const noLogsEl = document.getElementById('noInscriptionLogs');
+
+      loadingEl.style.display = 'block';
+      noLogsEl.style.display = 'none';
+      tbody.innerHTML = '';
+
+      try {
+        // Build query params from filters
+        const params = new URLSearchParams();
+        const typeFilter = document.getElementById('inscriptionTypeFilter').value;
+        const statusFilter = document.getElementById('inscriptionStatusFilter').value;
+        const dateFrom = document.getElementById('inscriptionDateFrom').value;
+        const dateTo = document.getElementById('inscriptionDateTo').value;
+
+        if (typeFilter) params.append('type', typeFilter);
+        if (statusFilter) params.append('status', statusFilter);
+        if (dateFrom) params.append('from', dateFrom);
+        if (dateTo) params.append('to', dateTo);
+
+        const response = await fetch(`${API_URL}/email/inscription-logs?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load inscription logs');
+
+        const logs = await response.json();
+        displayInscriptionLogs(logs);
+
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      } finally {
+        loadingEl.style.display = 'none';
+      }
+    }
+
+    function displayInscriptionLogs(logs) {
+      const tbody = document.getElementById('inscriptionLogsBody');
+      const noLogsEl = document.getElementById('noInscriptionLogs');
+      tbody.innerHTML = '';
+
+      if (!logs || logs.length === 0) {
+        noLogsEl.style.display = 'block';
+        return;
+      }
+
+      noLogsEl.style.display = 'none';
+
+      logs.forEach(log => {
+        const row = document.createElement('tr');
+        const date = new Date(log.created_at).toLocaleString('fr-FR');
+        const typeLabel = log.email_type === 'inscription' ? 'Inscription' : 'Désinscription';
+        const typeColor = log.email_type === 'inscription' ? '#28a745' : '#dc3545';
+        const statusBadge = log.status === 'sent'
+          ? '<span class="badge badge-actif">Envoyé</span>'
+          : `<span class="badge badge-inactif" title="${log.error_message || ''}">Échec</span>`;
+
+        row.innerHTML = `
+          <td>${date}</td>
+          <td><span style="color: ${typeColor}; font-weight: 500;">${typeLabel}</span></td>
+          <td>${log.player_name || '-'}</td>
+          <td style="font-size: 0.85rem;">${log.player_email || '-'}</td>
+          <td>${log.tournament_name || '-'}</td>
+          <td>${log.mode || '-'}</td>
+          <td>${log.category || '-'}</td>
+          <td>${statusBadge}</td>
+        `;
+        tbody.appendChild(row);
       });
     }
 
