@@ -496,6 +496,24 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_reset_codes_email ON password_reset_codes(email)
     `);
 
+    // Inscription email logs table - history of inscription/désinscription emails
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS inscription_email_logs (
+        id SERIAL PRIMARY KEY,
+        email_type TEXT NOT NULL,
+        player_email TEXT NOT NULL,
+        player_name TEXT,
+        tournament_name TEXT,
+        mode TEXT,
+        category TEXT,
+        tournament_date TEXT,
+        location TEXT,
+        status TEXT DEFAULT 'sent',
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Player accounts table (for Espace Joueur app)
     await client.query(`
       CREATE TABLE IF NOT EXISTS player_accounts (

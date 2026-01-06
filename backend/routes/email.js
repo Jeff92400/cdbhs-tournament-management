@@ -1042,16 +1042,18 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 };
 
 const DEFAULT_INSCRIPTION_CANCELLATION_TEMPLATE = {
-  subject: 'Confirmation de désinscription - {tournament_name}',
+  subject: 'Confirmation de désinscription - {mode} {category}',
   body: `Bonjour {player_name},
 
-Nous confirmons l'annulation de votre inscription à la compétition suivante :
+Nous avons bien pris en compte votre désinscription du tournoi suivant :
 
-📅 Compétition : {tournament_name}
-🎱 Mode : {mode} - {category}
-📆 Date : {tournament_date}
+Tournoi : {tournament_name}
+Mode : {mode}
+Catégorie : {category}
+Date : {tournament_date}
+Lieu : {location}
 
-Si cette désinscription n'est pas de votre fait, merci de nous contacter rapidement.
+Si cette désinscription est une erreur, vous pouvez vous réinscrire via l'application CDBHS tant que les inscriptions sont ouvertes (jusqu'à 7 jours avant le tournoi).
 
 Sportivement,
 Le Comité Départemental de Billard des Hauts-de-Seine`
@@ -1105,21 +1107,19 @@ router.post('/inscription-confirmation', async (req, res) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: #28a745; color: white; padding: 20px; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px;">✅ Inscription Confirmée</h1>
+            <h1 style="margin: 0; font-size: 24px;">Inscription Confirmée</h1>
           </div>
           <div style="padding: 20px; background: #f8f9fa;">
             <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px; border-left: 4px solid #28a745;">
-              <p style="margin: 5px 0;"><strong>Compétition :</strong> ${tournament_name}</p>
-              <p style="margin: 5px 0;"><strong>Mode :</strong> ${mode || '-'} - ${category || '-'}</p>
+              <p style="margin: 5px 0;"><strong>Tournoi :</strong> ${tournament_name}</p>
+              <p style="margin: 5px 0;"><strong>Mode :</strong> ${mode || '-'}</p>
+              <p style="margin: 5px 0;"><strong>Catégorie :</strong> ${category || '-'}</p>
               <p style="margin: 5px 0;"><strong>Date :</strong> ${dateStr}</p>
               <p style="margin: 5px 0;"><strong>Lieu :</strong> ${location || 'À définir'}</p>
             </div>
             <div style="line-height: 1.6;">
               ${bodyHtml}
             </div>
-            <p style="margin-top: 20px; padding: 10px; background: #e7f3ff; border-left: 4px solid #007bff; font-size: 13px;">
-              📧 <strong>Contact :</strong> <a href="mailto:${contactEmail}" style="color: #1F4788;">${contactEmail}</a>
-            </p>
           </div>
           <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
             <p style="margin: 0;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
@@ -1128,18 +1128,38 @@ router.post('/inscription-confirmation', async (req, res) => {
       `
     });
 
+    // Log email to database
+    const db = require('../db-loader');
+    db.run(
+      `INSERT INTO inscription_email_logs (email_type, player_email, player_name, tournament_name, mode, category, tournament_date, location, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent')`,
+      ['inscription', player_email, player_name, tournament_name, mode || '', category || '', dateStr, location || ''],
+      (err) => { if (err) console.error('Error logging inscription email:', err); }
+    );
+
     console.log(`Inscription confirmation email sent to ${player_email} for ${tournament_name}`);
     res.json({ success: true, message: 'Confirmation email sent' });
 
   } catch (error) {
     console.error('Error sending inscription confirmation:', error);
+    // Log failed email
+    const db = require('../db-loader');
+    const dateStr = tournament_date
+      ? new Date(tournament_date).toLocaleDateString('fr-FR')
+      : '';
+    db.run(
+      `INSERT INTO inscription_email_logs (email_type, player_email, player_name, tournament_name, mode, category, tournament_date, location, status, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'failed', $9)`,
+      ['inscription', player_email, player_name, tournament_name, mode || '', category || '', dateStr, location || '', error.message],
+      () => {}
+    );
     res.status(500).json({ error: error.message });
   }
 });
 
 // Send inscription cancellation email (called by Player App)
 router.post('/inscription-cancellation', async (req, res) => {
-  const { player_email, player_name, tournament_name, mode, category, tournament_date, api_key } = req.body;
+  const { player_email, player_name, tournament_name, mode, category, tournament_date, location, api_key } = req.body;
 
   // Verify API key (shared secret between apps)
   if (api_key !== process.env.PLAYER_APP_API_KEY) {
@@ -1169,7 +1189,8 @@ router.post('/inscription-cancellation', async (req, res) => {
       tournament_name,
       mode: mode || '',
       category: category || '',
-      tournament_date: dateStr
+      tournament_date: dateStr,
+      location: location || 'Non défini'
     };
 
     const subject = replaceTemplateVariables(template.subject, variables);
@@ -1184,21 +1205,19 @@ router.post('/inscription-cancellation', async (req, res) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: #dc3545; color: white; padding: 20px; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px;">❌ Désinscription Confirmée</h1>
+            <h1 style="margin: 0; font-size: 24px;">Désinscription Confirmée</h1>
           </div>
           <div style="padding: 20px; background: #f8f9fa;">
             <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px; border-left: 4px solid #dc3545;">
-              <p style="margin: 5px 0;"><strong>Compétition :</strong> ${tournament_name}</p>
-              <p style="margin: 5px 0;"><strong>Mode :</strong> ${mode || '-'} - ${category || '-'}</p>
+              <p style="margin: 5px 0;"><strong>Tournoi :</strong> ${tournament_name}</p>
+              <p style="margin: 5px 0;"><strong>Mode :</strong> ${mode || '-'}</p>
+              <p style="margin: 5px 0;"><strong>Catégorie :</strong> ${category || '-'}</p>
               <p style="margin: 5px 0;"><strong>Date :</strong> ${dateStr}</p>
+              <p style="margin: 5px 0;"><strong>Lieu :</strong> ${location || 'Non défini'}</p>
             </div>
             <div style="line-height: 1.6;">
               ${bodyHtml}
             </div>
-            <p style="margin-top: 20px; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107; font-size: 13px;">
-              ⚠️ Si cette désinscription n'est pas de votre fait, contactez-nous à
-              <a href="mailto:${contactEmail}" style="color: #1F4788;">${contactEmail}</a>
-            </p>
           </div>
           <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
             <p style="margin: 0;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
@@ -1207,11 +1226,31 @@ router.post('/inscription-cancellation', async (req, res) => {
       `
     });
 
+    // Log email to database
+    const db = require('../db-loader');
+    db.run(
+      `INSERT INTO inscription_email_logs (email_type, player_email, player_name, tournament_name, mode, category, tournament_date, location, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent')`,
+      ['desinscription', player_email, player_name, tournament_name, mode || '', category || '', dateStr, location || ''],
+      (err) => { if (err) console.error('Error logging desinscription email:', err); }
+    );
+
     console.log(`Inscription cancellation email sent to ${player_email} for ${tournament_name}`);
     res.json({ success: true, message: 'Cancellation email sent' });
 
   } catch (error) {
     console.error('Error sending inscription cancellation:', error);
+    // Log failed email
+    const db = require('../db-loader');
+    const dateStr = tournament_date
+      ? new Date(tournament_date).toLocaleDateString('fr-FR')
+      : '';
+    db.run(
+      `INSERT INTO inscription_email_logs (email_type, player_email, player_name, tournament_name, mode, category, tournament_date, location, status, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'failed', $9)`,
+      ['desinscription', player_email, player_name, tournament_name, mode || '', category || '', dateStr, location || '', error.message],
+      () => {}
+    );
     res.status(500).json({ error: error.message });
   }
 });

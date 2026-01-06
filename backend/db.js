@@ -204,6 +204,24 @@ function initializeDatabase() {
     // Create index for faster lookups
     db.run(`CREATE INDEX IF NOT EXISTS idx_reset_codes_email ON password_reset_codes(email)`);
 
+    // Inscription email logs table - history of inscription/désinscription emails
+    db.run(`
+      CREATE TABLE IF NOT EXISTS inscription_email_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email_type TEXT NOT NULL,
+        player_email TEXT NOT NULL,
+        player_name TEXT,
+        tournament_name TEXT,
+        mode TEXT,
+        category TEXT,
+        tournament_date TEXT,
+        location TEXT,
+        status TEXT DEFAULT 'sent',
+        error_message TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Initialize default admin password (admin123 - should be changed)
     db.get('SELECT COUNT(*) as count FROM admin', [], (err, row) => {
       if (!err && row.count === 0) {
