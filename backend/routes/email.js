@@ -1348,6 +1348,7 @@ router.post('/contact', async (req, res) => {
   try {
     const contactEmail = await getContactEmail();
 
+    // Send email to CDBHS
     await resend.emails.send({
       from: 'CDBHS Espace Joueur <noreply@cdbhs.net>',
       replyTo: player_email,
@@ -1378,7 +1379,35 @@ router.post('/contact', async (req, res) => {
       `
     });
 
-    console.log(`Contact email received from ${player_email}: ${subject}`);
+    // Send confirmation email to player
+    await resend.emails.send({
+      from: 'CDBHS <noreply@cdbhs.net>',
+      replyTo: contactEmail,
+      to: [player_email],
+      subject: `Confirmation - Votre message a bien été envoyé`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #28a745; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Message Envoyé ✓</h1>
+          </div>
+          <div style="padding: 20px; background: #f8f9fa;">
+            <p style="margin-bottom: 20px;">Bonjour ${player_name},</p>
+            <p style="margin-bottom: 20px;">Votre message a bien été transmis au CDBHS. Nous vous répondrons dans les meilleurs délais.</p>
+            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px; border-left: 4px solid #28a745;">
+              <p style="margin: 5px 0;"><strong>Sujet :</strong> ${subject}</p>
+              <p style="margin: 10px 0 5px 0;"><strong>Votre message :</strong></p>
+              <p style="white-space: pre-wrap; color: #666; margin: 0;">${message}</p>
+            </div>
+            <p style="color: #666; font-size: 0.9rem;">Si vous avez besoin d'une réponse urgente, vous pouvez nous contacter directement à <a href="mailto:${contactEmail}">${contactEmail}</a></p>
+          </div>
+          <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
+            <p style="margin: 0;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
+          </div>
+        </div>
+      `
+    });
+
+    console.log(`Contact email sent from ${player_email}: ${subject} (+ confirmation to player)`);
     res.json({ success: true, message: 'Contact email sent' });
 
   } catch (error) {
