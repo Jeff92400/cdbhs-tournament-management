@@ -1922,14 +1922,15 @@ router.get('/finalists/:finaleId', authenticateToken, async (req, res) => {
     // Find the category in our system
     // Map mode: LIBRE, CADRE, BANDE, 3BANDES
     // Map category: N3, R1, R2, R3, etc.
-    const mode = finale.mode.toUpperCase();
+    // Normalize mode: remove spaces and accents for comparison
+    const mode = finale.mode.toUpperCase().replace(/\s+/g, '');
     const categoryLevel = finale.categorie.toUpperCase();
 
-    // Find matching category
+    // Find matching category (compare without spaces)
     const category = await new Promise((resolve, reject) => {
       db.get(
         `SELECT * FROM categories
-         WHERE UPPER(game_type) = $1
+         WHERE UPPER(REPLACE(game_type, ' ', '')) = $1
            AND (UPPER(level) = $2 OR UPPER(level) LIKE $3)`,
         [mode, categoryLevel, categoryLevel + '%'],
         (err, row) => {
