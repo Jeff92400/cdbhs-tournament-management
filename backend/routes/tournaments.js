@@ -1121,7 +1121,7 @@ router.post('/recalculate-all-rankings', authenticateToken, async (req, res) => 
 // Update tournament (location, date, etc.)
 router.put('/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
-  const { location, tournament_date } = req.body;
+  const { location, tournament_date, results_email_sent } = req.body;
 
   // Build update query dynamically
   const updates = [];
@@ -1134,6 +1134,15 @@ router.put('/:id', authenticateToken, (req, res) => {
   if (tournament_date !== undefined) {
     updates.push('tournament_date = ?');
     params.push(tournament_date);
+  }
+  if (results_email_sent !== undefined) {
+    updates.push('results_email_sent = ?');
+    params.push(results_email_sent);
+    if (results_email_sent) {
+      updates.push('results_email_sent_at = CURRENT_TIMESTAMP');
+    } else {
+      updates.push('results_email_sent_at = NULL');
+    }
   }
 
   if (updates.length === 0) {
