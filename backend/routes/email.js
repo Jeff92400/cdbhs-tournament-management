@@ -1280,7 +1280,7 @@ router.post('/inscription-cancellation', async (req, res) => {
           <div style="padding: 20px; background: #f8f9fa;">
             <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px; border-left: 4px solid #dc3545;">
               <p style="margin: 5px 0;">📅 <strong>Tournoi :</strong> ${tournament_name}</p>
-              <p style="margin: 5px 0;">🎯 <strong>Mode :</strong> ${mode || '-'}</p>
+              <p style="margin: 5px 0;"><img src="https://cdbhs-tournament-management-production.up.railway.app/images/FrenchBillard%20Icon.png" alt="🎯" style="height: 18px; width: 18px; vertical-align: middle;"> <strong>Mode :</strong> ${mode || '-'}</p>
               <p style="margin: 5px 0;">🏆 <strong>Catégorie :</strong> ${category || '-'}</p>
               <p style="margin: 5px 0;">📆 <strong>Date :</strong> ${dateStr}</p>
               <p style="margin: 5px 0;">📍 <strong>Lieu :</strong> ${location || 'Non défini'}</p>
