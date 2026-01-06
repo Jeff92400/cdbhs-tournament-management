@@ -1982,9 +1982,19 @@
 
         // Update coin display
         const coinSpan = document.getElementById('gameParamCoin');
-        coinSpan.textContent = currentGameParams.coin === 'GC' ? 'Grand Coin' : 'Petit Coin';
-        coinSpan.style.background = currentGameParams.coin === 'GC' ? '#ffc107' : '#17a2b8';
-        coinSpan.style.color = currentGameParams.coin === 'GC' ? '#000' : '#fff';
+        if (currentGameParams.coin === 'GC') {
+          coinSpan.textContent = 'Grand Coin';
+          coinSpan.style.background = '#ffc107';
+          coinSpan.style.color = '#000';
+        } else if (currentGameParams.coin === 'PC') {
+          coinSpan.textContent = 'Petit Coin';
+          coinSpan.style.background = '#17a2b8';
+          coinSpan.style.color = '#fff';
+        } else {
+          coinSpan.textContent = '-';
+          coinSpan.style.background = '#6c757d';
+          coinSpan.style.color = '#fff';
+        }
 
         // Update reprises
         document.getElementById('gameParamReprises').textContent = currentGameParams.reprises;
