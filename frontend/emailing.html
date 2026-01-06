@@ -1075,35 +1075,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
     <!-- TAB: History -->
     <div id="tab-history" class="tab-content">
-      <div class="card">
-        <h3>Historique des campagnes</h3>
-
-        <div id="loadingHistory" class="loading" style="display: none;">
-          <div class="spinner"></div>
-          Chargement...
-        </div>
-
-        <div class="table-container">
-          <table class="history-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Sujet</th>
-                <th>Par</th>
-                <th>Dest.</th>
-                <th>Env.</th>
-                <th>Ech.</th>
-                <th>Statut</th>
-              </tr>
-            </thead>
-            <tbody id="historyBody"></tbody>
-          </table>
-        </div>
-      </div>
-
       <!-- Historique Inscriptions/Désinscriptions (Player App) -->
-      <div class="card" style="margin-top: 20px;">
+      <div class="card">
         <h3>Historique Inscriptions (App Joueur)</h3>
         <p style="color: #666; font-size: 0.875rem; margin-bottom: 15px;">
           Emails automatiques envoyés lors des inscriptions et désinscriptions via l'application joueur.
@@ -1150,6 +1123,34 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
         <div id="noInscriptionLogs" style="display: none; text-align: center; padding: 30px; color: #666;">
           Aucun email d'inscription/désinscription enregistré.
+        </div>
+      </div>
+
+      <!-- Historique des campagnes -->
+      <div class="card" style="margin-top: 20px;">
+        <h3>Historique des campagnes</h3>
+
+        <div id="loadingHistory" class="loading" style="display: none;">
+          <div class="spinner"></div>
+          Chargement...
+        </div>
+
+        <div class="table-container">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Sujet</th>
+                <th>Par</th>
+                <th>Dest.</th>
+                <th>Env.</th>
+                <th>Ech.</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
