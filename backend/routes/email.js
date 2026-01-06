@@ -1325,4 +1325,64 @@ router.post('/inscription-cancellation', async (req, res) => {
   }
 });
 
+// Send contact message from Player App (called by Player App)
+router.post('/contact', async (req, res) => {
+  const { player_email, player_name, player_licence, player_club, subject, message, api_key } = req.body;
+
+  // Verify API key (shared secret between apps)
+  if (api_key !== process.env.PLAYER_APP_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const resend = getResend();
+  if (!resend) {
+    return res.status(500).json({ error: 'Email not configured' });
+  }
+
+  if (!player_email || !player_name || !subject || !message) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    const contactEmail = await getContactEmail();
+
+    await resend.emails.send({
+      from: 'CDBHS Espace Joueur <noreply@cdbhs.net>',
+      replyTo: player_email,
+      to: [contactEmail],
+      subject: `[Espace Joueur] ${subject}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Message depuis l'Espace Joueur</h1>
+          </div>
+          <div style="padding: 20px; background: #f8f9fa;">
+            <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px; border-left: 4px solid #1F4788;">
+              <p style="margin: 5px 0;"><strong>De :</strong> ${player_name}</p>
+              <p style="margin: 5px 0;"><strong>Email :</strong> <a href="mailto:${player_email}">${player_email}</a></p>
+              <p style="margin: 5px 0;"><strong>Licence :</strong> ${player_licence}</p>
+              <p style="margin: 5px 0;"><strong>Club :</strong> ${player_club}</p>
+              <p style="margin: 5px 0;"><strong>Sujet :</strong> ${subject}</p>
+            </div>
+            <div style="background: white; padding: 15px; border-radius: 4px;">
+              <h3 style="margin-top: 0;">Message :</h3>
+              <p style="white-space: pre-wrap;">${message}</p>
+            </div>
+          </div>
+          <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
+            <p style="margin: 0;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
+          </div>
+        </div>
+      `
+    });
+
+    console.log(`Contact email received from ${player_email}: ${subject}`);
+    res.json({ success: true, message: 'Contact email sent' });
+
+  } catch (error) {
+    console.error('Error sending contact email:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
