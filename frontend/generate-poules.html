@@ -1247,6 +1247,12 @@
       select2.innerHTML = options;
     }
 
+    // Normalize string: remove accents and convert to lowercase
+    function normalizeString(str) {
+      return (str || '').toLowerCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove accents
+    }
+
     function preselectLocation(locationName) {
       console.log('[preselectLocation] Called with:', locationName, 'clubs loaded:', clubs.length);
       if (!locationName) return;
@@ -1259,32 +1265,39 @@
       }
 
       const select1 = document.getElementById('locationSelect1');
-      const locationLower = locationName.toLowerCase().trim();
+      const locationNorm = normalizeString(locationName);
 
-      // Try to find matching club by name or city
+      // Try to find matching club by name, display_name, or city
       for (const club of clubs) {
-        const clubNameLower = club.name.toLowerCase();
-        const clubCityLower = (club.city || '').toLowerCase();
+        const clubNameNorm = normalizeString(club.name);
+        const clubDisplayNorm = normalizeString(club.display_name);
+        const clubCityNorm = normalizeString(club.city);
 
-        // Check name match
-        if (clubNameLower.includes(locationLower) || locationLower.includes(clubNameLower)) {
+        // Check name match (accent-insensitive)
+        if (clubNameNorm.includes(locationNorm) || locationNorm.includes(clubNameNorm)) {
           console.log('[preselectLocation] Found match by name:', club.name, '-> id:', club.id);
           select1.value = club.id;
-          // Update poule labels to reflect the new selection
           updatePouleLocationLabels();
           return;
         }
 
-        // Check city match
-        if (clubCityLower === locationLower || clubCityLower.includes(locationLower) || locationLower.includes(clubCityLower)) {
+        // Check display_name match (accent-insensitive)
+        if (clubDisplayNorm && (clubDisplayNorm.includes(locationNorm) || locationNorm.includes(clubDisplayNorm))) {
+          console.log('[preselectLocation] Found match by display_name:', club.display_name, '-> id:', club.id);
+          select1.value = club.id;
+          updatePouleLocationLabels();
+          return;
+        }
+
+        // Check city match (accent-insensitive)
+        if (clubCityNorm && (clubCityNorm === locationNorm || clubCityNorm.includes(locationNorm) || locationNorm.includes(clubCityNorm))) {
           console.log('[preselectLocation] Found match by city:', club.name, 'city:', club.city, '-> id:', club.id);
           select1.value = club.id;
-          // Update poule labels to reflect the new selection
           updatePouleLocationLabels();
           return;
         }
       }
-      console.log('[preselectLocation] No match found for:', locationName, 'Available clubs:', clubs.map(c => ({ name: c.name, city: c.city })));
+      console.log('[preselectLocation] No match found for:', locationName, 'Available clubs:', clubs.map(c => ({ name: c.name, display_name: c.display_name, city: c.city })));
     }
 
     loadClubs();
