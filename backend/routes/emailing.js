@@ -2048,13 +2048,13 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
     const finaleMonth = finaleDate.getMonth();
     const season = finaleMonth >= 8 ? `${finaleYear}-${finaleYear + 1}` : `${finaleYear - 1}-${finaleYear}`;
 
-    // Find category
-    const mode = finale.mode.toUpperCase();
+    // Find category (normalize mode: remove spaces for comparison)
+    const mode = finale.mode.toUpperCase().replace(/\s+/g, '');
     const categoryLevel = finale.categorie.toUpperCase();
 
     const category = await new Promise((resolve, reject) => {
       db.get(
-        `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND (UPPER(level) = $2 OR UPPER(level) LIKE $3)`,
+        `SELECT * FROM categories WHERE UPPER(REPLACE(game_type, ' ', '')) = $1 AND (UPPER(level) = $2 OR UPPER(level) LIKE $3)`,
         [mode, categoryLevel, categoryLevel + '%'],
         (err, row) => {
           if (err) reject(err);
