@@ -130,6 +130,7 @@ router.options('/public', (req, res) => {
 router.head('/public', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Expose-Headers', 'Content-Type, Content-Disposition');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
   db.get('SELECT content_type, filename FROM calendar ORDER BY created_at DESC LIMIT 1', [], (err, row) => {
     if (err || !row) {
@@ -145,6 +146,7 @@ router.get('/public', (req, res) => {
   // CORS headers for cross-origin access from Player App
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Expose-Headers', 'Content-Type, Content-Disposition');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
   db.get('SELECT * FROM calendar ORDER BY created_at DESC LIMIT 1', [], (err, row) => {
     if (err) {
