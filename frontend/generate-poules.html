@@ -1097,6 +1097,8 @@
               : '';
 
             // Check if simulation should be available (> 7 days away and >= 3 inscriptions)
+            const tournamentDate = t.debut ? new Date(t.debut) : null;
+            const daysUntil = tournamentDate ? Math.ceil((tournamentDate - new Date()) / (1000 * 60 * 60 * 24)) : 0;
             const inscritCount = t.isFinale ? (t.inscribed_finalist_count || 0) : (t.inscrit_count || 0);
             const showSimulation = daysUntil >= 7 && inscritCount >= 3;
 
