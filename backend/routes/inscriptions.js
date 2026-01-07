@@ -1963,7 +1963,56 @@ router.get('/tournoi/:id/simulation', authenticateToken, async (req, res) => {
     });
 
     // Filter out forfaits
-    const activeInscriptions = inscriptions.filter(i => i.forfait !== 1);
+    let activeInscriptions = inscriptions.filter(i => i.forfait !== 1);
+
+    // For Finales, filter to only include qualified finalists
+    const isFinale = tournament.nom && tournament.nom.toUpperCase().includes('FINALE');
+    if (isFinale) {
+      // Get season from tournament date
+      const tournamentDate = new Date(tournament.debut);
+      const year = tournamentDate.getFullYear();
+      const month = tournamentDate.getMonth();
+      const season = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+
+      // Get category for this tournament
+      const gameType = tournament.mode?.toUpperCase();
+      const categoryLevel = tournament.categorie?.toUpperCase();
+
+      const category = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND (UPPER(level) = $2 OR UPPER(level) LIKE $3)`,
+          [gameType, categoryLevel, `${categoryLevel}%`],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+
+      if (category) {
+        // Get rankings for this category to determine finalists
+        const rankings = await new Promise((resolve, reject) => {
+          db.all(
+            `SELECT r.licence FROM rankings r WHERE r.category_id = $1 AND r.season = $2 ORDER BY r.rank_position ASC`,
+            [category.id, season],
+            (err, rows) => {
+              if (err) reject(err);
+              else resolve(rows || []);
+            }
+          );
+        });
+
+        // Determine number of finalists: 6 if >= 10 participants, otherwise 4
+        const numFinalists = rankings.length >= 10 ? 6 : 4;
+        const finalistLicences = rankings.slice(0, numFinalists).map(r => r.licence?.replace(/\s/g, ''));
+
+        // Filter inscriptions to only include finalists
+        activeInscriptions = activeInscriptions.filter(i => {
+          const licenceNorm = i.licence?.replace(/\s/g, '');
+          return finalistLicences.includes(licenceNorm);
+        });
+      }
+    }
 
     if (activeInscriptions.length < 3) {
       return res.json({
