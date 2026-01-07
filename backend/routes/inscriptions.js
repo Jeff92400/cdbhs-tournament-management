@@ -2036,11 +2036,12 @@ router.get('/tournoi/:id/simulation', authenticateToken, async (req, res) => {
     const tMonth = tDate.getMonth();
     const currentSeason = tMonth >= 8 ? `${tYear}-${tYear + 1}` : `${tYear - 1}-${tYear}`;
 
-    // Get category
+    // Get category (use LIKE for partial match like R2 matching R2-something)
+    const categoryLevel = tournament.categorie?.toUpperCase();
     const simCategory = await new Promise((resolve, reject) => {
       db.get(
-        `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND UPPER(level) = $2`,
-        [gameType, tournament.categorie?.toUpperCase()],
+        `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND (UPPER(level) = $2 OR UPPER(level) LIKE $3)`,
+        [gameType, categoryLevel, `${categoryLevel}%`],
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
