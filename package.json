@@ -7,8 +7,5 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "dependencies": {
-    "pg": "^8.16.3"
   }
 }
