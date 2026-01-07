@@ -2030,6 +2030,7 @@ router.get('/tournoi/:id/simulation', authenticateToken, async (req, res) => {
       '3BANDES': '3BANDES',
       '3 BANDES': '3BANDES',
       'BANDE': 'BANDE',
+      'BANDES': 'BANDE',
       '1BANDE': 'BANDE',
       '1 BANDE': 'BANDE',
       'CADRE': 'CADRE'
