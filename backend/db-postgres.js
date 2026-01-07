@@ -300,6 +300,9 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS convocation_notes TEXT`);
     await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS convocation_phone VARCHAR(50)`);
 
+    // Add source column to track inscription origin (ionos import vs player_app)
+    await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'ionos'`);
+
     // Calendar storage table
     await client.query(`
       CREATE TABLE IF NOT EXISTS calendar (

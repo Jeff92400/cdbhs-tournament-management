@@ -205,9 +205,10 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
 
         // Note: convoque uses GREATEST to preserve convoque=1 if already set (don't overwrite with 0 from import)
         // convocation_* fields are NOT updated by import - they're set when sending convocation emails
+        // source='ionos' marks this as IONOS import; Player App records (source='player_app') are protected
         const query = `
-          INSERT INTO inscriptions (inscription_id, joueur_id, tournoi_id, timestamp, email, telephone, licence, convoque, forfait, commentaire)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          INSERT INTO inscriptions (inscription_id, joueur_id, tournoi_id, timestamp, email, telephone, licence, convoque, forfait, commentaire, source)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ionos')
           ON CONFLICT(inscription_id) DO UPDATE SET
             joueur_id = EXCLUDED.joueur_id,
             tournoi_id = EXCLUDED.tournoi_id,
@@ -218,6 +219,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
             convoque = GREATEST(inscriptions.convoque, EXCLUDED.convoque),
             forfait = GREATEST(inscriptions.forfait, EXCLUDED.forfait),
             commentaire = EXCLUDED.commentaire
+          WHERE inscriptions.source IS NULL OR inscriptions.source != 'player_app'
         `;
 
         await new Promise((resolve, reject) => {
