@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logs d'activite - CDBHS</title>
+  <link rel="icon" type="image/png" href="images/billiard-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .filters-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+    }
+    .filter-group label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    .filter-group input, .filter-group select {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .stat-card {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stat-card .label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .stat-card .value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #1F4788;
+    }
+    .logs-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .logs-table th {
+      background: #1F4788;
+      color: white;
+      padding: 10px 8px;
+      text-align: left;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .logs-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+    }
+    .logs-table tr:hover {
+      background: #f8f9fa;
+    }
+    .action-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .action-badge.login_success { background: #d4edda; color: #155724; }
+    .action-badge.login_failed { background: #f8d7da; color: #721c24; }
+    .action-badge.account_created { background: #cce5ff; color: #004085; }
+    .action-badge.inscription_created { background: #d4edda; color: #155724; }
+    .action-badge.inscription_cancelled { background: #fff3cd; color: #856404; }
+    .action-badge.password_reset_requested { background: #e2e3e5; color: #383d41; }
+    .action-badge.password_reset_completed { background: #d4edda; color: #155724; }
+    .action-badge.email_inscription_confirmation { background: #d1ecf1; color: #0c5460; }
+    .action-badge.email_cancellation_confirmation { background: #d1ecf1; color: #0c5460; }
+    .action-badge.admin_impersonate { background: #f8d7da; color: #721c24; }
+    .status-success { color: #28a745; }
+    .status-failed { color: #dc3545; }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .pagination button {
+      padding: 8px 16px;
+      border: 1px solid #1F4788;
+      background: white;
+      color: #1F4788;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .pagination button:hover:not(:disabled) {
+      background: #1F4788;
+      color: white;
+    }
+    .details-cell {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .details-cell:hover {
+      white-space: normal;
+      word-break: break-word;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .export-btn {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .export-btn:hover {
+      background: #218838;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="navbar">
+      <div>
+        <h2 style="margin-bottom: 0;"><img src="images/billiard-icon.png" alt="" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;"></span> CDBHS Tournois</h2>
+        <span style="font-size: 18px; color: #1F4788; font-weight: bold; margin-left: 36px;">V2.0</span>
+      </div>
+      <div class="nav-links">
+        <a href="dashboard.html">Accueil</a>
+        <a href="rankings.html">Classements</a>
+        <a href="generate-poules.html">Competitions</a>
+        <a href="calendar.html">Calendrier</a>
+        <a href="emailing.html">Emailing</a>
+        <a href="settings.html" class="admin-only">Parametres</a>
+        <a href="#" id="logoutBtn" class="nav-logout">Deconnexion</a>
+      </div>
+    </div>
+
+    <h1 style="margin-bottom: 15px;">Logs d'activite - Player App</h1>
+
+    <!-- Stats -->
+    <div id="statsContainer" class="stats-grid">
+      <div class="stat-card">
+        <div class="label">Connexions (7j)</div>
+        <div class="value" id="statLogins">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Inscriptions (7j)</div>
+        <div class="value" id="statInscriptions">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Desinscriptions (7j)</div>
+        <div class="value" id="statCancellations">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Nouveaux comptes (7j)</div>
+        <div class="value" id="statAccounts">-</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-card">
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label>Date debut</label>
+          <input type="date" id="filterStartDate">
+        </div>
+        <div class="filter-group">
+          <label>Date fin</label>
+          <input type="date" id="filterEndDate">
+        </div>
+        <div class="filter-group">
+          <label>Type d'action</label>
+          <select id="filterActionType">
+            <option value="">Tous</option>
+            <option value="login_success">Connexion reussie</option>
+            <option value="login_failed">Connexion echouee</option>
+            <option value="account_created">Compte cree</option>
+            <option value="inscription_created">Inscription</option>
+            <option value="inscription_cancelled">Desinscription</option>
+            <option value="password_reset_requested">Demande reset MDP</option>
+            <option value="password_reset_completed">Reset MDP effectue</option>
+            <option value="email_inscription_confirmation,email_cancellation_confirmation">Emails envoyes</option>
+            <option value="admin_impersonate">Impersonation admin</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Licence</label>
+          <input type="text" id="filterLicence" placeholder="Ex: 123456">
+        </div>
+        <div class="filter-group">
+          <label>Email</label>
+          <input type="text" id="filterEmail" placeholder="Ex: joueur@...">
+        </div>
+        <div class="filter-group">
+          <button class="btn" onclick="loadLogs()" style="margin-top: auto;">Filtrer</button>
+        </div>
+        <div class="filter-group">
+          <button class="export-btn" onclick="exportCSV()" style="margin-top: auto;">Exporter CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs Table -->
+    <div id="logsContainer">
+      <div class="loading">Chargement des logs...</div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <button id="prevBtn" onclick="prevPage()" disabled>Precedent</button>
+      <span id="pageInfo">Page 1</span>
+      <button id="nextBtn" onclick="nextPage()">Suivant</button>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = '/api';
+    let currentPage = 0;
+    const pageSize = 50;
+    let totalLogs = 0;
+    let currentLogs = [];
+
+    // Check authentication
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    // Check user role
+    const userRole = localStorage.getItem('userRole');
+    if (userRole === 'admin') {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+    }
+
+    // Logout handler
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      window.location.href = 'login.html';
+    });
+
+    // Format date for display
+    function formatDateTime(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      return date.toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    // Format action type for display
+    function formatActionType(type) {
+      const labels = {
+        'login_success': 'Connexion',
+        'login_failed': 'Echec connexion',
+        'account_created': 'Nouveau compte',
+        'inscription_created': 'Inscription',
+        'inscription_cancelled': 'Desinscription',
+        'password_reset_requested': 'Demande reset MDP',
+        'password_reset_completed': 'Reset MDP',
+        'email_inscription_confirmation': 'Email inscription',
+        'email_cancellation_confirmation': 'Email desinscription',
+        'admin_impersonate': 'Impersonation'
+      };
+      return labels[type] || type;
+    }
+
+    // Load stats
+    async function loadStats() {
+      try {
+        const response = await fetch(`${API_URL}/activity-logs/stats?days=7`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to load stats');
+        const stats = await response.json();
+
+        // Calculate stats from totals
+        const totals = {};
+        stats.totals.forEach(t => totals[t.action_type] = parseInt(t.count));
+
+        document.getElementById('statLogins').textContent = totals['login_success'] || 0;
+        document.getElementById('statInscriptions').textContent = totals['inscription_created'] || 0;
+        document.getElementById('statCancellations').textContent = totals['inscription_cancelled'] || 0;
+        document.getElementById('statAccounts').textContent = totals['account_created'] || 0;
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    }
+
+    // Load logs
+    async function loadLogs() {
+      const container = document.getElementById('logsContainer');
+      container.innerHTML = '<div class="loading">Chargement...</div>';
+
+      try {
+        const params = new URLSearchParams();
+        params.append('limit', pageSize);
+        params.append('offset', currentPage * pageSize);
+
+        const startDate = document.getElementById('filterStartDate').value;
+        const endDate = document.getElementById('filterEndDate').value;
+        const actionType = document.getElementById('filterActionType').value;
+        const licence = document.getElementById('filterLicence').value;
+        const email = document.getElementById('filterEmail').value;
+
+        if (startDate) params.append('startDate', startDate + 'T00:00:00');
+        if (endDate) params.append('endDate', endDate + 'T23:59:59');
+        if (actionType) params.append('actionType', actionType);
+        if (licence) params.append('licence', licence);
+        if (email) params.append('email', email);
+
+        const response = await fetch(`${API_URL}/activity-logs?${params}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load logs');
+        const data = await response.json();
+
+        currentLogs = data.logs;
+        totalLogs = data.total;
+
+        renderLogs();
+        updatePagination();
+      } catch (error) {
+        console.error('Error loading logs:', error);
+        container.innerHTML = '<div class="loading" style="color: #dc3545;">Erreur de chargement</div>';
+      }
+    }
+
+    // Render logs table
+    function renderLogs() {
+      const container = document.getElementById('logsContainer');
+
+      if (currentLogs.length === 0) {
+        container.innerHTML = '<div class="loading">Aucun log trouve</div>';
+        return;
+      }
+
+      let html = `
+        <table class="logs-table">
+          <thead>
+            <tr>
+              <th>Date/Heure</th>
+              <th>Action</th>
+              <th>Statut</th>
+              <th>Joueur</th>
+              <th>Email</th>
+              <th>Cible</th>
+              <th>Details</th>
+              <th>IP</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      currentLogs.forEach(log => {
+        const details = log.details ? JSON.stringify(log.details) : '-';
+        const statusClass = log.action_status === 'success' ? 'status-success' : 'status-failed';
+
+        html += `
+          <tr>
+            <td>${formatDateTime(log.created_at)}</td>
+            <td><span class="action-badge ${log.action_type}">${formatActionType(log.action_type)}</span></td>
+            <td class="${statusClass}">${log.action_status === 'success' ? 'OK' : 'Echec'}</td>
+            <td>${log.user_name || log.licence || '-'}</td>
+            <td>${log.user_email || '-'}</td>
+            <td>${log.target_name || '-'}</td>
+            <td class="details-cell" title="${details}">${details}</td>
+            <td>${log.ip_address || '-'}</td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Update pagination
+    function updatePagination() {
+      const totalPages = Math.ceil(totalLogs / pageSize);
+      document.getElementById('pageInfo').textContent = `Page ${currentPage + 1} / ${totalPages} (${totalLogs} logs)`;
+      document.getElementById('prevBtn').disabled = currentPage === 0;
+      document.getElementById('nextBtn').disabled = currentPage >= totalPages - 1;
+    }
+
+    function prevPage() {
+      if (currentPage > 0) {
+        currentPage--;
+        loadLogs();
+      }
+    }
+
+    function nextPage() {
+      const totalPages = Math.ceil(totalLogs / pageSize);
+      if (currentPage < totalPages - 1) {
+        currentPage++;
+        loadLogs();
+      }
+    }
+
+    // Export to CSV
+    function exportCSV() {
+      if (currentLogs.length === 0) {
+        alert('Aucune donnee a exporter');
+        return;
+      }
+
+      const headers = ['Date', 'Action', 'Statut', 'Licence', 'Nom', 'Email', 'Cible', 'Details', 'IP'];
+      const rows = currentLogs.map(log => [
+        formatDateTime(log.created_at),
+        log.action_type,
+        log.action_status,
+        log.licence || '',
+        log.user_name || '',
+        log.user_email || '',
+        log.target_name || '',
+        log.details ? JSON.stringify(log.details) : '',
+        log.ip_address || ''
+      ]);
+
+      let csv = headers.join(';') + '\n';
+      rows.forEach(row => {
+        csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';') + '\n';
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `activity-logs-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+    }
+
+    // Set default date range (last 7 days)
+    const today = new Date();
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+
+    document.getElementById('filterEndDate').value = today.toISOString().slice(0, 10);
+    document.getElementById('filterStartDate').value = lastWeek.toISOString().slice(0, 10);
+
+    // Initial load
+    loadStats();
+    loadLogs();
+  </script>
+</body>
+</html>

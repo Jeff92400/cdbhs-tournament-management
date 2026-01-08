@@ -38,6 +38,7 @@ const settingsRoutes = require('./routes/settings');
 const emailingRoutes = require('./routes/emailing');
 const statisticsRoutes = require('./routes/statistics');
 const playerAccountsRoutes = require('./routes/player-accounts');
+const activityLogsRoutes = require('./routes/activity-logs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -132,6 +133,7 @@ app.use('/api/settings', apiLimiter, settingsRoutes);
 app.use('/api/emailing', apiLimiter, emailingRoutes);
 app.use('/api/statistics', apiLimiter, statisticsRoutes);
 app.use('/api/player-accounts', apiLimiter, playerAccountsRoutes);
+app.use('/api/activity-logs', apiLimiter, activityLogsRoutes);
 
 // Serve frontend pages
 app.get('/', (req, res) => {
