@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Logs d'activite - CDBHS</title>
+  <title>Logs d'activité - CDBHS</title>
   <link rel="icon" type="image/png" href="images/billiard-icon.png">
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -165,16 +165,16 @@
       <div class="nav-links">
         <a href="dashboard.html">Accueil</a>
         <a href="rankings.html">Classements</a>
-        <a href="generate-poules.html">Competitions</a>
+        <a href="generate-poules.html">Compétitions</a>
         <a href="calendar.html">Calendrier</a>
         <a href="emailing.html">Emailing</a>
         <a href="activity-logs.html" class="admin-only active">Logs</a>
-        <a href="settings.html" class="admin-only">Parametres</a>
-        <a href="#" id="logoutBtn" class="nav-logout">Deconnexion</a>
+        <a href="settings.html" class="admin-only">Paramètres</a>
+        <a href="#" id="logoutBtn" class="nav-logout">Déconnexion</a>
       </div>
     </div>
 
-    <h1 style="margin-bottom: 15px;">Logs d'activite - Player App</h1>
+    <h1 style="margin-bottom: 15px;">Logs d'activité - Player App</h1>
 
     <!-- Stats -->
     <div id="statsContainer" class="stats-grid">
@@ -187,7 +187,7 @@
         <div class="value" id="statInscriptions">-</div>
       </div>
       <div class="stat-card">
-        <div class="label">Desinscriptions (7j)</div>
+        <div class="label">Désinscriptions (7j)</div>
         <div class="value" id="statCancellations">-</div>
       </div>
       <div class="stat-card">
@@ -200,7 +200,7 @@
     <div class="filters-card">
       <div class="filters-grid">
         <div class="filter-group">
-          <label>Date debut</label>
+          <label>Date début</label>
           <input type="date" id="filterStartDate">
         </div>
         <div class="filter-group">
@@ -211,14 +211,14 @@
           <label>Type d'action</label>
           <select id="filterActionType">
             <option value="">Tous</option>
-            <option value="login_success">Connexion reussie</option>
-            <option value="login_failed">Connexion echouee</option>
-            <option value="account_created">Compte cree</option>
+            <option value="login_success">Connexion réussie</option>
+            <option value="login_failed">Connexion échouée</option>
+            <option value="account_created">Compte créé</option>
             <option value="inscription_created">Inscription</option>
-            <option value="inscription_cancelled">Desinscription</option>
+            <option value="inscription_cancelled">Désinscription</option>
             <option value="password_reset_requested">Demande reset MDP</option>
-            <option value="password_reset_completed">Reset MDP effectue</option>
-            <option value="email_inscription_confirmation,email_cancellation_confirmation">Emails envoyes</option>
+            <option value="password_reset_completed">Reset MDP effectué</option>
+            <option value="email_inscription_confirmation,email_cancellation_confirmation">Emails envoyés</option>
             <option value="admin_impersonate">Vue joueur (admin)</option>
           </select>
         </div>
@@ -233,7 +233,7 @@
           <button class="export-btn" onclick="exportExcel()" style="margin-top: auto;">Exporter Excel</button>
         </div>
         <div class="filter-group admin-only" style="display: none;">
-          <button onclick="openResetModal()" style="margin-top: auto; background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Reinitialiser</button>
+          <button onclick="openResetModal()" style="margin-top: auto; background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Réinitialiser</button>
         </div>
         <div class="filter-group">
           <label>Licence</label>
@@ -249,7 +249,7 @@
 
     <!-- Pagination -->
     <div class="pagination">
-      <button id="prevBtn" onclick="prevPage()" disabled>Precedent</button>
+      <button id="prevBtn" onclick="prevPage()" disabled>Précédent</button>
       <span id="pageInfo">Page 1</span>
       <button id="nextBtn" onclick="nextPage()">Suivant</button>
     </div>
@@ -257,8 +257,8 @@
     <!-- Reset Modal -->
     <div id="resetModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
       <div style="background: white; padding: 25px; border-radius: 10px; max-width: 450px; width: 90%;">
-        <h3 style="margin-top: 0; color: #dc3545;">Reinitialiser les logs</h3>
-        <p style="color: #666; font-size: 14px;">Les logs seront automatiquement sauvegardes en CSV avant suppression.</p>
+        <h3 style="margin-top: 0; color: #dc3545;">Réinitialiser les logs</h3>
+        <p style="color: #666; font-size: 14px;">Les logs seront automatiquement sauvegardés en Excel avant suppression.</p>
 
         <div style="margin: 20px 0;">
           <label style="display: block; margin-bottom: 15px; cursor: pointer;">
@@ -269,14 +269,14 @@
           <label style="display: block; cursor: pointer;">
             <input type="radio" name="resetType" value="range" style="margin-right: 8px;">
             <strong>Entre 2 dates</strong>
-            <span style="display: block; margin-left: 22px; font-size: 13px; color: #666;">Supprimer les logs d'une periode</span>
+            <span style="display: block; margin-left: 22px; font-size: 13px; color: #666;">Supprimer les logs d'une période</span>
           </label>
         </div>
 
         <div id="dateRangeInputs" style="display: none; margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 6px;">
           <div style="display: flex; gap: 15px;">
             <div style="flex: 1;">
-              <label style="font-size: 12px; color: #666;">Date debut</label>
+              <label style="font-size: 12px; color: #666;">Date début</label>
               <input type="date" id="resetStartDate" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             <div style="flex: 1;">
@@ -337,14 +337,14 @@
     function formatActionType(type) {
       const labels = {
         'login_success': 'Connexion',
-        'login_failed': 'Echec connexion',
+        'login_failed': 'Échec connexion',
         'account_created': 'Nouveau compte',
         'inscription_created': 'Inscription',
-        'inscription_cancelled': 'Desinscription',
+        'inscription_cancelled': 'Désinscription',
         'password_reset_requested': 'Demande reset MDP',
         'password_reset_completed': 'Reset MDP',
         'email_inscription_confirmation': 'Email inscription',
-        'email_cancellation_confirmation': 'Email desinscription',
+        'email_cancellation_confirmation': 'Email désinscription',
         'admin_impersonate': 'Vue joueur (admin)'
       };
       return labels[type] || type;
@@ -446,7 +446,7 @@
           <tr>
             <td>${formatDateTime(log.created_at)}</td>
             <td><span class="action-badge ${log.action_type}">${formatActionType(log.action_type)}</span></td>
-            <td class="${statusClass}">${log.action_status === 'success' ? 'OK' : 'Echec'}</td>
+            <td class="${statusClass}">${log.action_status === 'success' ? 'OK' : 'Échec'}</td>
             <td>${log.user_name || log.licence || '-'}</td>
             <td>${log.user_email || '-'}</td>
             <td>${log.target_name || '-'}</td>
@@ -486,7 +486,7 @@
     // Export to Excel
     function exportExcel() {
       if (currentLogs.length === 0) {
-        alert('Aucune donnee a exporter');
+        alert('Aucune donnée à exporter');
         return;
       }
 
@@ -547,14 +547,14 @@
         startDate = document.getElementById('resetStartDate').value;
         endDate = document.getElementById('resetEndDate').value;
         if (!startDate || !endDate) {
-          alert('Veuillez selectionner les dates de debut et fin.');
+          alert('Veuillez sélectionner les dates de début et fin.');
           return;
         }
         // Add time to end date to include the full day
         endDate = endDate + 'T23:59:59';
       }
 
-      if (!confirm('Cette action va:\n1. Telecharger une sauvegarde CSV des logs\n2. Supprimer les logs selectionnes\n\nContinuer ?')) {
+      if (!confirm('Cette action va :\n1. Télécharger une sauvegarde Excel des logs\n2. Supprimer les logs sélectionnés\n\nContinuer ?')) {
         return;
       }
 
@@ -569,14 +569,14 @@
         });
 
         if (!fetchResponse.ok) {
-          throw new Error('Impossible de recuperer les logs');
+          throw new Error('Impossible de récupérer les logs');
         }
 
         const data = await fetchResponse.json();
         const logsToDelete = data.logs;
 
         if (logsToDelete.length === 0) {
-          alert('Aucun log a supprimer pour cette periode.');
+          alert('Aucun log à supprimer pour cette période.');
           closeResetModal();
           return;
         }
@@ -631,7 +631,7 @@
 
         if (deleteResponse.ok) {
           const result = await deleteResponse.json();
-          alert(`Sauvegarde telechargee.\n${result.deleted} logs supprimes.`);
+          alert(`Sauvegarde téléchargée.\n${result.deleted} logs supprimés.`);
           closeResetModal();
           loadStats();
           loadLogs();
@@ -641,7 +641,7 @@
         }
       } catch (error) {
         console.error('Error during reset:', error);
-        alert('Erreur lors de la reinitialisation: ' + error.message);
+        alert('Erreur lors de la réinitialisation : ' + error.message);
       }
     }
 
