@@ -17,8 +17,8 @@ const { authenticateToken, requireViewer, requireAdmin } = require('./auth');
  * - startDate: Filter from this date (ISO string)
  * - endDate: Filter to this date (ISO string)
  * - actionType: Filter by action type (comma-separated for multiple)
+ * - name: Filter by player name (partial match)
  * - licence: Filter by player licence
- * - email: Filter by email (partial match)
  * - limit: Max records to return (default 100)
  * - offset: Pagination offset (default 0)
  */
@@ -28,8 +28,8 @@ router.get('/', authenticateToken, requireViewer, async (req, res) => {
       startDate,
       endDate,
       actionType,
+      name,
       licence,
-      email,
       limit = 100,
       offset = 0
     } = req.query;
@@ -75,15 +75,15 @@ router.get('/', authenticateToken, requireViewer, async (req, res) => {
       paramIndex++;
     }
 
-    if (licence) {
-      query += ` AND licence = $${paramIndex}`;
-      params.push(licence);
+    if (name) {
+      query += ` AND user_name ILIKE $${paramIndex}`;
+      params.push(`%${name}%`);
       paramIndex++;
     }
 
-    if (email) {
-      query += ` AND user_email ILIKE $${paramIndex}`;
-      params.push(`%${email}%`);
+    if (licence) {
+      query += ` AND licence = $${paramIndex}`;
+      params.push(licence);
       paramIndex++;
     }
 
