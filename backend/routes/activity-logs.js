@@ -7,7 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db-postgres');
-const { authenticateToken, requireViewer } = require('./auth');
+const { authenticateToken, requireViewer, requireAdmin } = require('./auth');
 
 /**
  * GET /api/activity-logs
@@ -192,6 +192,26 @@ router.get('/stats', authenticateToken, requireViewer, async (req, res) => {
   } catch (error) {
     console.error('Get activity stats error:', error);
     res.status(500).json({ error: 'Failed to get activity stats' });
+  }
+});
+
+/**
+ * DELETE /api/activity-logs
+ * Clear all activity logs (admin only)
+ * Used at the beginning of a new season
+ */
+router.delete('/', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await db.query('DELETE FROM activity_logs');
+    console.log(`Activity logs cleared by admin: ${req.user.email}`);
+    res.json({
+      success: true,
+      message: 'Tous les logs ont été supprimés',
+      deleted: result.rowCount
+    });
+  } catch (error) {
+    console.error('Clear activity logs error:', error);
+    res.status(500).json({ error: 'Failed to clear activity logs' });
   }
 });
 
