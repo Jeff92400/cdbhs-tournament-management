@@ -214,11 +214,15 @@
             ? `<button onclick="deleteTournament(${tournament.id}, '${tournament.display_name} - T${tournament.tournament_number} - ${tournament.season}')" title="Supprimer" style="background: #dc3545; color: white; border: none; padding: 4px 6px; cursor: pointer; border-radius: 3px; font-size: 12px;">🗑️</button>`
             : '';
 
-          // Email status indicator - clear checkbox style
+          // Email status indicator - clear checkbox style (admin only for actions)
           const emailSent = tournament.results_email_sent;
-          const emailStatusBtn = emailSent
-            ? `<button onclick="toggleEmailStatus(${tournament.id}, false)" title="Résultats envoyés${tournament.results_email_sent_at ? ' le ' + new Date(tournament.results_email_sent_at).toLocaleDateString('fr-FR') : ''}" style="background: #28a745; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 14px; font-weight: bold;">☑</button>`
-            : `<button onclick="sendResultsEmail(${tournament.id})" title="Résultats non envoyés - Cliquez pour envoyer" style="background: #007bff; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 14px; font-weight: bold;">☐</button>`;
+          const emailStatusBtn = userRole === 'admin'
+            ? (emailSent
+              ? `<button onclick="toggleEmailStatus(${tournament.id}, false)" title="Résultats envoyés${tournament.results_email_sent_at ? ' le ' + new Date(tournament.results_email_sent_at).toLocaleDateString('fr-FR') : ''}" style="background: #28a745; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 14px; font-weight: bold;">☑</button>`
+              : `<button onclick="sendResultsEmail(${tournament.id})" title="Résultats non envoyés - Cliquez pour envoyer" style="background: #007bff; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 14px; font-weight: bold;">☐</button>`)
+            : (emailSent
+              ? `<span title="Résultats envoyés${tournament.results_email_sent_at ? ' le ' + new Date(tournament.results_email_sent_at).toLocaleDateString('fr-FR') : ''}" style="color: #28a745; font-size: 14px; font-weight: bold;">☑</span>`
+              : `<span title="Résultats non envoyés" style="color: #6c757d; font-size: 14px;">☐</span>`);
 
           row.innerHTML = `
             <td>${tournament.display_name}</td>
