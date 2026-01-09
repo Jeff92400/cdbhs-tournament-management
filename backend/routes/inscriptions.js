@@ -236,17 +236,15 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
           continue;
         }
 
-        // Check if a Player App inscription already exists for this licence + tournament
-        // If so, skip this record to avoid duplicates (Player App takes priority)
-        const existingPlayerApp = await new Promise((resolve, reject) => {
+        // Check if an inscription already exists for this licence + tournament
+        const existingInscription = await new Promise((resolve, reject) => {
           db.get(
-            `SELECT i.inscription_id, t.nom as tournoi_nom, p.nom as player_nom, p.prenom as player_prenom
+            `SELECT i.inscription_id, i.source, t.nom as tournoi_nom, p.nom as player_nom, p.prenom as player_prenom
              FROM inscriptions i
              LEFT JOIN tournoi_ext t ON i.tournoi_id = t.tournoi_id
              LEFT JOIN players p ON REPLACE(UPPER(p.licence), ' ', '') = REPLACE(UPPER(i.licence), ' ', '')
              WHERE REPLACE(UPPER(i.licence), ' ', '') = REPLACE(UPPER($1), ' ', '')
-             AND i.tournoi_id = $2
-             AND i.source = 'player_app'`,
+             AND i.tournoi_id = $2`,
             [licence, tournoiId],
             (err, row) => {
               if (err) reject(err);
@@ -255,52 +253,55 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
           );
         });
 
-        if (existingPlayerApp) {
-          // Player already registered via Player App - skip IONOS import for this inscription
-          skipped++;
-          const playerName = existingPlayerApp.player_nom
-            ? `${existingPlayerApp.player_prenom || ''} ${existingPlayerApp.player_nom}`.trim()
-            : null;
-          skippedDetails.push({
-            licence,
-            playerName,
-            tournoiId,
-            tournoiNom: existingPlayerApp.tournoi_nom || `Tournoi ${tournoiId}`
+        if (existingInscription) {
+          if (existingInscription.source === 'player_app') {
+            // Player already registered via Player App - skip IONOS import
+            skipped++;
+            const playerName = existingInscription.player_nom
+              ? `${existingInscription.player_prenom || ''} ${existingInscription.player_nom}`.trim()
+              : null;
+            skippedDetails.push({
+              licence,
+              playerName,
+              tournoiId,
+              tournoiNom: existingInscription.tournoi_nom || `Tournoi ${tournoiId}`
+            });
+            continue;
+          }
+
+          // Existing IONOS record - update it (even if different inscription_id)
+          const updateQuery = `
+            UPDATE inscriptions SET
+              joueur_id = $1,
+              timestamp = $2,
+              email = $3,
+              telephone = $4,
+              convoque = GREATEST(convoque, $5),
+              forfait = GREATEST(forfait, $6),
+              commentaire = $7
+            WHERE inscription_id = $8
+          `;
+          await new Promise((resolve, reject) => {
+            db.run(updateQuery, [joueurId, timestamp, email, telephone, convoque, forfait, commentaire, existingInscription.inscription_id], function(err) {
+              if (err) reject(err);
+              else resolve();
+            });
           });
-          continue;
+          updated++;
+        } else {
+          // New inscription - insert
+          const insertQuery = `
+            INSERT INTO inscriptions (inscription_id, joueur_id, tournoi_id, timestamp, email, telephone, licence, convoque, forfait, commentaire, source)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ionos')
+          `;
+          await new Promise((resolve, reject) => {
+            db.run(insertQuery, [inscriptionId, joueurId, tournoiId, timestamp, email, telephone, licence, convoque, forfait, commentaire], function(err) {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+          imported++;
         }
-
-        // Note: convoque uses GREATEST to preserve convoque=1 if already set (don't overwrite with 0 from import)
-        // convocation_* fields are NOT updated by import - they're set when sending convocation emails
-        // source='ionos' marks this as IONOS import; Player App records (source='player_app') are protected
-        const query = `
-          INSERT INTO inscriptions (inscription_id, joueur_id, tournoi_id, timestamp, email, telephone, licence, convoque, forfait, commentaire, source)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ionos')
-          ON CONFLICT(inscription_id) DO UPDATE SET
-            joueur_id = EXCLUDED.joueur_id,
-            tournoi_id = EXCLUDED.tournoi_id,
-            timestamp = EXCLUDED.timestamp,
-            email = EXCLUDED.email,
-            telephone = EXCLUDED.telephone,
-            licence = EXCLUDED.licence,
-            convoque = GREATEST(inscriptions.convoque, EXCLUDED.convoque),
-            forfait = GREATEST(inscriptions.forfait, EXCLUDED.forfait),
-            commentaire = EXCLUDED.commentaire
-          WHERE inscriptions.source IS NULL OR inscriptions.source != 'player_app'
-        `;
-
-        await new Promise((resolve, reject) => {
-          db.run(query, [inscriptionId, joueurId, tournoiId, timestamp, email, telephone, licence, convoque, forfait, commentaire], function(err) {
-            if (err) {
-              reject(err);
-            } else {
-              if (this.changes > 0) updated++;
-              else imported++;
-              resolve();
-            }
-          });
-        });
-        imported++;
         // Track season imports
         if (getSeasonForTournoi(tournoiId) === currentSeason) {
           seasonImported++;
