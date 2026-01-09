@@ -197,11 +197,21 @@
         const data = await response.json();
 
         if (response.ok) {
-          let message = `Import réussi ! ${data.imported} inscriptions importées.`;
+          let message = `<strong>Import réussi !</strong><br>`;
+          message += `• ${data.imported} inscriptions importées<br>`;
+          message += `• ${data.updated || 0} mises à jour<br>`;
           if (data.skipped > 0) {
-            message += ` ${data.skipped} ignorées (déjà inscrit via Player App).`;
+            message += `• <span style="color: #e67e22;">${data.skipped} ignorées</span> (déjà inscrit via Player App)`;
+            if (data.skippedDetails && data.skippedDetails.length > 0) {
+              message += `<div style="margin-top: 10px; padding: 10px; background: #fff3e0; border-radius: 4px; font-size: 0.9em;">`;
+              message += `<strong>Détails des inscriptions ignorées :</strong><ul style="margin: 5px 0 0 20px; padding: 0;">`;
+              data.skippedDetails.forEach(s => {
+                message += `<li>Licence <strong>${s.licence}</strong> - ${s.tournoiNom}</li>`;
+              });
+              message += `</ul></div>`;
+            }
           }
-          successDiv.textContent = message;
+          successDiv.innerHTML = message;
           successDiv.style.display = 'block';
           document.getElementById('inscriptionStats').style.display = 'block';
           document.getElementById('inscriptionCount').textContent = data.imported;

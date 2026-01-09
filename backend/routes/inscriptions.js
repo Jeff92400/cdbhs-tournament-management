@@ -183,6 +183,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
     let imported = 0;
     let updated = 0;
     let skipped = 0;
+    let skippedDetails = [];
     let errors = [];
 
     for (const record of records) {
@@ -208,10 +209,12 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
         // If so, skip this record to avoid duplicates (Player App takes priority)
         const existingPlayerApp = await new Promise((resolve, reject) => {
           db.get(
-            `SELECT inscription_id FROM inscriptions
-             WHERE REPLACE(UPPER(licence), ' ', '') = REPLACE(UPPER($1), ' ', '')
-             AND tournoi_id = $2
-             AND source = 'player_app'`,
+            `SELECT i.inscription_id, t.nom as tournoi_nom
+             FROM inscriptions i
+             LEFT JOIN tournoi_ext t ON i.tournoi_id = t.tournoi_id
+             WHERE REPLACE(UPPER(i.licence), ' ', '') = REPLACE(UPPER($1), ' ', '')
+             AND i.tournoi_id = $2
+             AND i.source = 'player_app'`,
             [licence, tournoiId],
             (err, row) => {
               if (err) reject(err);
@@ -223,6 +226,11 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
         if (existingPlayerApp) {
           // Player already registered via Player App - skip IONOS import for this inscription
           skipped++;
+          skippedDetails.push({
+            licence,
+            tournoiId,
+            tournoiNom: existingPlayerApp.tournoi_nom || `Tournoi ${tournoiId}`
+          });
           continue;
         }
 
@@ -279,7 +287,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
       imported,
       updated,
       skipped,
-      skippedReason: skipped > 0 ? 'Inscriptions via Player App (non écrasées)' : undefined,
+      skippedDetails: skippedDetails.length > 0 ? skippedDetails : undefined,
       total: records.length,
       errors: errors.length > 0 ? errors : undefined
     });
