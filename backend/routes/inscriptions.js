@@ -239,7 +239,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
         // Check if an inscription already exists for this licence + tournament
         const existingInscription = await new Promise((resolve, reject) => {
           db.get(
-            `SELECT i.inscription_id, i.source, t.nom as tournoi_nom, p.nom as player_nom, p.prenom as player_prenom
+            `SELECT i.inscription_id, i.source, t.nom as tournoi_nom, p.last_name as player_nom, p.first_name as player_prenom
              FROM inscriptions i
              LEFT JOIN tournoi_ext t ON i.tournoi_id = t.tournoi_id
              LEFT JOIN players p ON REPLACE(UPPER(p.licence), ' ', '') = REPLACE(UPPER(i.licence), ' ', '')
