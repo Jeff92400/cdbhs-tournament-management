@@ -141,6 +141,63 @@
       padding: 40px;
       color: #666;
     }
+    .auto-refresh-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: auto;
+    }
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 22px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .3s;
+      border-radius: 22px;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: #28a745;
+    }
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(22px);
+    }
+    .auto-refresh-label {
+      font-size: 12px;
+      color: #666;
+    }
+    .refresh-indicator {
+      display: none;
+      font-size: 11px;
+      color: #28a745;
+      margin-left: 5px;
+    }
+    .refresh-indicator.active {
+      display: inline;
+    }
     .export-btn {
       background: #28a745;
       color: white;
@@ -238,6 +295,16 @@
         <div class="filter-group">
           <label>Licence</label>
           <input type="text" id="filterLicence" placeholder="Ex: 123456">
+        </div>
+        <div class="filter-group">
+          <div class="auto-refresh-toggle">
+            <label class="toggle-switch">
+              <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="auto-refresh-label">Auto-refresh (30s)</span>
+            <span id="refreshIndicator" class="refresh-indicator">●</span>
+          </div>
         </div>
       </div>
     </div>
@@ -652,6 +719,42 @@
 
     document.getElementById('filterEndDate').value = today.toISOString().slice(0, 10);
     document.getElementById('filterStartDate').value = lastWeek.toISOString().slice(0, 10);
+
+    // Auto-refresh functionality
+    let autoRefreshInterval = null;
+    const REFRESH_INTERVAL = 30000; // 30 seconds
+
+    function toggleAutoRefresh() {
+      const toggle = document.getElementById('autoRefreshToggle');
+      const indicator = document.getElementById('refreshIndicator');
+
+      if (toggle.checked) {
+        // Start auto-refresh
+        autoRefreshInterval = setInterval(() => {
+          indicator.classList.add('active');
+          loadStats();
+          loadLogs();
+          // Flash indicator
+          setTimeout(() => indicator.classList.remove('active'), 1000);
+        }, REFRESH_INTERVAL);
+        indicator.classList.add('active');
+        setTimeout(() => indicator.classList.remove('active'), 1000);
+      } else {
+        // Stop auto-refresh
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+        }
+        indicator.classList.remove('active');
+      }
+    }
+
+    // Stop auto-refresh when leaving the page
+    window.addEventListener('beforeunload', () => {
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+      }
+    });
 
     // Initial load
     loadStats();
