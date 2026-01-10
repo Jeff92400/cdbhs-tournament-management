@@ -1394,7 +1394,7 @@ router.post('/inscription-cancellation', async (req, res) => {
 
 // Send contact message from Player App (called by Player App)
 router.post('/contact', async (req, res) => {
-  const { player_email, player_name, player_licence, player_club, subject, message, api_key } = req.body;
+  const { player_email, player_name, player_licence, player_club, subject, message, api_key, attachments } = req.body;
 
   // Verify API key (shared secret between apps)
   if (api_key !== process.env.PLAYER_APP_API_KEY) {
@@ -1413,12 +1413,25 @@ router.post('/contact', async (req, res) => {
   try {
     const contactEmail = await getContactEmail();
 
+    // Prepare email attachments
+    const emailAttachments = (attachments || []).map(att => ({
+      filename: att.filename,
+      content: Buffer.from(att.content, 'base64')
+    }));
+
+    const attachmentInfo = emailAttachments.length > 0
+      ? `<div style="margin-top: 15px; padding: 10px; background: #e3f2fd; border-radius: 4px;">
+           <p style="margin: 0; color: #1565c0;"><strong>📎 ${emailAttachments.length} pièce(s) jointe(s)</strong></p>
+         </div>`
+      : '';
+
     // Send email to CDBHS
     await resend.emails.send({
       from: 'CDBHS Espace Joueur <noreply@cdbhs.net>',
       replyTo: player_email,
       to: [contactEmail],
       subject: `[Espace Joueur] ${subject}`,
+      attachments: emailAttachments,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
@@ -1435,6 +1448,7 @@ router.post('/contact', async (req, res) => {
             <div style="background: white; padding: 15px; border-radius: 4px;">
               <h3 style="margin-top: 0;">Message :</h3>
               <p style="white-space: pre-wrap;">${message}</p>
+              ${attachmentInfo}
             </div>
           </div>
           <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
