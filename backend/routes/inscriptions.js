@@ -1878,7 +1878,8 @@ router.post('/relances/mark-by-type', authenticateToken, async (req, res) => {
 
   try {
     const today = new Date();
-    const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+    // Use 4 weeks window to catch tournaments that might be relanced earlier
+    const fourWeeksFromNow = new Date(today.getTime() + 28 * 24 * 60 * 60 * 1000);
 
     // Determine tournament number based on relanceType
     let tournamentNamePattern;
@@ -1903,7 +1904,7 @@ router.post('/relances/mark-by-type', authenticateToken, async (req, res) => {
           AND debut >= $5 AND debut <= $6
         ORDER BY debut ASC
         LIMIT 1
-      `, [mode, categoryUpper, categoryUpper + ' %', tournamentNamePattern, today.toISOString().split('T')[0], twoWeeksFromNow.toISOString().split('T')[0]], (err, row) => {
+      `, [mode, categoryUpper, categoryUpper + ' %', tournamentNamePattern, today.toISOString().split('T')[0], fourWeeksFromNow.toISOString().split('T')[0]], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });

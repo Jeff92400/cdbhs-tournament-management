@@ -3027,7 +3027,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             try {
               // First try by tournoiId if coming from dashboard
               if (window.currentRelanceTournoiId) {
-                await fetch(`${API_URL}/inscriptions/relances/${window.currentRelanceTournoiId}`, {
+                const markByIdResponse = await fetch(`${API_URL}/inscriptions/relances/${window.currentRelanceTournoiId}`, {
                   method: 'POST',
                   headers: {
                     'Authorization': `Bearer ${token}`,
@@ -3037,7 +3037,11 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
                     recipients_count: selectedCount
                   })
                 });
-                console.log('Tournament relance marked as sent (by tournoiId)');
+                if (markByIdResponse.ok) {
+                  console.log('Tournament relance marked as sent (by tournoiId)');
+                } else {
+                  console.error('Failed to mark relance by tournoiId:', await markByIdResponse.text());
+                }
                 window.currentRelanceTournoiId = null;
               } else {
                 // Otherwise try to find and mark by mode/category/type
