@@ -289,10 +289,21 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
           });
           updated++;
         } else {
-          // New inscription - insert
+          // New inscription - insert (or update if inscription_id already exists with different licence/tournoi)
           const insertQuery = `
             INSERT INTO inscriptions (inscription_id, joueur_id, tournoi_id, timestamp, email, telephone, licence, convoque, forfait, commentaire, source)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ionos')
+            ON CONFLICT (inscription_id) DO UPDATE SET
+              joueur_id = EXCLUDED.joueur_id,
+              tournoi_id = EXCLUDED.tournoi_id,
+              timestamp = EXCLUDED.timestamp,
+              email = EXCLUDED.email,
+              telephone = EXCLUDED.telephone,
+              licence = EXCLUDED.licence,
+              convoque = GREATEST(inscriptions.convoque, EXCLUDED.convoque),
+              forfait = GREATEST(inscriptions.forfait, EXCLUDED.forfait),
+              commentaire = EXCLUDED.commentaire,
+              source = 'ionos'
           `;
           await new Promise((resolve, reject) => {
             db.run(insertQuery, [inscriptionId, joueurId, tournoiId, timestamp, email, telephone, licence, convoque, forfait, commentaire], function(err) {
