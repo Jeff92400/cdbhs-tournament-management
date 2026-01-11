@@ -1119,7 +1119,8 @@ Le CDBHS`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
-          <h1 style="margin: 0; font-size: 24px;">CDBHS - Rappel Organisation</h1>
+          <img src="https://cdbhs.net/images/logo-cdbhs.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+          <h1 style="margin: 0; font-size: 24px;">Comite Departemental Billard Hauts-de-Seine</h1>
         </div>
         <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
           ${bodyHtml}
