@@ -552,6 +552,37 @@
           </div>
         </div>
       </div>
+
+      <!-- Historique Relances -->
+      <div class="card" style="margin-top: 20px;">
+        <h3 style="display: flex; align-items: center; justify-content: space-between;">
+          Historique Relances
+          <button class="btn" onclick="loadRelanceHistory()" style="background: #6c757d; padding: 8px 15px; font-size: 12px;">
+            Actualiser
+          </button>
+        </h3>
+        <p style="color: #666; margin-bottom: 15px;">
+          Suivi des relances envoyées cette saison.
+        </p>
+        <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+            <thead style="background: #f8f9fa; position: sticky; top: 0;">
+              <tr>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Tournoi</th>
+                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Mode</th>
+                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Catégorie</th>
+                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Date Tournoi</th>
+                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Relance Envoyée</th>
+                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Par</th>
+                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #ddd;">Destinataires</th>
+              </tr>
+            </thead>
+            <tbody id="relanceHistoryBody">
+              <tr><td colspan="7" style="padding: 20px; text-align: center; color: #666;">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- TAB: Tournament Results -->
@@ -2487,6 +2518,56 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       }
     }
 
+    async function loadRelanceHistory() {
+      const tbody = document.getElementById('relanceHistoryBody');
+      tbody.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #666;">Chargement...</td></tr>';
+
+      try {
+        const response = await fetch(`${API_URL}/inscriptions/relances`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          throw new Error('Erreur lors du chargement');
+        }
+
+        const relances = await response.json();
+
+        if (relances.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #666;">Aucune relance envoyée cette saison</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = relances.map(r => {
+          const sentDate = new Date(r.relance_sent_at);
+          const tournamentDate = r.debut ? new Date(r.debut) : null;
+
+          return `
+            <tr style="border-bottom: 1px solid #eee;">
+              <td style="padding: 10px;">${r.nom || '-'}</td>
+              <td style="padding: 10px; text-align: center;">${r.mode || '-'}</td>
+              <td style="padding: 10px; text-align: center;">${r.categorie || '-'}</td>
+              <td style="padding: 10px; text-align: center;">${tournamentDate ? tournamentDate.toLocaleDateString('fr-FR') : '-'}</td>
+              <td style="padding: 10px; text-align: center;">
+                ${sentDate.toLocaleDateString('fr-FR')}
+                <span style="color: #666; font-size: 11px;">${sentDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+              </td>
+              <td style="padding: 10px; text-align: center;">${r.sent_by || '-'}</td>
+              <td style="padding: 10px; text-align: center;">
+                <span style="background: #e7f3ff; padding: 3px 8px; border-radius: 12px; font-weight: bold;">
+                  ${r.recipients_count || 0}
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+      } catch (error) {
+        console.error('Error loading relance history:', error);
+        tbody.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #dc3545;">Erreur lors du chargement</td></tr>';
+      }
+    }
+
     function updateRelanceCategoryFilter() {
       const mode = document.getElementById('relanceModeFilter').value;
       const categorySelect = document.getElementById('relanceCategoryFilter');
@@ -3065,6 +3146,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
                   console.log('No matching tournament found to mark');
                 }
               }
+              // Refresh the history table
+              loadRelanceHistory();
             } catch (e) {
               console.error('Error marking relance as sent:', e);
             }
@@ -4354,6 +4437,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       await loadCcEmail();
       await loadResultsTemplate();
       await loadSummaryEmailSetting();
+      await loadRelanceHistory();
 
       // Check for relance action from URL params (from dashboard alert)
       await handleRelanceFromDashboard();
