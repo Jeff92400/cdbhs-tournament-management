@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CDBHS Tournament Management backend - a French billiards (Comité Départemental de Billard des Hauts-de-Seine) tournament ranking system. Manages player registrations, tournament results, rankings across 13 categories, and email communications.
 
+**Related App:** Player App (Espace Joueur) in separate repo `cdbhs-player-app` - shares the same database.
+
 ## Commands
 
 ```bash
@@ -42,7 +44,7 @@ npm run backup
 |-------|---------|
 | `auth.js` | JWT authentication, password reset with 6-digit codes, user management |
 | `tournaments.js` | CSV import of tournament results, category management |
-| `inscriptions.js` | Player registrations from external IONOS system, convocation management |
+| `inscriptions.js` | Player registrations (dual source: IONOS CSV + Player App), convocation management |
 | `email.js` | Convocation emails, tournament results emails via Resend API |
 | `emailing.js` | Mass emailing campaigns, scheduled emails, contact sync |
 | `player-accounts.js` | Player App (Espace Joueur) account management |
@@ -54,7 +56,10 @@ npm run backup
 - `players`: FFB-licensed players with rankings in 4 disciplines (Libre, Cadre, Bande, 3 Bandes)
 - `categories`: 13 competition categories by game type and level
 - `tournaments` / `tournament_results`: Internal tournament tracking (T1, T2, T3 per category)
-- `tournoi_ext` / `inscriptions`: External tournament definitions and player registrations (IONOS import)
+- `tournoi_ext` / `inscriptions`: External tournament definitions and player registrations
+  - `inscriptions.source`: `'ionos'` (CSV import) or `'player_app'` (self-registration)
+  - Unique constraint on `(normalized_licence, tournoi_id)` prevents duplicate registrations
+  - IONOS will be decommissioned; Player App will become sole source
 - `player_accounts`: Separate auth for Player App with `player_app_role` (joueur/admin)
 - `email_campaigns` / `scheduled_emails`: Email tracking and scheduling
 
