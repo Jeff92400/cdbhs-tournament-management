@@ -429,12 +429,24 @@
         <div style="flex: 1; min-width: 300px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
           <h4 style="margin: 0 0 10px 0; color: #1F4788;">📊 Recalculer les moyennes</h4>
           <p style="margin: 0 0 15px 0; color: #666; font-size: 14px;">
-            Recalcule la moyenne (points ÷ reprises) pour tous les résultats de tournois.
-            Utile si des données ont été importées avec des moyennes incorrectes.
+            Recalcule la moyenne (points ÷ reprises) pour les résultats de tournois.
           </p>
-          <button onclick="recalculateMoyennes()" class="btn" style="background: #17a2b8;">
-            🔄 Recalculer toutes les moyennes
+
+          <!-- All tournaments -->
+          <button onclick="recalculateMoyennes()" class="btn" style="background: #17a2b8; margin-bottom: 15px; width: 100%;">
+            🔄 Recalculer TOUS les tournois
           </button>
+
+          <!-- Specific tournament -->
+          <div style="border-top: 1px solid #dee2e6; padding-top: 15px; margin-top: 5px;">
+            <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #666;">Ou sélectionner un tournoi spécifique :</label>
+            <select id="maintenanceTournamentSelect" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
+              <option value="">-- Chargement... --</option>
+            </select>
+            <button onclick="recalculateSingleTournament()" class="btn" style="background: #6c757d; width: 100%;">
+              🔄 Recalculer ce tournoi
+            </button>
+          </div>
         </div>
 
         <!-- Recalculate Rankings -->
@@ -1872,6 +1884,94 @@
     // ============= END CATEGORY MAPPINGS MANAGEMENT =============
 
     // ============= MAINTENANCE FUNCTIONS =============
+
+    // Load tournaments for maintenance dropdown
+    async function loadMaintenanceTournaments() {
+      try {
+        const response = await fetch(`${API_URL}/tournaments`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const tournaments = await response.json();
+
+        const select = document.getElementById('maintenanceTournamentSelect');
+        select.innerHTML = '<option value="">-- Sélectionner un tournoi --</option>';
+
+        // Sort by date descending
+        tournaments.sort((a, b) => new Date(b.tournament_date) - new Date(a.tournament_date));
+
+        tournaments.forEach(t => {
+          const date = t.tournament_date ? new Date(t.tournament_date).toLocaleDateString('fr-FR') : '';
+          const option = document.createElement('option');
+          option.value = t.id;
+          option.textContent = `${t.display_name} - ${t.tournament_number || ''} (${date})`;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error loading tournaments:', error);
+      }
+    }
+
+    // Load tournaments on page load
+    loadMaintenanceTournaments();
+
+    // Recalculate moyennes for a single tournament
+    async function recalculateSingleTournament() {
+      const select = document.getElementById('maintenanceTournamentSelect');
+      const tournamentId = select.value;
+      const tournamentName = select.options[select.selectedIndex]?.text || '';
+      const msgDiv = document.getElementById('maintenanceMessage');
+
+      if (!tournamentId) {
+        alert('Veuillez sélectionner un tournoi');
+        return;
+      }
+
+      if (!confirm(`Voulez-vous recalculer les moyennes pour :\n\n${tournamentName} ?`)) {
+        return;
+      }
+
+      try {
+        msgDiv.textContent = '⏳ Recalcul en cours...';
+        msgDiv.style.background = '#fff3cd';
+        msgDiv.style.color = '#856404';
+        msgDiv.style.display = 'block';
+
+        const response = await fetch(`${API_URL}/tournaments/${tournamentId}/recalculate-moyennes`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          let detailsHtml = '';
+          if (data.details && data.details.length > 0) {
+            detailsHtml = '<br><br><strong>Corrections :</strong><ul style="margin: 5px 0; padding-left: 20px;">';
+            data.details.forEach(d => {
+              detailsHtml += `<li>${d.player}: ${d.old} → ${d.new}</li>`;
+            });
+            detailsHtml += '</ul>';
+          }
+
+          msgDiv.innerHTML = `✅ <strong>Terminé !</strong><br>
+            ${data.total_checked} résultats vérifiés<br>
+            ${data.updated} moyennes corrigées${detailsHtml}`;
+          msgDiv.style.background = '#d4edda';
+          msgDiv.style.color = '#155724';
+        } else {
+          throw new Error(data.error || 'Erreur lors du recalcul');
+        }
+      } catch (error) {
+        msgDiv.textContent = '❌ Erreur: ' + error.message;
+        msgDiv.style.background = '#f8d7da';
+        msgDiv.style.color = '#721c24';
+      }
+
+      setTimeout(() => { msgDiv.style.display = 'none'; }, 15000);
+    }
 
     // Recalculate all moyennes
     async function recalculateMoyennes() {
