@@ -429,13 +429,12 @@
         if (response.ok) {
           const codes = await response.json();
           const display = document.getElementById('clubCodesDisplay');
-          if (codes && Object.keys(codes).length > 0) {
-            // Filter out '?' and format as "A=ClubName, B=ClubName"
-            const formatted = Object.entries(codes)
-              .filter(([code]) => code !== '?')
-              .map(([code, name]) => `${code}=${name}`)
+          if (codes && Array.isArray(codes) && codes.length > 0) {
+            // Format as "A=ClubName, B=ClubName"
+            const formatted = codes
+              .map(item => `${item.code}=${item.name}`)
               .join(', ');
-            display.textContent = formatted || 'Aucun code configuré';
+            display.textContent = formatted;
           } else {
             display.textContent = 'Aucun code configuré (voir section Clubs)';
           }
