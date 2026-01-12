@@ -254,8 +254,8 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
         });
 
         if (existingInscription) {
-          if (existingInscription.source === 'player_app') {
-            // Player already registered via Player App - skip IONOS import
+          if (existingInscription.source === 'player_app' || existingInscription.source === 'manual') {
+            // Player already registered via Player App or manually - skip IONOS import
             skipped++;
             const playerName = existingInscription.player_nom
               ? `${existingInscription.player_prenom || ''} ${existingInscription.player_nom}`.trim()
@@ -264,7 +264,8 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
               licence,
               playerName,
               tournoiId,
-              tournoiNom: existingInscription.tournoi_nom || `Tournoi ${tournoiId}`
+              tournoiNom: existingInscription.tournoi_nom || `Tournoi ${tournoiId}`,
+              source: existingInscription.source
             });
             continue;
           }
