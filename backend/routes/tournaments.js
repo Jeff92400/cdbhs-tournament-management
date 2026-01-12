@@ -1230,4 +1230,127 @@ router.post('/:id/mark-results-unsent', authenticateToken, (req, res) => {
   );
 });
 
+// Recalculate moyenne for all tournament results (admin only)
+// moyenne = points / reprises
+router.post('/recalculate-moyennes', authenticateToken, async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  try {
+    // Get all results with points and reprises > 0
+    const results = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT id, points, reprises, moyenne
+        FROM tournament_results
+        WHERE reprises > 0 AND points > 0
+      `, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    let updated = 0;
+    let errors = [];
+
+    for (const result of results) {
+      const calculatedMoyenne = parseFloat((result.points / result.reprises).toFixed(3));
+
+      // Only update if different (with small tolerance for floating point)
+      if (Math.abs(calculatedMoyenne - result.moyenne) > 0.001) {
+        try {
+          await new Promise((resolve, reject) => {
+            db.run(
+              `UPDATE tournament_results SET moyenne = $1 WHERE id = $2`,
+              [calculatedMoyenne, result.id],
+              function(err) {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          });
+          updated++;
+        } catch (err) {
+          errors.push({ id: result.id, error: err.message });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Recalculated moyennes for tournament results`,
+      total_checked: results.length,
+      updated: updated,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+  } catch (error) {
+    console.error('Error recalculating moyennes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Recalculate moyenne for a specific tournament (admin only)
+router.post('/:id/recalculate-moyennes', authenticateToken, async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    // Get all results for this tournament with points and reprises > 0
+    const results = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT id, points, reprises, moyenne, player_name
+        FROM tournament_results
+        WHERE tournament_id = $1 AND reprises > 0 AND points > 0
+      `, [id], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    let updated = 0;
+    let details = [];
+
+    for (const result of results) {
+      const calculatedMoyenne = parseFloat((result.points / result.reprises).toFixed(3));
+      const oldMoyenne = result.moyenne;
+
+      // Only update if different (with small tolerance for floating point)
+      if (Math.abs(calculatedMoyenne - oldMoyenne) > 0.001) {
+        await new Promise((resolve, reject) => {
+          db.run(
+            `UPDATE tournament_results SET moyenne = $1 WHERE id = $2`,
+            [calculatedMoyenne, result.id],
+            function(err) {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+        details.push({
+          player: result.player_name,
+          old: oldMoyenne,
+          new: calculatedMoyenne
+        });
+        updated++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Recalculated moyennes for tournament ${id}`,
+      total_checked: results.length,
+      updated: updated,
+      details: details.length > 0 ? details : undefined
+    });
+
+  } catch (error) {
+    console.error('Error recalculating moyennes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
