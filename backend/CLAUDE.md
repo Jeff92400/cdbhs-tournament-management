@@ -47,6 +47,7 @@ npm run backup
 | `inscriptions.js` | Player registrations (dual source: IONOS CSV + Player App), convocation management |
 | `email.js` | Convocation emails, tournament results emails via Resend API |
 | `emailing.js` | Mass emailing campaigns, scheduled emails, contact sync |
+| `announcements.js` | Global announcements for Player App (CRUD + public `/active` endpoint) |
 | `player-accounts.js` | Player App (Espace Joueur) account management |
 | `rankings.js` | Season rankings calculation across categories |
 | `clubs.js` | Club management with aliases for name normalization |
@@ -61,6 +62,7 @@ npm run backup
   - Unique constraint on `(normalized_licence, tournoi_id)` prevents duplicate registrations
   - IONOS will be decommissioned; Player App will become sole source
 - `player_accounts`: Separate auth for Player App with `player_app_role` (joueur/admin)
+- `announcements`: Global notifications displayed in Player App (title, message, type, expiry)
 - `email_campaigns` / `scheduled_emails`: Email tracking and scheduling
 
 ### Authentication

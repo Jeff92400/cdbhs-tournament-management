@@ -17,7 +17,9 @@ CDBHS Tournament Management frontend - Admin dashboard for French billiards tour
 ```
 frontend/
 ├── css/styles.css      # Single shared stylesheet
-├── js/club-utils.js    # Shared club logo utilities
+├── js/
+│   ├── auth-utils.js   # Authentication utilities (401 handling)
+│   └── club-utils.js   # Shared club logo utilities
 ├── images/
 │   ├── clubs/          # Club logo PNGs
 │   └── billiard-icon.png
@@ -39,21 +41,34 @@ frontend/
 | `player-accounts.html` | Player App account management |
 
 ### Authentication Pattern
-All authenticated pages follow this pattern:
-```javascript
-const API_URL = '/api';
-const token = localStorage.getItem('token');
+All authenticated pages include `auth-utils.js` and follow this pattern:
+```html
+<script src="js/auth-utils.js"></script>
+<script>
+  const API_URL = '/api';
 
-// Redirect if not authenticated
-if (!token) {
-  window.location.href = 'login.html';
-}
+  // Redirect if not authenticated
+  if (!requireAuth()) {
+    throw new Error('Not authenticated');
+  }
+  const token = localStorage.getItem('token');
 
-// API calls include Bearer token
-fetch(`${API_URL}/endpoint`, {
-  headers: { 'Authorization': `Bearer ${token}` }
-});
+  // API calls include Bearer token
+  fetch(`${API_URL}/endpoint`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+</script>
 ```
+
+### Auth Utilities (js/auth-utils.js)
+- **Global 401 interceptor**: Automatically catches 401/403 on all `/api/` calls and redirects to login
+- `requireAuth()` - Checks token exists, redirects to login if not
+- `authFetch(url, options)` - Fetch wrapper that adds Authorization header
+- `handleSessionExpired()` - Clears storage, sets message, redirects to login
+- `getCurrentUser()` - Returns `{username, role}` from localStorage
+- `logout()` - Clears auth and redirects to login
+
+**Session expired flow**: When any API returns 401/403, user sees "Votre session a expiré" on login page.
 
 ### Role-Based UI
 - Admin-only elements use class `admin-only`
