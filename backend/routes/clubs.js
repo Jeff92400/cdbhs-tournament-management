@@ -151,7 +151,7 @@ router.get('/:id', authenticateToken, (req, res) => {
 
 // Add new club
 router.post('/', authenticateToken, upload.single('logo'), (req, res) => {
-  const { name, display_name, street, city, zip_code, phone, email } = req.body;
+  const { name, display_name, street, city, zip_code, phone, email, calendar_code } = req.body;
   const logo_filename = req.file ? req.file.filename : null;
 
   if (!name || !display_name) {
@@ -159,8 +159,8 @@ router.post('/', authenticateToken, upload.single('logo'), (req, res) => {
   }
 
   db.run(
-    'INSERT INTO clubs (name, display_name, logo_filename, street, city, zip_code, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [name, display_name, logo_filename, street || null, city || null, zip_code || null, phone || null, email || null],
+    'INSERT INTO clubs (name, display_name, logo_filename, street, city, zip_code, phone, email, calendar_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [name, display_name, logo_filename, street || null, city || null, zip_code || null, phone || null, email || null, calendar_code || null],
     function(err) {
       if (err) {
         if (err.message.includes('UNIQUE')) {
@@ -177,7 +177,8 @@ router.post('/', authenticateToken, upload.single('logo'), (req, res) => {
         city,
         zip_code,
         phone,
-        email
+        email,
+        calendar_code
       });
     }
   );

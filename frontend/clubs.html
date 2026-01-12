@@ -166,6 +166,11 @@
             <label for="clubEmail">Email :</label>
             <input type="email" id="clubEmail" placeholder="contact@club.fr">
           </div>
+          <div class="form-group">
+            <label for="clubCalendarCode">Code calendrier :</label>
+            <input type="text" id="clubCalendarCode" maxlength="2" style="width: 60px; text-transform: uppercase;" placeholder="Ex: A">
+            <small style="color: #666;">Lettre pour l'import Excel</small>
+          </div>
         </div>
         <div class="form-group">
           <label for="clubLogo">Logo du club :</label>
@@ -326,12 +331,17 @@
              </div>`
           : '';
 
+        const calendarCodeHtml = club.calendar_code
+          ? `<div style="font-size: 11px; color: #1565c0; margin-bottom: 5px; background: #e3f2fd; padding: 2px 8px; border-radius: 4px; display: inline-block;">📅 Code: <strong>${club.calendar_code}</strong></div>`
+          : '';
+
         card.innerHTML = `
           ${logoHtml}
           <div class="club-name">${club.name}</div>
           <div class="club-display-name">${club.display_name}</div>
           ${addressHtml}
           ${contactHtml}
+          ${calendarCodeHtml}
           <div class="club-actions">
             <button class="btn-edit" onclick="openEditModal(${club.id})">✏️ Modifier</button>
             <button class="btn-delete" onclick="deleteClub(${club.id}, '${club.display_name.replace(/'/g, "\\'")}')">🗑️ Supprimer</button>
@@ -402,6 +412,7 @@
       formData.append('zip_code', document.getElementById('clubZipCode').value);
       formData.append('phone', document.getElementById('clubPhone').value);
       formData.append('email', document.getElementById('clubEmail').value);
+      formData.append('calendar_code', document.getElementById('clubCalendarCode').value.toUpperCase());
 
       const logoFile = document.getElementById('clubLogo').files[0];
       if (logoFile) {
