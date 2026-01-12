@@ -39,6 +39,18 @@
   <script>
     const API_URL = '/api';
 
+    // Show session expired message if present
+    const sessionExpiredMessage = sessionStorage.getItem('sessionExpiredMessage');
+    if (sessionExpiredMessage) {
+      const errorDiv = document.getElementById('errorMessage');
+      errorDiv.textContent = sessionExpiredMessage;
+      errorDiv.style.display = 'block';
+      errorDiv.style.background = '#fff3cd';
+      errorDiv.style.borderColor = '#ffc107';
+      errorDiv.style.color = '#856404';
+      sessionStorage.removeItem('sessionExpiredMessage');
+    }
+
     // Check if already logged in
     const token = localStorage.getItem('token');
     if (token) {

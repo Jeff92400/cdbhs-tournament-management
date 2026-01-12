@@ -131,14 +131,15 @@
     </div>
   </div>
 
+  <script src="js/auth-utils.js"></script>
   <script>
     const API_URL = '/api';
 
     // Check authentication
-    const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = 'login.html';
+    if (!requireAuth()) {
+      throw new Error('Not authenticated'); // Stop script execution
     }
+    const token = localStorage.getItem('token');
 
     // Check admin role
     const userRole = localStorage.getItem('userRole');

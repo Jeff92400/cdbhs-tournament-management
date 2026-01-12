@@ -573,15 +573,16 @@
     </div>
   </div>
 
+  <script src="js/auth-utils.js"></script>
   <script>
     const API_URL = '/api';
     let currentSeason = '';
 
-    // Authentication
-    const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = 'login.html';
+    // Check authentication
+    if (!requireAuth()) {
+      throw new Error('Not authenticated'); // Stop script execution
     }
+    const token = localStorage.getItem('token');
 
     const userRole = localStorage.getItem('userRole');
     if (userRole === 'admin') {
