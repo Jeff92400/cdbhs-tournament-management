@@ -57,7 +57,7 @@ npm run backup
 - `categories`: 13 competition categories by game type and level
 - `tournaments` / `tournament_results`: Internal tournament tracking (T1, T2, T3 per category)
 - `tournoi_ext` / `inscriptions`: External tournament definitions and player registrations
-  - `inscriptions.source`: `'ionos'` (CSV import) or `'player_app'` (self-registration)
+  - `inscriptions.source`: `'ionos'` (CSV import), `'player_app'` (self-registration), or `'manual'` (admin via Ajouter button)
   - Unique constraint on `(normalized_licence, tournoi_id)` prevents duplicate registrations
   - IONOS will be decommissioned; Player App will become sole source
 - `player_accounts`: Separate auth for Player App with `player_app_role` (joueur/admin)

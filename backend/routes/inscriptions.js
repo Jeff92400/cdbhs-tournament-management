@@ -886,8 +886,8 @@ router.post('/create', authenticateToken, async (req, res) => {
     // Insert the new inscription
     await new Promise((resolve, reject) => {
       db.run(`
-        INSERT INTO inscriptions (inscription_id, tournoi_id, licence, email, telephone, convoque, forfait, commentaire, timestamp)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        INSERT INTO inscriptions (inscription_id, tournoi_id, licence, email, telephone, convoque, forfait, commentaire, timestamp, source)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), 'manual')
       `, [nextId, tournoi_id, cleanLicence, email || null, telephone || null, convoque || 0, forfait || 0, commentaire || null], function(err) {
         if (err) reject(err);
         else resolve({ id: nextId, changes: this.changes });

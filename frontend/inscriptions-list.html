@@ -858,7 +858,8 @@
       // Source filter
       if (sourceFilter) {
         if (sourceFilter === 'manual') {
-          filtered = filtered.filter(i => !i.source || (i.source !== 'ionos' && i.source !== 'player_app'));
+          // Include explicit 'manual' source and legacy records without source
+          filtered = filtered.filter(i => i.source === 'manual' || !i.source || (i.source !== 'ionos' && i.source !== 'player_app'));
         } else {
           filtered = filtered.filter(i => i.source === sourceFilter);
         }
