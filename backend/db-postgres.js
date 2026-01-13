@@ -74,6 +74,8 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS telephone TEXT`);
     // Add player_app_role column for Player App admin management (joueur/admin)
     await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS player_app_role VARCHAR(20) DEFAULT NULL`);
+    // Add player_app_user column to track Player App users (boolean)
+    await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS player_app_user BOOLEAN DEFAULT FALSE`);
 
     // Migrate existing admins from player_accounts.is_admin to players.player_app_role
     await client.query(`
@@ -83,6 +85,15 @@ async function initializeDatabase() {
       WHERE REPLACE(p.licence, ' ', '') = REPLACE(pa.licence, ' ', '')
         AND pa.is_admin = true
         AND (p.player_app_role IS NULL OR p.player_app_role != 'admin')
+    `);
+
+    // Migrate existing player_accounts to mark them as Player App users
+    await client.query(`
+      UPDATE players p
+      SET player_app_user = TRUE
+      FROM player_accounts pa
+      WHERE REPLACE(p.licence, ' ', '') = REPLACE(pa.licence, ' ', '')
+        AND p.player_app_user = FALSE
     `);
 
     // Set all players without a role to 'joueur', except admins

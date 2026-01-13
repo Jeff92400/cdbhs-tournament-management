@@ -205,12 +205,11 @@ router.get('/stats', authenticateToken, requireViewer, async (req, res) => {
       LIMIT 10
     `);
 
-    // Total unique users (all time) - count unique licences who have logged in
+    // Total Player App users - count from players table
     const totalUsers = await db.query(`
-      SELECT COUNT(DISTINCT licence) as count
-      FROM activity_logs
-      WHERE licence IS NOT NULL
-        AND action_type = 'login_success'
+      SELECT COUNT(*) as count
+      FROM players
+      WHERE player_app_user = TRUE
     `);
 
     res.json({
