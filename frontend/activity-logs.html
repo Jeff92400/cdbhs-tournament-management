@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" href="images/billiard-icon.png">
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .filters-card {
       background: white;
@@ -254,6 +255,43 @@
       <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
         <div class="label" style="color: rgba(255,255,255,0.9);">Total inscriptions Player App</div>
         <div class="value" style="color: white;" id="statTotalInscriptions">-</div>
+      </div>
+    </div>
+
+    <!-- Analytics Toggle -->
+    <div style="margin-bottom: 15px;">
+      <button id="toggleAnalytics" onclick="toggleAnalyticsSection()" class="btn" style="background: #6c757d; padding: 8px 16px; font-size: 13px;">
+        📊 Afficher les graphiques
+      </button>
+    </div>
+
+    <!-- Analytics Section (hidden by default) -->
+    <div id="analyticsSection" style="display: none; margin-bottom: 20px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <!-- Activity Trend Chart -->
+        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h4 style="margin: 0 0 10px 0; color: #1F4788; font-size: 14px;">Activité quotidienne (7 derniers jours)</h4>
+          <canvas id="activityChart" height="200"></canvas>
+        </div>
+        <!-- Action Type Breakdown -->
+        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h4 style="margin: 0 0 10px 0; color: #1F4788; font-size: 14px;">Répartition par type d'action</h4>
+          <canvas id="actionChart" height="200"></canvas>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <!-- Peak Hours -->
+        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h4 style="margin: 0 0 10px 0; color: #1F4788; font-size: 14px;">Heures de pointe</h4>
+          <canvas id="hoursChart" height="150"></canvas>
+        </div>
+        <!-- Most Active Players -->
+        <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h4 style="margin: 0 0 10px 0; color: #1F4788; font-size: 14px;">Joueurs les plus actifs (7j)</h4>
+          <div id="activePlayersList" style="max-height: 180px; overflow-y: auto; font-size: 13px;">
+            <div style="color: #666; padding: 10px;">Chargement...</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -818,6 +856,245 @@
     // Initial load
     loadStats();
     loadLogs();
+
+    // ==================== ANALYTICS ====================
+    let activityChart = null;
+    let actionChart = null;
+    let hoursChart = null;
+    let analyticsLoaded = false;
+
+    function toggleAnalyticsSection() {
+      const section = document.getElementById('analyticsSection');
+      const btn = document.getElementById('toggleAnalytics');
+
+      if (section.style.display === 'none') {
+        section.style.display = 'block';
+        btn.textContent = '📊 Masquer les graphiques';
+        btn.style.background = '#1F4788';
+        if (!analyticsLoaded) {
+          loadAnalytics();
+          analyticsLoaded = true;
+        }
+      } else {
+        section.style.display = 'none';
+        btn.textContent = '📊 Afficher les graphiques';
+        btn.style.background = '#6c757d';
+      }
+    }
+
+    async function loadAnalytics() {
+      try {
+        // Fetch stats with daily breakdown
+        const response = await fetch(`${API_URL}/activity-logs/stats?days=7`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) return;
+        const stats = await response.json();
+
+        // 1. Activity Trend Chart (daily)
+        createActivityChart(stats.daily || []);
+
+        // 2. Action Type Breakdown
+        createActionChart(stats.totals || []);
+
+        // 3. Most Active Players
+        displayActivePlayers(stats.activeUsers || []);
+
+        // 4. Peak Hours - need to fetch logs for this
+        await loadPeakHours();
+
+      } catch (error) {
+        console.error('Error loading analytics:', error);
+      }
+    }
+
+    function createActivityChart(dailyData) {
+      const ctx = document.getElementById('activityChart').getContext('2d');
+
+      // Group by date
+      const dateMap = {};
+      dailyData.forEach(d => {
+        const date = d.date.split('T')[0];
+        dateMap[date] = (dateMap[date] || 0) + parseInt(d.count);
+      });
+
+      // Get last 7 days
+      const dates = [];
+      const counts = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        dates.push(date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }));
+        counts.push(dateMap[dateStr] || 0);
+      }
+
+      if (activityChart) activityChart.destroy();
+      activityChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [{
+            label: 'Actions',
+            data: counts,
+            borderColor: '#1F4788',
+            backgroundColor: 'rgba(31, 71, 136, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+          }
+        }
+      });
+    }
+
+    function createActionChart(totals) {
+      const ctx = document.getElementById('actionChart').getContext('2d');
+
+      const labels = [];
+      const data = [];
+      const colors = {
+        'login_success': '#28a745',
+        'login_failed': '#dc3545',
+        'account_created': '#007bff',
+        'inscription_created': '#20c997',
+        'inscription_cancelled': '#ffc107',
+        'password_reset_requested': '#6c757d',
+        'password_reset_completed': '#17a2b8',
+        'admin_impersonate': '#9c27b0'
+      };
+      const bgColors = [];
+
+      totals.forEach(t => {
+        labels.push(formatActionType(t.action_type));
+        data.push(parseInt(t.count));
+        bgColors.push(colors[t.action_type] || '#6c757d');
+      });
+
+      if (actionChart) actionChart.destroy();
+      actionChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: bgColors
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { boxWidth: 12, font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    async function loadPeakHours() {
+      try {
+        // Fetch recent logs to analyze hours
+        const params = new URLSearchParams();
+        const today = new Date();
+        const lastWeek = new Date(today);
+        lastWeek.setDate(lastWeek.getDate() - 7);
+        params.append('startDate', lastWeek.toISOString());
+        params.append('endDate', today.toISOString());
+        params.append('limit', 1000);
+
+        const response = await fetch(`${API_URL}/activity-logs?${params}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+
+        // Count by hour
+        const hourCounts = new Array(24).fill(0);
+        (data.logs || []).forEach(log => {
+          const hour = new Date(log.created_at).getHours();
+          hourCounts[hour]++;
+        });
+
+        createHoursChart(hourCounts);
+      } catch (error) {
+        console.error('Error loading peak hours:', error);
+      }
+    }
+
+    function createHoursChart(hourCounts) {
+      const ctx = document.getElementById('hoursChart').getContext('2d');
+
+      const labels = [];
+      for (let i = 0; i < 24; i++) {
+        labels.push(i + 'h');
+      }
+
+      if (hoursChart) hoursChart.destroy();
+      hoursChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Actions',
+            data: hourCounts,
+            backgroundColor: hourCounts.map((count, i) => {
+              // Highlight peak hours
+              const max = Math.max(...hourCounts);
+              return count === max ? '#dc3545' : count > max * 0.7 ? '#ffc107' : '#1F4788';
+            })
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } },
+            x: { ticks: { font: { size: 9 } } }
+          }
+        }
+      });
+    }
+
+    function displayActivePlayers(users) {
+      const container = document.getElementById('activePlayersList');
+
+      if (!users || users.length === 0) {
+        container.innerHTML = '<div style="color: #666; padding: 10px;">Aucune donnée</div>';
+        return;
+      }
+
+      let html = '<table style="width: 100%; border-collapse: collapse;">';
+      html += '<tr style="background: #f8f9fa; font-size: 11px; color: #666;">';
+      html += '<th style="padding: 6px; text-align: left;">Joueur</th>';
+      html += '<th style="padding: 6px; text-align: center;">Actions</th>';
+      html += '<th style="padding: 6px; text-align: right;">Dernière</th>';
+      html += '</tr>';
+
+      users.slice(0, 10).forEach((user, i) => {
+        const lastActivity = new Date(user.last_activity).toLocaleDateString('fr-FR', {
+          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
+        const bgColor = i % 2 === 0 ? 'white' : '#f8f9fa';
+        html += `<tr style="background: ${bgColor};">`;
+        html += `<td style="padding: 6px;">${user.user_name || user.licence || '-'}</td>`;
+        html += `<td style="padding: 6px; text-align: center; font-weight: bold; color: #1F4788;">${user.action_count}</td>`;
+        html += `<td style="padding: 6px; text-align: right; font-size: 11px; color: #666;">${lastActivity}</td>`;
+        html += '</tr>';
+      });
+
+      html += '</table>';
+      container.innerHTML = html;
+    }
   </script>
 </body>
 </html>
