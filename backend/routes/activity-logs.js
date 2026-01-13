@@ -189,18 +189,19 @@ router.get('/stats', authenticateToken, requireViewer, async (req, res) => {
       ORDER BY count DESC
     `);
 
-    // Recent active users
+    // Recent active users (join with players to get real names)
     const activeUsers = await db.query(`
       SELECT
-        licence,
-        user_email,
-        user_name,
+        a.licence,
+        a.user_email,
+        COALESCE(p.last_name || ' ' || p.first_name, a.user_name, a.licence) as user_name,
         COUNT(*) as action_count,
-        MAX(created_at) as last_activity
-      FROM activity_logs
-      WHERE created_at >= NOW() - INTERVAL '${parseInt(days)} days'
-        AND licence IS NOT NULL
-      GROUP BY licence, user_email, user_name
+        MAX(a.created_at) as last_activity
+      FROM activity_logs a
+      LEFT JOIN players p ON REPLACE(p.licence, ' ', '') = REPLACE(a.licence, ' ', '')
+      WHERE a.created_at >= NOW() - INTERVAL '${parseInt(days)} days'
+        AND a.licence IS NOT NULL
+      GROUP BY a.licence, a.user_email, p.last_name, p.first_name, a.user_name
       ORDER BY action_count DESC
       LIMIT 10
     `);
