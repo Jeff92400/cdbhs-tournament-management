@@ -217,6 +217,9 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
       return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
     };
 
+    // Track last generated ID for collision handling within this import session
+    let lastGeneratedId = 0;
+
     for (const record of records) {
       try {
         // Map CSV columns to database fields
@@ -302,7 +305,10 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
                 else resolve(row);
               });
             });
-            const newId = (maxIdResult?.max_id || 10000) + 1000 + Math.floor(Math.random() * 100);
+            // Use the higher of: max from DB, or last generated in this session (for multiple collisions)
+            const baseId = Math.max(maxIdResult?.max_id || 10000, lastGeneratedId);
+            const newId = baseId + 1;
+            lastGeneratedId = newId;
             console.log(`[IONOS Import] ID collision with protected source ${idCollision.source}, inserting with new ID: ${newId}`);
             const insertWithNewIdQuery = `
               INSERT INTO inscriptions (inscription_id, joueur_id, tournoi_id, timestamp, email, telephone, licence, convoque, forfait, commentaire, source)
