@@ -45,7 +45,7 @@ npm run backup
 | `auth.js` | JWT authentication, password reset with 6-digit codes, user management |
 | `tournaments.js` | CSV import of tournament results, category management |
 | `inscriptions.js` | Player registrations (dual source: IONOS CSV + Player App), convocation management |
-| `email.js` | Convocation emails, tournament results emails via Resend API |
+| `email.js` | Convocation emails, tournament results emails via Resend API, `/save-poules` endpoint |
 | `emailing.js` | Mass emailing campaigns, scheduled emails, contact sync |
 | `announcements.js` | Global announcements for Player App (CRUD + public `/active` endpoint) |
 | `player-accounts.js` | Player App (Espace Joueur) account management |
@@ -60,7 +60,11 @@ npm run backup
 - `tournoi_ext` / `inscriptions`: External tournament definitions and player registrations
   - `inscriptions.source`: `'ionos'` (CSV import), `'player_app'` (self-registration), or `'manual'` (admin via Ajouter button)
   - Unique constraint on `(normalized_licence, tournoi_id)` prevents duplicate registrations
-  - IONOS will be decommissioned; Player App will become sole source
+  - IONOS import handles ID collisions: if inscription_id already used by protected source, generates new sequential ID
+  - **IONOS will be decommissioned next year** - Player App will become sole source, allowing major code simplification
+- `convocation_poules`: Stores full poule composition when convocations are sent
+  - Shared with Player App so players can view all poules for their tournament
+  - Columns: `tournoi_id`, `poule_number`, `licence`, `player_name`, `club`, `location_name`, `location_address`, `start_time`, `player_order`
 - `player_accounts`: Separate auth for Player App with `player_app_role` (joueur/admin)
 - `announcements`: Global notifications displayed in Player App (title, message, type, expiry)
 - `email_campaigns` / `scheduled_emails`: Email tracking and scheduling
@@ -94,3 +98,13 @@ Optional:
 - Season format: `YYYY-YYYY+1` (e.g., "2024-2025"), determined by September cutoff
 - Licence numbers are normalized by removing spaces for comparisons
 - CSV files use semicolon delimiter, imported via multer
+
+## Future Cleanup (Post-IONOS Decommissioning)
+
+When IONOS is fully deprecated, the following can be removed for maintainability:
+- `routes/inscriptions.js`: Remove `/import` endpoint and CSV parsing logic (~300 lines)
+- `source` column handling and conflict resolution logic
+- ID collision detection and generation code
+- Import history tracking (`import_history` table)
+- Frontend IONOS import UI components
+- Related documentation and error handling
