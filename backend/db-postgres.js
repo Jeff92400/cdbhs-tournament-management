@@ -583,8 +583,9 @@ async function initializeDatabase() {
       )
     `);
 
-    // Add test_licence column for test announcements (migration)
+    // Add test_licence and target_licence columns for announcements (migration)
     await client.query(`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS test_licence VARCHAR(20)`);
+    await client.query(`ALTER TABLE announcements ADD COLUMN IF NOT EXISTS target_licence VARCHAR(20)`);
 
     await client.query('COMMIT');
 

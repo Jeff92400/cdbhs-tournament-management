@@ -41,7 +41,7 @@ router.get('/', authenticateToken, (req, res) => {
 });
 
 // Get active announcements (public - for Player App)
-// If licence query param is provided, also show test announcements for that licence
+// If licence query param is provided, also show test/targeted announcements for that licence
 router.get('/active', (req, res) => {
   const db = getDb();
   const { licence } = req.query;
@@ -50,13 +50,14 @@ router.get('/active', (req, res) => {
   const normalizedLicence = licence ? licence.replace(/\s+/g, '') : null;
 
   db.all(
-    `SELECT id, title, message, type, created_at, test_licence
+    `SELECT id, title, message, type, created_at, test_licence, target_licence
      FROM announcements
      WHERE is_active = TRUE
        AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
        AND (
-         test_licence IS NULL
+         (test_licence IS NULL AND target_licence IS NULL)
          OR REPLACE(test_licence, ' ', '') = $1
+         OR REPLACE(target_licence, ' ', '') = $1
        )
      ORDER BY created_at DESC`,
     [normalizedLicence],
@@ -73,7 +74,7 @@ router.get('/active', (req, res) => {
 // Create announcement
 router.post('/', authenticateToken, (req, res) => {
   const db = getDb();
-  const { title, message, type, expires_at, test_licence } = req.body;
+  const { title, message, type, expires_at, test_licence, target_licence } = req.body;
   const created_by = req.user?.username || 'admin';
 
   if (!title || !message) {
@@ -81,22 +82,27 @@ router.post('/', authenticateToken, (req, res) => {
   }
 
   const announcementType = type || 'info';
-  // Normalize test_licence if provided
+  // Normalize licences if provided
   const normalizedTestLicence = test_licence ? test_licence.replace(/\s+/g, '') : null;
+  const normalizedTargetLicence = target_licence ? target_licence.replace(/\s+/g, '') : null;
 
   db.run(
-    `INSERT INTO announcements (title, message, type, expires_at, created_by, test_licence)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO announcements (title, message, type, expires_at, created_by, test_licence, target_licence)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING id`,
-    [title, message, announcementType, expires_at || null, created_by, normalizedTestLicence],
+    [title, message, announcementType, expires_at || null, created_by, normalizedTestLicence, normalizedTargetLicence],
     function(err) {
       if (err) {
         console.error('Error creating announcement:', err);
         return res.status(500).json({ error: err.message });
       }
+      let msg = 'Announcement created';
+      if (normalizedTestLicence) msg = `Announcement test created for ${normalizedTestLicence}`;
+      else if (normalizedTargetLicence) msg = `Personal message sent to ${normalizedTargetLicence}`;
+
       res.json({
         success: true,
-        message: normalizedTestLicence ? `Announcement test created for ${normalizedTestLicence}` : 'Announcement created',
+        message: msg,
         id: this.lastID
       });
     }

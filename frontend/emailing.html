@@ -261,8 +261,10 @@
       font-weight: 600;
     }
     .announcement-type.type-info { background: #e3f2fd; color: #1565c0; }
+    .announcement-type.type-resultats { background: #e8f5e9; color: #2e7d32; }
     .announcement-type.type-warning { background: #fff3e0; color: #e65100; }
     .announcement-type.type-urgent { background: #ffebee; color: #c62828; }
+    .announcement-type.type-perso { background: #f3e5f5; color: #7b1fa2; }
     .announcement-message {
       color: #555;
       font-size: 13px;
@@ -352,21 +354,52 @@
           </div>
         </div>
         <form id="addAnnouncementForm">
+          <!-- Destinataire Section -->
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; max-width: 600px;">
+            <label style="font-weight: bold; color: #333; margin-bottom: 10px; display: block;">📬 Destinataire :</label>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: white; border: 2px solid #1F4788; border-radius: 8px; cursor: pointer; transition: all 0.2s;" class="recipient-option selected">
+                <input type="radio" name="announcementRecipient" value="all" checked style="width: 16px; height: 16px;">
+                <span style="font-size: 14px;">👥 Tous les joueurs</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; padding: 10px 15px; background: white; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; transition: all 0.2s;" class="recipient-option">
+                <input type="radio" name="announcementRecipient" value="one" style="width: 16px; height: 16px;">
+                <span style="font-size: 14px;">👤 Un joueur</span>
+              </label>
+            </div>
+            <!-- Player search (hidden by default) -->
+            <div id="playerSearchSection" style="display: none; margin-top: 15px;">
+              <label style="font-size: 13px; color: #666;">Rechercher le joueur :</label>
+              <div style="position: relative;">
+                <input type="text" id="playerSearchInput" placeholder="Tapez un nom ou une licence..." style="width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                <div id="playerSearchResults" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px; max-height: 200px; overflow-y: auto; display: none; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
+              </div>
+              <div id="selectedPlayer" style="display: none; margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 4px; display: none;">
+                <span style="font-weight: bold; color: #2e7d32;">✓ Joueur sélectionné : </span>
+                <span id="selectedPlayerName"></span>
+                <input type="hidden" id="selectedPlayerLicence">
+                <button type="button" onclick="clearSelectedPlayer()" style="margin-left: 10px; background: none; border: none; color: #c62828; cursor: pointer; font-size: 16px;">✕</button>
+              </div>
+            </div>
+          </div>
+
           <div class="form-group">
             <label for="announcementTitle">Titre :</label>
             <input type="text" id="announcementTitle" required placeholder="Ex: Nouveau calendrier disponible" style="width: 100%; max-width: 500px;">
           </div>
           <div class="form-group">
             <label for="announcementMessage">Message :</label>
-            <textarea id="announcementMessage" required placeholder="Ecrivez votre message ici..." style="width: 100%; max-width: 500px; min-height: 100px;"></textarea>
+            <textarea id="announcementMessage" required placeholder="Ecrivez votre message ici... (les URLs seront cliquables)" style="width: 100%; max-width: 500px; min-height: 100px;"></textarea>
           </div>
           <div style="display: flex; gap: 15px; flex-wrap: wrap;">
             <div class="form-group">
               <label for="announcementType">Type :</label>
               <select id="announcementType" style="padding: 8px;">
-                <option value="info">Information</option>
-                <option value="warning">Avertissement</option>
-                <option value="urgent">Urgent</option>
+                <option value="info">ℹ️ Information</option>
+                <option value="resultats">🏆 Résultats</option>
+                <option value="warning">⚠️ Avertissement</option>
+                <option value="urgent">🚨 Urgent</option>
+                <option value="perso">💬 Message perso</option>
               </select>
             </div>
             <div class="form-group">
@@ -375,25 +408,30 @@
             </div>
           </div>
           <div style="background: #1F4788; padding: 15px; border-radius: 8px; margin: 15px 0; max-width: 500px;">
-            <h4 style="color: white; margin: 0 0 8px 0; font-size: 13px; opacity: 0.8;">Apercu dans l'Espace Joueur :</h4>
+            <h4 style="color: white; margin: 0 0 8px 0; font-size: 13px; opacity: 0.8;">Aperçu dans l'Espace Joueur :</h4>
             <div id="announcementPreview" style="background: white; border-radius: 6px; padding: 12px 15px; border-left: 4px solid #1565c0;">
               <strong id="previewTitle" style="font-size: 14px;">Titre de l'annonce</strong>
               <p id="previewMessage" style="margin: 5px 0 0 0; font-size: 13px; color: #333;">Message de l'annonce...</p>
             </div>
           </div>
-          <!-- Test mode -->
-          <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin: 15px 0; max-width: 500px; border: 1px solid #ffb74d;">
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-              <input type="checkbox" id="announcementTestMode" style="width: 18px; height: 18px; cursor: pointer;">
-              <label for="announcementTestMode" style="font-weight: bold; color: #e65100; cursor: pointer; margin: 0;">Envoi test</label>
+          <!-- Test mode (collapsed) -->
+          <details style="margin: 15px 0; max-width: 500px;">
+            <summary style="cursor: pointer; color: #e65100; font-weight: bold; padding: 10px; background: #fff3e0; border-radius: 8px; border: 1px solid #ffb74d;">
+              🧪 Mode test (aperçu avant envoi)
+            </summary>
+            <div style="padding: 15px; background: #fff3e0; border-radius: 0 0 8px 8px; border: 1px solid #ffb74d; border-top: none;">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <input type="checkbox" id="announcementTestMode" style="width: 18px; height: 18px; cursor: pointer;">
+                <label for="announcementTestMode" style="color: #e65100; cursor: pointer; margin: 0;">Activer le mode test</label>
+              </div>
+              <div id="announcementTestFields" style="display: none;">
+                <label for="announcementTestLicence" style="font-size: 13px; color: #666;">Licence du testeur :</label>
+                <input type="text" id="announcementTestLicence" placeholder="Ex: 123456A" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                <p style="font-size: 11px; color: #888; margin: 5px 0 0 0;">L'annonce sera visible uniquement par ce joueur pour validation</p>
+              </div>
             </div>
-            <div id="announcementTestFields" style="display: none;">
-              <label for="announcementTestLicence" style="font-size: 13px; color: #666;">Licence du testeur :</label>
-              <input type="text" id="announcementTestLicence" placeholder="Ex: 123456A" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px;">
-              <p style="font-size: 11px; color: #888; margin: 5px 0 0 0;">L'annonce sera visible uniquement par ce joueur (pour test)</p>
-            </div>
-          </div>
-          <button type="submit" class="btn btn-primary">Publier l'annonce</button>
+          </details>
+          <button type="submit" class="btn btn-primary" style="margin-top: 10px;">📢 Publier l'annonce</button>
         </form>
       </div>
 
@@ -5068,13 +5106,22 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       document.getElementById('previewMessage').textContent = message;
 
       const preview = document.getElementById('announcementPreview');
-      const colors = { info: '#1565c0', warning: '#e65100', urgent: '#c62828' };
+      const colors = {
+        info: '#1565c0',
+        resultats: '#2e7d32',
+        warning: '#e65100',
+        urgent: '#c62828',
+        perso: '#7b1fa2'
+      };
+      const backgrounds = {
+        info: '#e3f2fd',
+        resultats: '#e8f5e9',
+        warning: '#fff3e0',
+        urgent: '#ffebee',
+        perso: '#f3e5f5'
+      };
       preview.style.borderLeftColor = colors[type] || colors.info;
-      if (type === 'urgent') {
-        preview.style.background = '#fff5f5';
-      } else {
-        preview.style.background = 'white';
-      }
+      preview.style.background = backgrounds[type] || 'white';
     }
 
     // Load announcements
@@ -5103,7 +5150,10 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
               ? '<span class="status-badge status-expired">Expiree</span>'
               : '<span class="status-badge status-active">Active</span>';
           const testBadge = a.test_licence
-            ? `<span style="background: #ff9800; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px;">TEST: ${a.test_licence}</span>`
+            ? `<span style="background: #ff9800; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px;">🧪 TEST: ${a.test_licence}</span>`
+            : '';
+          const targetBadge = a.target_licence && !a.test_licence
+            ? `<span style="background: #7b1fa2; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px;">👤 ${a.target_licence}</span>`
             : '';
 
           return `
@@ -5114,6 +5164,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
                   ${escapeHtmlAnn(a.title)}
                   ${statusBadge}
                   ${testBadge}
+                  ${targetBadge}
                 </h4>
                 <div class="announcement-actions">
                   <button class="btn-toggle ${a.is_active ? 'active' : ''}" onclick="toggleAnnouncement(${a.id})">
@@ -5148,15 +5199,119 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       }
     });
 
+    // Recipient selection
+    document.querySelectorAll('input[name="announcementRecipient"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        const playerSearch = document.getElementById('playerSearchSection');
+        const options = document.querySelectorAll('.recipient-option');
+
+        options.forEach(opt => {
+          opt.style.borderColor = '#ddd';
+          opt.classList.remove('selected');
+        });
+        e.target.closest('.recipient-option').style.borderColor = '#1F4788';
+        e.target.closest('.recipient-option').classList.add('selected');
+
+        if (e.target.value === 'one') {
+          playerSearch.style.display = 'block';
+        } else {
+          playerSearch.style.display = 'none';
+          clearSelectedPlayer();
+        }
+      });
+    });
+
+    // Player search autocomplete
+    let searchTimeout;
+    let allPlayersCache = null;
+
+    document.getElementById('playerSearchInput')?.addEventListener('input', async (e) => {
+      clearTimeout(searchTimeout);
+      const query = e.target.value.trim().toLowerCase();
+
+      if (query.length < 2) {
+        document.getElementById('playerSearchResults').style.display = 'none';
+        return;
+      }
+
+      searchTimeout = setTimeout(async () => {
+        // Load players if not cached
+        if (!allPlayersCache) {
+          try {
+            const response = await fetch(`${API_URL}/players`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+              allPlayersCache = await response.json();
+            }
+          } catch (err) {
+            console.error('Error loading players:', err);
+            return;
+          }
+        }
+
+        // Filter players
+        const matches = allPlayersCache.filter(p =>
+          p.last_name?.toLowerCase().includes(query) ||
+          p.first_name?.toLowerCase().includes(query) ||
+          p.licence?.toLowerCase().includes(query)
+        ).slice(0, 10);
+
+        const resultsDiv = document.getElementById('playerSearchResults');
+        if (matches.length === 0) {
+          resultsDiv.innerHTML = '<div style="padding: 10px; color: #666;">Aucun joueur trouvé</div>';
+        } else {
+          resultsDiv.innerHTML = matches.map(p => `
+            <div onclick="selectPlayer('${p.licence}', '${escapeHtmlAnn(p.first_name)} ${escapeHtmlAnn(p.last_name)}')"
+                 style="padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; transition: background 0.2s;"
+                 onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+              <strong>${escapeHtmlAnn(p.first_name)} ${escapeHtmlAnn(p.last_name)}</strong>
+              <span style="color: #666; font-size: 12px; margin-left: 8px;">${p.licence}</span>
+            </div>
+          `).join('');
+        }
+        resultsDiv.style.display = 'block';
+      }, 300);
+    });
+
+    // Hide search results when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#playerSearchSection')) {
+        document.getElementById('playerSearchResults').style.display = 'none';
+      }
+    });
+
+    function selectPlayer(licence, name) {
+      document.getElementById('selectedPlayerLicence').value = licence;
+      document.getElementById('selectedPlayerName').textContent = `${name} (${licence})`;
+      document.getElementById('selectedPlayer').style.display = 'block';
+      document.getElementById('playerSearchInput').value = '';
+      document.getElementById('playerSearchResults').style.display = 'none';
+    }
+
+    function clearSelectedPlayer() {
+      document.getElementById('selectedPlayerLicence').value = '';
+      document.getElementById('selectedPlayerName').textContent = '';
+      document.getElementById('selectedPlayer').style.display = 'none';
+      document.getElementById('playerSearchInput').value = '';
+    }
+
     // Add announcement
     document.getElementById('addAnnouncementForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
 
       const isTestMode = document.getElementById('announcementTestMode').checked;
       const testLicence = document.getElementById('announcementTestLicence').value.trim();
+      const recipientType = document.querySelector('input[name="announcementRecipient"]:checked').value;
+      const targetLicence = document.getElementById('selectedPlayerLicence').value.trim();
 
       if (isTestMode && !testLicence) {
         showError('Veuillez saisir la licence du testeur');
+        return;
+      }
+
+      if (recipientType === 'one' && !targetLicence) {
+        showError('Veuillez sélectionner un joueur');
         return;
       }
 
@@ -5165,7 +5320,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         message: document.getElementById('announcementMessage').value,
         type: document.getElementById('announcementType').value,
         expires_at: document.getElementById('announcementExpiry').value || null,
-        test_licence: isTestMode ? testLicence : null
+        test_licence: isTestMode ? testLicence : null,
+        target_licence: recipientType === 'one' ? targetLicence : null
       };
 
       try {
@@ -5183,9 +5339,25 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
           throw new Error(error.error || 'Failed to create announcement');
         }
 
-        showSuccess(isTestMode ? 'Annonce test publiee ! Visible uniquement par ' + testLicence : 'Annonce publiee avec succes !');
+        // Success message based on mode
+        let successMsg = 'Annonce publiée avec succès !';
+        if (isTestMode) {
+          successMsg = `Annonce test publiée ! Visible uniquement par ${testLicence}`;
+        } else if (recipientType === 'one') {
+          const playerName = document.getElementById('selectedPlayerName').textContent;
+          successMsg = `Message envoyé à ${playerName}`;
+        }
+        showSuccess(successMsg);
+
+        // Reset form
         e.target.reset();
         document.getElementById('announcementTestFields').style.display = 'none';
+        document.getElementById('playerSearchSection').style.display = 'none';
+        clearSelectedPlayer();
+        // Reset recipient selection UI
+        document.querySelectorAll('.recipient-option').forEach((opt, i) => {
+          opt.style.borderColor = i === 0 ? '#1F4788' : '#ddd';
+        });
         updateAnnouncementPreview();
         loadAnnouncements();
 
