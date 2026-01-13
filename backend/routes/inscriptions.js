@@ -818,7 +818,7 @@ router.get('/tournoi/:id/inscriptions', authenticateToken, (req, res) => {
 
 // Get all inscriptions
 router.get('/', authenticateToken, (req, res) => {
-  const { tournoi_id, licence } = req.query;
+  const { tournoi_id, licence, source } = req.query;
 
   let query = `
     SELECT
@@ -844,6 +844,10 @@ router.get('/', authenticateToken, (req, res) => {
   if (licence) {
     conditions.push(`REPLACE(i.licence, ' ', '') = REPLACE($${params.length + 1}, ' ', '')`);
     params.push(licence);
+  }
+  if (source) {
+    conditions.push(`i.source = $${params.length + 1}`);
+    params.push(source);
   }
 
   if (conditions.length > 0) {

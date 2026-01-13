@@ -251,6 +251,10 @@
         <div class="label">Nouveaux comptes (7j)</div>
         <div class="value" id="statAccounts">-</div>
       </div>
+      <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+        <div class="label" style="color: rgba(255,255,255,0.9);">Total inscriptions Player App</div>
+        <div class="value" style="color: white;" id="statTotalInscriptions">-</div>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -458,6 +462,7 @@
     // Load stats
     async function loadStats() {
       try {
+        // Load 7-day stats from activity logs
         const response = await fetch(`${API_URL}/activity-logs/stats?days=7`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -474,6 +479,15 @@
         document.getElementById('statInscriptions').textContent = totals['inscription_created'] || 0;
         document.getElementById('statCancellations').textContent = totals['inscription_cancelled'] || 0;
         document.getElementById('statAccounts').textContent = totals['account_created'] || 0;
+
+        // Load total inscriptions from Player App (all time)
+        const inscResponse = await fetch(`${API_URL}/inscriptions?source=player_app`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (inscResponse.ok) {
+          const inscriptions = await inscResponse.json();
+          document.getElementById('statTotalInscriptions').textContent = inscriptions.length;
+        }
       } catch (error) {
         console.error('Error loading stats:', error);
       }
