@@ -41,16 +41,25 @@ router.get('/', authenticateToken, (req, res) => {
 });
 
 // Get active announcements (public - for Player App)
+// If licence query param is provided, also show test announcements for that licence
 router.get('/active', (req, res) => {
   const db = getDb();
+  const { licence } = req.query;
+
+  // Normalize licence (remove spaces)
+  const normalizedLicence = licence ? licence.replace(/\s+/g, '') : null;
 
   db.all(
-    `SELECT id, title, message, type, created_at
+    `SELECT id, title, message, type, created_at, test_licence
      FROM announcements
      WHERE is_active = TRUE
        AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+       AND (
+         test_licence IS NULL
+         OR REPLACE(test_licence, ' ', '') = $1
+       )
      ORDER BY created_at DESC`,
-    [],
+    [normalizedLicence],
     (err, rows) => {
       if (err) {
         console.error('Error fetching active announcements:', err);
@@ -64,7 +73,7 @@ router.get('/active', (req, res) => {
 // Create announcement
 router.post('/', authenticateToken, (req, res) => {
   const db = getDb();
-  const { title, message, type, expires_at } = req.body;
+  const { title, message, type, expires_at, test_licence } = req.body;
   const created_by = req.user?.username || 'admin';
 
   if (!title || !message) {
@@ -72,12 +81,14 @@ router.post('/', authenticateToken, (req, res) => {
   }
 
   const announcementType = type || 'info';
+  // Normalize test_licence if provided
+  const normalizedTestLicence = test_licence ? test_licence.replace(/\s+/g, '') : null;
 
   db.run(
-    `INSERT INTO announcements (title, message, type, expires_at, created_by)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO announcements (title, message, type, expires_at, created_by, test_licence)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id`,
-    [title, message, announcementType, expires_at || null, created_by],
+    [title, message, announcementType, expires_at || null, created_by, normalizedTestLicence],
     function(err) {
       if (err) {
         console.error('Error creating announcement:', err);
@@ -85,7 +96,7 @@ router.post('/', authenticateToken, (req, res) => {
       }
       res.json({
         success: true,
-        message: 'Announcement created',
+        message: normalizedTestLicence ? `Announcement test created for ${normalizedTestLicence}` : 'Announcement created',
         id: this.lastID
       });
     }
