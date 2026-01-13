@@ -253,8 +253,8 @@
         <div class="value" id="statAccounts">-</div>
       </div>
       <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
-        <div class="label" style="color: rgba(255,255,255,0.9);">Total inscriptions Player App</div>
-        <div class="value" style="color: white;" id="statTotalInscriptions">-</div>
+        <div class="label" style="color: rgba(255,255,255,0.9);">Utilisateurs Player App</div>
+        <div class="value" style="color: white;" id="statTotalUsers">-</div>
       </div>
     </div>
 
@@ -518,14 +518,8 @@
         document.getElementById('statCancellations').textContent = totals['inscription_cancelled'] || 0;
         document.getElementById('statAccounts').textContent = totals['account_created'] || 0;
 
-        // Load total inscriptions from Player App (all time)
-        const inscResponse = await fetch(`${API_URL}/inscriptions?source=player_app`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (inscResponse.ok) {
-          const inscriptions = await inscResponse.json();
-          document.getElementById('statTotalInscriptions').textContent = inscriptions.length;
-        }
+        // Total unique users of Player App (all time)
+        document.getElementById('statTotalUsers').textContent = stats.totalUniqueUsers || 0;
       } catch (error) {
         console.error('Error loading stats:', error);
       }

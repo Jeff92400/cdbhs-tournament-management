@@ -205,10 +205,19 @@ router.get('/stats', authenticateToken, requireViewer, async (req, res) => {
       LIMIT 10
     `);
 
+    // Total unique users (all time) - count unique licences who have logged in
+    const totalUsers = await db.query(`
+      SELECT COUNT(DISTINCT licence) as count
+      FROM activity_logs
+      WHERE licence IS NOT NULL
+        AND action_type = 'login_success'
+    `);
+
     res.json({
       daily: dailyStats.rows,
       totals: totals.rows,
-      activeUsers: activeUsers.rows
+      activeUsers: activeUsers.rows,
+      totalUniqueUsers: parseInt(totalUsers.rows[0]?.count || 0)
     });
 
   } catch (error) {
