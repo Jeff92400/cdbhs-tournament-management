@@ -295,8 +295,14 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
             updated++;
           } else {
             // ID collision with protected source - insert with a new generated ID
-            // Generate a unique ID by using timestamp + random to avoid conflicts
-            const newId = Date.now() + Math.floor(Math.random() * 1000);
+            // Find max inscription_id and add offset to generate unique ID within INTEGER range
+            const maxIdResult = await new Promise((resolve, reject) => {
+              db.get(`SELECT MAX(inscription_id) as max_id FROM inscriptions`, [], (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+              });
+            });
+            const newId = (maxIdResult?.max_id || 10000) + 1000 + Math.floor(Math.random() * 100);
             console.log(`[IONOS Import] ID collision with protected source ${idCollision.source}, inserting with new ID: ${newId}`);
             const insertWithNewIdQuery = `
               INSERT INTO inscriptions (inscription_id, joueur_id, tournoi_id, timestamp, email, telephone, licence, convoque, forfait, commentaire, source)
