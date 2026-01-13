@@ -106,8 +106,39 @@
     <div class="card">
       <h3>Tous les Joueurs</h3>
 
-      <div style="margin-bottom: 20px;">
-        <input type="text" id="searchInput" placeholder="🔍 Rechercher par nom, licence ou club..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      <!-- Advanced Filters -->
+      <div style="margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+        <div style="flex: 1; min-width: 250px;">
+          <label style="display: block; font-size: 12px; color: #666; margin-bottom: 4px;">Nom</label>
+          <div style="display: flex; gap: 4px;">
+            <select id="filterNameType" style="width: 120px; padding: 8px 4px; font-size: 13px; border: 1px solid #ddd; border-radius: 4px;">
+              <option value="contains">Contient</option>
+              <option value="not_contains">Ne contient pas</option>
+              <option value="equals">Égal à</option>
+              <option value="not_equals">Différent de</option>
+              <option value="starts_with">Commence par</option>
+            </select>
+            <input type="text" id="searchInput" placeholder="Ex: DUPONT" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+        </div>
+        <div class="admin-only" style="min-width: 150px;">
+          <label style="display: block; font-size: 12px; color: #666; margin-bottom: 4px;">Player App</label>
+          <select id="filterAppUser" style="width: 100%; padding: 8px; font-size: 13px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">Tous</option>
+            <option value="true">✓ Utilisateurs App</option>
+            <option value="false">Non utilisateurs</option>
+          </select>
+        </div>
+        <div style="min-width: 120px;">
+          <label style="display: block; font-size: 12px; color: #666; margin-bottom: 4px;">Statut</label>
+          <select id="filterStatus" style="width: 100%; padding: 8px; font-size: 13px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">Tous</option>
+            <option value="active">Actifs</option>
+            <option value="inactive">Inactifs</option>
+          </select>
+        </div>
+        <button class="btn" onclick="applyFilters()" style="padding: 8px 16px; font-size: 13px;">Filtrer</button>
+        <button class="btn" onclick="resetFilters()" style="padding: 8px 16px; font-size: 13px; background: #6c757d;">Réinitialiser</button>
       </div>
 
       <div id="loadingPlayers" class="loading">
@@ -735,17 +766,80 @@
     // Cancel button
     document.getElementById('cancelEditBtn').addEventListener('click', closeEditModal);
 
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      const searchTerm = e.target.value.toLowerCase();
+    // Filter functionality
+    function applyFilters() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+      const nameFilterType = document.getElementById('filterNameType').value;
+      const appUserFilter = document.getElementById('filterAppUser')?.value || '';
+      const statusFilter = document.getElementById('filterStatus').value;
+
       const filteredPlayers = allPlayers.filter(player => {
-        return player.licence.toLowerCase().includes(searchTerm) ||
-               player.first_name.toLowerCase().includes(searchTerm) ||
-               player.last_name.toLowerCase().includes(searchTerm) ||
-               (player.club && player.club.toLowerCase().includes(searchTerm));
+        // Name filter
+        if (searchTerm) {
+          const fullName = `${player.last_name} ${player.first_name}`.toLowerCase();
+          const lastName = (player.last_name || '').toLowerCase();
+
+          let nameMatch = false;
+          switch (nameFilterType) {
+            case 'contains':
+              nameMatch = fullName.includes(searchTerm) ||
+                          player.licence.toLowerCase().includes(searchTerm) ||
+                          (player.club && player.club.toLowerCase().includes(searchTerm));
+              break;
+            case 'not_contains':
+              nameMatch = !fullName.includes(searchTerm);
+              break;
+            case 'equals':
+              nameMatch = lastName === searchTerm;
+              break;
+            case 'not_equals':
+              nameMatch = lastName !== searchTerm;
+              break;
+            case 'starts_with':
+              nameMatch = lastName.startsWith(searchTerm);
+              break;
+          }
+          if (!nameMatch) return false;
+        }
+
+        // Player App User filter
+        if (appUserFilter === 'true' && player.player_app_user !== true) return false;
+        if (appUserFilter === 'false' && player.player_app_user === true) return false;
+
+        // Status filter
+        if (statusFilter === 'active' && player.is_active !== 1) return false;
+        if (statusFilter === 'inactive' && player.is_active !== 0) return false;
+
+        return true;
       });
+
       displayPlayers(filteredPlayers);
+    }
+
+    function resetFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('filterNameType').value = 'contains';
+      if (document.getElementById('filterAppUser')) {
+        document.getElementById('filterAppUser').value = '';
+      }
+      document.getElementById('filterStatus').value = '';
+      displayPlayers(allPlayers);
+    }
+
+    // Auto-filter on Enter key or input change
+    document.getElementById('searchInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') applyFilters();
     });
+    document.getElementById('searchInput').addEventListener('input', () => {
+      // Debounce: apply filter after user stops typing
+      clearTimeout(window.searchTimeout);
+      window.searchTimeout = setTimeout(applyFilters, 300);
+    });
+    document.getElementById('filterNameType').addEventListener('change', applyFilters);
+    if (document.getElementById('filterAppUser')) {
+      document.getElementById('filterAppUser').addEventListener('change', applyFilters);
+    }
+    document.getElementById('filterStatus').addEventListener('change', applyFilters);
 
     // Export players button
     document.getElementById('exportPlayersBtn').addEventListener('click', async () => {
