@@ -76,8 +76,30 @@ router.get('/', authenticateToken, requireViewer, async (req, res) => {
     }
 
     if (name) {
-      query += ` AND user_name ILIKE $${paramIndex}`;
-      params.push(`%${name}%`);
+      const nameFilterType = req.query.nameFilterType || 'contains';
+      switch (nameFilterType) {
+        case 'equals':
+          query += ` AND UPPER(user_name) = UPPER($${paramIndex})`;
+          params.push(name);
+          break;
+        case 'not_equals':
+          query += ` AND (user_name IS NULL OR UPPER(user_name) != UPPER($${paramIndex}))`;
+          params.push(name);
+          break;
+        case 'not_contains':
+          query += ` AND (user_name IS NULL OR user_name NOT ILIKE $${paramIndex})`;
+          params.push(`%${name}%`);
+          break;
+        case 'starts_with':
+          query += ` AND user_name ILIKE $${paramIndex}`;
+          params.push(`${name}%`);
+          break;
+        case 'contains':
+        default:
+          query += ` AND user_name ILIKE $${paramIndex}`;
+          params.push(`%${name}%`);
+          break;
+      }
       paramIndex++;
     }
 

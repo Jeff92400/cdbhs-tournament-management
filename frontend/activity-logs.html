@@ -281,7 +281,16 @@
         </div>
         <div class="filter-group">
           <label>Nom joueur</label>
-          <input type="text" id="filterName" placeholder="Ex: DUPONT">
+          <div style="display: flex; gap: 5px;">
+            <select id="filterNameType" style="width: 120px; font-size: 12px;">
+              <option value="contains">Contient</option>
+              <option value="not_contains">Ne contient pas</option>
+              <option value="equals">Égal à</option>
+              <option value="not_equals">Différent de</option>
+              <option value="starts_with">Commence par</option>
+            </select>
+            <input type="text" id="filterName" placeholder="Ex: DUPONT" style="flex: 1;">
+          </div>
         </div>
         <div class="filter-group">
           <button class="btn" onclick="loadLogs()" style="margin-top: auto;">Filtrer</button>
@@ -485,12 +494,16 @@
         const endDate = document.getElementById('filterEndDate').value;
         const actionType = document.getElementById('filterActionType').value;
         const name = document.getElementById('filterName').value;
+        const nameFilterType = document.getElementById('filterNameType').value;
         const licence = document.getElementById('filterLicence').value;
 
         if (startDate) params.append('startDate', startDate + 'T00:00:00');
         if (endDate) params.append('endDate', endDate + 'T23:59:59');
         if (actionType) params.append('actionType', actionType);
-        if (name) params.append('name', name);
+        if (name) {
+          params.append('name', name);
+          params.append('nameFilterType', nameFilterType);
+        }
         if (licence) params.append('licence', licence);
 
         const response = await fetch(`${API_URL}/activity-logs?${params}`, {
