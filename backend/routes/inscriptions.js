@@ -292,6 +292,7 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
         } else {
           // New inscription - insert (or update if inscription_id already exists with different licence/tournoi)
           // Only update on conflict if existing record is from IONOS (protect manual and player_app)
+          console.log(`[IONOS Import] Inserting new inscription: id=${inscriptionId}, licence=${licence}, tournoi=${tournoiId}`);
           const insertQuery = `
             INSERT INTO inscriptions (inscription_id, joueur_id, tournoi_id, timestamp, email, telephone, licence, convoque, forfait, commentaire, source)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ionos')
@@ -308,13 +309,28 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
               source = 'ionos'
             WHERE inscriptions.source = 'ionos'
           `;
-          await new Promise((resolve, reject) => {
-            db.run(insertQuery, [inscriptionId, joueurId, tournoiId, timestamp, email, telephone, licence, convoque, forfait, commentaire], function(err) {
-              if (err) reject(err);
-              else resolve();
+          try {
+            await new Promise((resolve, reject) => {
+              db.run(insertQuery, [inscriptionId, joueurId, tournoiId, timestamp, email, telephone, licence, convoque, forfait, commentaire], function(err) {
+                if (err) {
+                  console.error(`[IONOS Import] Insert failed for id=${inscriptionId}: ${err.message}`);
+                  reject(err);
+                } else {
+                  console.log(`[IONOS Import] Insert successful for id=${inscriptionId}, changes=${this.changes}`);
+                  resolve();
+                }
+              });
             });
-          });
-          imported++;
+            imported++;
+          } catch (insertErr) {
+            // Check if it's a unique constraint violation on licence+tournoi
+            if (insertErr.message && insertErr.message.includes('unique') || insertErr.message.includes('UNIQUE')) {
+              console.error(`[IONOS Import] Unique constraint violation for licence=${licence}, tournoi=${tournoiId}. Record may exist with different inscription_id.`);
+              errors.push({ inscriptionId, licence, tournoiId, error: `Duplicate: licence ${licence} already exists for tournament ${tournoiId}` });
+            } else {
+              throw insertErr;
+            }
+          }
         }
         // Track season imports
         if (getSeasonForTournoi(tournoiId) === currentSeason) {
