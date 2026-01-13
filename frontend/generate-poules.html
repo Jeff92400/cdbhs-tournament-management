@@ -647,9 +647,15 @@
             </p>
           </div>
 
-          <button class="btn" id="sendConvocationsBtn" style="background: #17a2b8;">
-            ✉️ Envoyer les convocations
-          </button>
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <button class="btn" id="sendConvocationsBtn" style="background: #17a2b8;">
+              ✉️ Envoyer les convocations
+            </button>
+            <button class="btn" id="savePoulesOnlyBtn" style="background: #6c757d;">
+              💾 Sauvegarder les poules (sans email)
+            </button>
+          </div>
+          <div id="savePoulesResult" style="display: none; margin-top: 10px; padding: 10px; border-radius: 4px;"></div>
           <div id="emailProgress" style="display: none; margin-top: 15px;">
             <div style="background: #e9ecef; border-radius: 4px; overflow: hidden;">
               <div id="emailProgressBar" style="height: 8px; background: #17a2b8; width: 0%; transition: width 0.3s;"></div>
@@ -2878,6 +2884,67 @@
       // Re-enable button
       btn.disabled = false;
       btn.textContent = '✉️ Envoyer les convocations';
+    });
+
+    // Save poules without sending emails
+    document.getElementById('savePoulesOnlyBtn').addEventListener('click', async () => {
+      if (!lastGeneratedData) {
+        alert('Veuillez d\'abord générer le fichier Excel');
+        return;
+      }
+
+      if (!lastGeneratedData.tournoiId) {
+        alert('Impossible de sauvegarder: ID du tournoi manquant');
+        return;
+      }
+
+      const btn = document.getElementById('savePoulesOnlyBtn');
+      const resultDiv = document.getElementById('savePoulesResult');
+
+      // Confirm
+      if (!confirm(`Sauvegarder la composition des ${lastGeneratedData.poules.length} poule(s) sans envoyer d'emails ?`)) {
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Sauvegarde...';
+      resultDiv.style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_URL}/email/save-poules`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            tournoiId: lastGeneratedData.tournoiId,
+            poules: lastGeneratedData.poules,
+            locations: lastGeneratedData.locations || []
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          resultDiv.style.background = '#d4edda';
+          resultDiv.style.color = '#155724';
+          resultDiv.innerHTML = `✅ ${result.message}`;
+        } else {
+          resultDiv.style.background = '#f8d7da';
+          resultDiv.style.color = '#721c24';
+          resultDiv.innerHTML = `❌ Erreur: ${result.error || 'Erreur inconnue'}`;
+        }
+      } catch (error) {
+        console.error('Error saving poules:', error);
+        resultDiv.style.background = '#f8d7da';
+        resultDiv.style.color = '#721c24';
+        resultDiv.innerHTML = `❌ Erreur: ${error.message}`;
+      }
+
+      resultDiv.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = '💾 Sauvegarder les poules (sans email)';
     });
 
     // Send club reminders to hosting clubs

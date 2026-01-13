@@ -1041,6 +1041,79 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
   });
 });
 
+// Save poule composition without sending emails (for testing or backfilling)
+router.post('/save-poules', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { tournoiId, poules, locations } = req.body;
+
+  if (!tournoiId || !poules || !Array.isArray(poules)) {
+    return res.status(400).json({ error: 'tournoiId and poules array required' });
+  }
+
+  try {
+    // Clear existing poule data for this tournament
+    await new Promise((resolve, reject) => {
+      db.run(
+        `DELETE FROM convocation_poules WHERE tournoi_id = $1`,
+        [tournoiId],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    // Insert all players from all poules
+    let totalPlayers = 0;
+    for (const poule of poules) {
+      const locNum = poule.locationNum || '1';
+      const loc = locations ? locations.find(l => l.locationNum === locNum) || locations[0] : null;
+      const fullAddress = loc ? [loc.street, loc.zip_code, loc.city].filter(Boolean).join(' ') : '';
+
+      for (let i = 0; i < poule.players.length; i++) {
+        const p = poule.players[i];
+        await new Promise((resolve, reject) => {
+          db.run(
+            `INSERT INTO convocation_poules (tournoi_id, poule_number, licence, player_name, club, location_name, location_address, start_time, player_order)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             ON CONFLICT (tournoi_id, poule_number, licence) DO UPDATE SET
+               player_name = $4, club = $5, location_name = $6, location_address = $7, start_time = $8, player_order = $9`,
+            [
+              tournoiId,
+              poule.number,
+              p.licence,
+              `${p.first_name} ${p.last_name}`,
+              p.club || '',
+              loc?.name || '',
+              fullAddress,
+              loc?.startTime || '',
+              i + 1
+            ],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+        totalPlayers++;
+      }
+    }
+
+    console.log(`[Save Poules] Saved ${totalPlayers} players across ${poules.length} poules for tournament ${tournoiId}`);
+
+    res.json({
+      success: true,
+      message: `${totalPlayers} joueurs sauvegardés dans ${poules.length} poule(s)`,
+      totalPlayers,
+      totalPoules: poules.length
+    });
+
+  } catch (error) {
+    console.error('Error saving poules:', error);
+    res.status(500).json({ error: 'Failed to save poules' });
+  }
+});
+
 // Send club reminder email when hosting a tournament
 router.post('/send-club-reminder', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
