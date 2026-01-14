@@ -3552,7 +3552,11 @@
         renderPreview(forfaitPreviewData);
         const previewEl = document.getElementById('forfaitPreview');
         console.log('Preview element:', previewEl);
-        if (previewEl) previewEl.style.display = 'block';
+        if (previewEl) {
+          previewEl.style.display = 'block';
+          // Scroll to show preview
+          previewEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         const regenBtn = document.getElementById('regeneratePoulesBtn');
         if (regenBtn) regenBtn.disabled = false;
 
