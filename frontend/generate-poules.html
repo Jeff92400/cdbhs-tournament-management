@@ -3224,9 +3224,62 @@
     let forfaitSelectedPlayers = new Set();
     let forfaitCurrentPoules = [];
     let forfaitReplacementPlayer = null;
+    let forfaitPreviewData = null;
 
-    // Open forfait management modal
-    document.getElementById('openForfaitManager').addEventListener('click', openForfaitModal);
+    // Open forfait management modal - setup when DOM ready
+    function setupForfaitListeners() {
+      const openBtn = document.getElementById('openForfaitManager');
+      if (openBtn) openBtn.addEventListener('click', openForfaitModal);
+
+      const categorySelect = document.getElementById('forfaitCategorySelect');
+      if (categorySelect) {
+        categorySelect.addEventListener('change', async (e) => {
+          const [mode, categorie] = (e.target.value || '').split('|');
+          if (mode && categorie) {
+            await loadForfaitCompetitions(mode, categorie);
+          } else {
+            document.getElementById('forfaitCompetitionSelect').innerHTML = '<option value="">Sélectionnez une catégorie</option>';
+            document.getElementById('forfaitPoulesContainer').style.display = 'none';
+            document.getElementById('forfaitTournamentInfo').style.display = 'none';
+            document.getElementById('forfaitActions').style.display = 'none';
+          }
+        });
+      }
+
+      const competitionSelect = document.getElementById('forfaitCompetitionSelect');
+      if (competitionSelect) {
+        competitionSelect.addEventListener('change', async (e) => {
+          const tournoiId = e.target.value;
+          if (!tournoiId) return;
+
+          forfaitSelectedTournoi = tournoiId;
+          forfaitSelectedPlayers.clear();
+          forfaitReplacementPlayer = null;
+
+          // Load poules for this tournament
+          document.getElementById('forfaitLoading').style.display = 'block';
+          document.getElementById('forfaitPoulesContainer').style.display = 'none';
+          document.getElementById('forfaitNoPoules').style.display = 'none';
+          document.getElementById('forfaitTournamentInfo').style.display = 'none';
+          document.getElementById('forfaitActions').style.display = 'none';
+
+          await loadForfaitPoules(tournoiId);
+        });
+      }
+
+      const replacementSearch = document.getElementById('replacementSearch');
+      if (replacementSearch) {
+        replacementSearch.addEventListener('input', handleReplacementSearch);
+      }
+    }
+
+    // Call setup after DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupForfaitListeners);
+    } else {
+      // DOM already loaded, setup immediately but defer to ensure elements exist
+      setTimeout(setupForfaitListeners, 0);
+    }
 
     async function openForfaitModal() {
       document.getElementById('forfaitModal').style.display = 'flex';
@@ -3287,18 +3340,6 @@
       }
     }
 
-    document.getElementById('forfaitCategorySelect').addEventListener('change', async (e) => {
-      const [mode, categorie] = (e.target.value || '').split('|');
-      if (mode && categorie) {
-        await loadForfaitCompetitions(mode, categorie);
-      } else {
-        document.getElementById('forfaitCompetitionSelect').innerHTML = '<option value="">Sélectionnez une catégorie</option>';
-        document.getElementById('forfaitPoulesContainer').style.display = 'none';
-        document.getElementById('forfaitTournamentInfo').style.display = 'none';
-        document.getElementById('forfaitActions').style.display = 'none';
-      }
-    });
-
     async function loadForfaitCompetitions(mode, categorie, cachedTournaments = null) {
       const competitionSelect = document.getElementById('forfaitCompetitionSelect');
       competitionSelect.innerHTML = '<option value="">Chargement...</option>';
@@ -3343,12 +3384,6 @@
         competitionSelect.innerHTML = '<option value="">Erreur de chargement</option>';
       }
     }
-
-    document.getElementById('forfaitCompetitionSelect').addEventListener('change', async (e) => {
-      if (e.target.value) {
-        await loadForfaitPoules(e.target.value);
-      }
-    });
 
     async function loadForfaitPoules(tournoiId) {
       forfaitSelectedTournoi = tournoiId;
@@ -3445,8 +3480,6 @@
       renderForfaitPoules(forfaitCurrentPoules);
       updateForfaitSummary();
     }
-
-    let forfaitPreviewData = null;
 
     function updateForfaitSummary() {
       const summary = document.getElementById('forfaitSummary');
@@ -3628,7 +3661,7 @@
     }
 
     let replacementSearchTimeout = null;
-    document.getElementById('replacementSearch').addEventListener('input', (e) => {
+    function handleReplacementSearch(e) {
       clearTimeout(replacementSearchTimeout);
       const query = e.target.value.trim();
 
@@ -3678,7 +3711,7 @@
           document.getElementById('replacementResults').innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;">Erreur de recherche</div>';
         }
       }, 300);
-    });
+    }
 
     function selectReplacementPlayer(licence, name, club) {
       forfaitReplacementPlayer = { licence, name, club };
