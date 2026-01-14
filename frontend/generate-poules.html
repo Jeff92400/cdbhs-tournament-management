@@ -305,6 +305,9 @@
             <button class="btn" id="skipInscriptionUpdate" style="background: #6c757d;">
               Continuer sans mise à jour →
             </button>
+            <button class="btn" id="openForfaitManager" style="background: #dc3545; color: white; font-weight: bold;">
+              🚫 Gestion des forfaits
+            </button>
           </div>
         </div>
       </div>
@@ -3215,7 +3218,500 @@
     function closeSimulationModal() {
       document.getElementById('simulationModal').style.display = 'none';
     }
+
+    // ==================== FORFAIT MANAGEMENT ====================
+    let forfaitSelectedTournoi = null;
+    let forfaitSelectedPlayers = new Set();
+    let forfaitCurrentPoules = [];
+    let forfaitReplacementPlayer = null;
+
+    // Open forfait management modal
+    document.getElementById('openForfaitManager').addEventListener('click', openForfaitModal);
+
+    async function openForfaitModal() {
+      document.getElementById('forfaitModal').style.display = 'flex';
+      forfaitSelectedPlayers.clear();
+      forfaitReplacementPlayer = null;
+      updateForfaitSummary();
+
+      // Load categories
+      await loadForfaitCategories();
+    }
+
+    function closeForfaitModal() {
+      document.getElementById('forfaitModal').style.display = 'none';
+    }
+
+    async function loadForfaitCategories() {
+      const categorySelect = document.getElementById('forfaitCategorySelect');
+      const competitionSelect = document.getElementById('forfaitCompetitionSelect');
+
+      try {
+        // First, load upcoming tournaments with poules to get categories
+        const response = await fetch(`${API_URL}/email/poules/upcoming`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load tournaments');
+        const tournaments = await response.json();
+
+        if (tournaments.length === 0) {
+          categorySelect.innerHTML = '<option value="">Aucune compétition avec poules</option>';
+          competitionSelect.innerHTML = '<option value="">-</option>';
+          document.getElementById('forfaitNoPoules').style.display = 'block';
+          document.getElementById('forfaitPoulesContainer').style.display = 'none';
+          document.getElementById('forfaitTournamentInfo').style.display = 'none';
+          document.getElementById('forfaitActions').style.display = 'none';
+          return;
+        }
+
+        // Extract unique categories
+        const categories = [...new Map(tournaments.map(t => [`${t.mode}|${t.categorie}`, t])).values()];
+
+        categorySelect.innerHTML = '<option value="">Sélectionnez une catégorie</option>';
+        categories.forEach(cat => {
+          const option = document.createElement('option');
+          option.value = `${cat.mode}|${cat.categorie}`;
+          option.textContent = `${cat.mode} - ${cat.categorie}`;
+          categorySelect.appendChild(option);
+        });
+
+        // Auto-select first category and load its competitions
+        if (categories.length > 0) {
+          categorySelect.value = `${categories[0].mode}|${categories[0].categorie}`;
+          await loadForfaitCompetitions(categories[0].mode, categories[0].categorie, tournaments);
+        }
+      } catch (error) {
+        console.error('Error loading forfait categories:', error);
+        categorySelect.innerHTML = '<option value="">Erreur de chargement</option>';
+      }
+    }
+
+    document.getElementById('forfaitCategorySelect').addEventListener('change', async (e) => {
+      const [mode, categorie] = (e.target.value || '').split('|');
+      if (mode && categorie) {
+        await loadForfaitCompetitions(mode, categorie);
+      } else {
+        document.getElementById('forfaitCompetitionSelect').innerHTML = '<option value="">Sélectionnez une catégorie</option>';
+        document.getElementById('forfaitPoulesContainer').style.display = 'none';
+        document.getElementById('forfaitTournamentInfo').style.display = 'none';
+        document.getElementById('forfaitActions').style.display = 'none';
+      }
+    });
+
+    async function loadForfaitCompetitions(mode, categorie, cachedTournaments = null) {
+      const competitionSelect = document.getElementById('forfaitCompetitionSelect');
+      competitionSelect.innerHTML = '<option value="">Chargement...</option>';
+
+      try {
+        let tournaments = cachedTournaments;
+        if (!tournaments) {
+          const response = await fetch(`${API_URL}/email/poules/by-category?mode=${encodeURIComponent(mode)}&categorie=${encodeURIComponent(categorie)}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!response.ok) throw new Error('Failed to load competitions');
+          tournaments = await response.json();
+        } else {
+          tournaments = tournaments.filter(t =>
+            t.mode?.toUpperCase() === mode.toUpperCase() &&
+            t.categorie?.toUpperCase() === categorie.toUpperCase()
+          );
+        }
+
+        if (tournaments.length === 0) {
+          competitionSelect.innerHTML = '<option value="">Aucune compétition</option>';
+          return;
+        }
+
+        competitionSelect.innerHTML = '';
+        tournaments.forEach(t => {
+          const option = document.createElement('option');
+          option.value = t.tournoi_id;
+          const dateStr = t.tournament_date ? new Date(t.tournament_date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
+          option.textContent = `${t.tournament_name} - ${dateStr} (${t.player_count} joueurs)`;
+          option.dataset.tournament = JSON.stringify(t);
+          competitionSelect.appendChild(option);
+        });
+
+        // Auto-select first competition and load poules
+        if (tournaments.length > 0) {
+          competitionSelect.value = tournaments[0].tournoi_id;
+          await loadForfaitPoules(tournaments[0].tournoi_id);
+        }
+      } catch (error) {
+        console.error('Error loading forfait competitions:', error);
+        competitionSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+      }
+    }
+
+    document.getElementById('forfaitCompetitionSelect').addEventListener('change', async (e) => {
+      if (e.target.value) {
+        await loadForfaitPoules(e.target.value);
+      }
+    });
+
+    async function loadForfaitPoules(tournoiId) {
+      forfaitSelectedTournoi = tournoiId;
+      forfaitSelectedPlayers.clear();
+      forfaitReplacementPlayer = null;
+      updateForfaitSummary();
+
+      document.getElementById('forfaitLoading').style.display = 'block';
+      document.getElementById('forfaitPoulesContainer').style.display = 'none';
+      document.getElementById('forfaitNoPoules').style.display = 'none';
+      document.getElementById('forfaitTournamentInfo').style.display = 'none';
+      document.getElementById('forfaitActions').style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_URL}/email/poules/${tournoiId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to load poules');
+        const data = await response.json();
+
+        document.getElementById('forfaitLoading').style.display = 'none';
+
+        if (!data.poules || data.poules.length === 0) {
+          document.getElementById('forfaitNoPoules').style.display = 'block';
+          return;
+        }
+
+        forfaitCurrentPoules = data.poules;
+
+        // Display tournament info
+        const t = data.tournament;
+        document.getElementById('forfaitTournamentName').textContent = `${t.mode} ${t.categorie} - ${t.nom}`;
+        document.getElementById('forfaitTournamentDate').textContent = t.debut ? new Date(t.debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
+        document.getElementById('forfaitTournamentLieu').textContent = t.lieu || 'Lieu non défini';
+
+        const totalPlayers = data.poules.reduce((sum, p) => sum + p.players.length, 0);
+        document.getElementById('forfaitPlayerCount').textContent = `${totalPlayers} joueur(s) - ${data.poules.length} poule(s)`;
+        document.getElementById('forfaitTournamentInfo').style.display = 'block';
+
+        // Render poules
+        renderForfaitPoules(data.poules);
+        document.getElementById('forfaitPoulesContainer').style.display = 'block';
+        document.getElementById('forfaitActions').style.display = 'block';
+      } catch (error) {
+        console.error('Error loading forfait poules:', error);
+        document.getElementById('forfaitLoading').style.display = 'none';
+        document.getElementById('forfaitNoPoules').style.display = 'block';
+      }
+    }
+
+    function renderForfaitPoules(poules) {
+      const container = document.getElementById('forfaitPoulesList');
+      container.innerHTML = poules.map(poule => `
+        <div class="forfait-poule" style="background: white; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+          <div style="background: #1F4788; color: white; padding: 10px 15px; font-weight: bold;">
+            Poule ${poule.number}
+            <span style="font-weight: normal; font-size: 12px; opacity: 0.8;">${poule.location_name || ''} - ${poule.start_time || ''}</span>
+          </div>
+          <div style="padding: 10px;">
+            ${poule.players.map(player => `
+              <div class="forfait-player ${player.isForfait ? 'is-forfait' : ''} ${forfaitSelectedPlayers.has(player.licence) ? 'selected-forfait' : ''}"
+                   data-licence="${player.licence}"
+                   data-name="${player.player_name}"
+                   onclick="toggleForfaitPlayer('${player.licence}', '${player.player_name?.replace(/'/g, "\\'")}')"
+                   style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin: 4px 0; border-radius: 4px; cursor: pointer;
+                          background: ${player.isForfait ? '#ffebee' : forfaitSelectedPlayers.has(player.licence) ? '#fff3cd' : '#f8f9fa'};
+                          border-left: 3px solid ${player.isForfait ? '#dc3545' : forfaitSelectedPlayers.has(player.licence) ? '#ffc107' : 'transparent'};">
+                <div>
+                  <div style="font-weight: 500; ${player.isForfait ? 'text-decoration: line-through; color: #999;' : ''}">${player.player_name}</div>
+                  <div style="font-size: 11px; color: #666;">${player.club || ''}</div>
+                </div>
+                <div>
+                  ${player.isForfait ? '<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px;">FORFAIT</span>' : ''}
+                  ${forfaitSelectedPlayers.has(player.licence) && !player.isForfait ? '<span style="background: #ffc107; color: #333; padding: 2px 6px; border-radius: 4px; font-size: 10px;">À RETIRER</span>' : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleForfaitPlayer(licence, name) {
+      // Check if already a confirmed forfait
+      const isAlreadyForfait = forfaitCurrentPoules.some(p => p.players.some(pl => pl.licence === licence && pl.isForfait));
+      if (isAlreadyForfait) return; // Can't toggle confirmed forfaits
+
+      if (forfaitSelectedPlayers.has(licence)) {
+        forfaitSelectedPlayers.delete(licence);
+      } else {
+        forfaitSelectedPlayers.add(licence);
+      }
+      renderForfaitPoules(forfaitCurrentPoules);
+      updateForfaitSummary();
+    }
+
+    function updateForfaitSummary() {
+      const summary = document.getElementById('forfaitSummary');
+      const list = document.getElementById('forfaitList');
+      const regenerateBtn = document.getElementById('regeneratePoulesBtn');
+
+      if (forfaitSelectedPlayers.size > 0) {
+        const names = [];
+        forfaitCurrentPoules.forEach(p => {
+          p.players.forEach(pl => {
+            if (forfaitSelectedPlayers.has(pl.licence)) {
+              names.push(pl.player_name);
+            }
+          });
+        });
+        list.textContent = names.join(', ');
+        summary.style.display = 'block';
+        regenerateBtn.disabled = false;
+      } else {
+        summary.style.display = 'none';
+        regenerateBtn.disabled = true;
+      }
+    }
+
+    async function regeneratePoules(withReplacement = false) {
+      if (forfaitSelectedPlayers.size === 0 && !withReplacement) {
+        alert('Veuillez sélectionner au moins un joueur forfait');
+        return;
+      }
+
+      const btn = document.getElementById('regeneratePoulesBtn');
+      btn.disabled = true;
+      btn.textContent = 'Régénération en cours...';
+
+      try {
+        const response = await fetch(`${API_URL}/email/poules/${forfaitSelectedTournoi}/regenerate`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            forfaitLicences: Array.from(forfaitSelectedPlayers),
+            replacementPlayer: forfaitReplacementPlayer
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to regenerate poules');
+        }
+
+        const result = await response.json();
+
+        alert(`Poules régénérées avec succès!\n${result.playerCount} joueur(s) répartis en ${result.pouleCount} poule(s)`);
+
+        // Reload poules
+        forfaitSelectedPlayers.clear();
+        forfaitReplacementPlayer = null;
+        await loadForfaitPoules(forfaitSelectedTournoi);
+
+      } catch (error) {
+        console.error('Error regenerating poules:', error);
+        alert('Erreur: ' + error.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 Régénérer les poules';
+      }
+    }
+
+    // Replacement player modal
+    function openReplacementModal() {
+      if (forfaitSelectedPlayers.size === 0) {
+        alert('Veuillez d\'abord sélectionner au moins un joueur forfait');
+        return;
+      }
+      document.getElementById('replacementModal').style.display = 'flex';
+      document.getElementById('replacementSearch').value = '';
+      document.getElementById('replacementResults').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Tapez pour rechercher...</div>';
+      document.getElementById('confirmReplacementBtn').disabled = true;
+      forfaitReplacementPlayer = null;
+    }
+
+    function closeReplacementModal() {
+      document.getElementById('replacementModal').style.display = 'none';
+    }
+
+    let replacementSearchTimeout = null;
+    document.getElementById('replacementSearch').addEventListener('input', (e) => {
+      clearTimeout(replacementSearchTimeout);
+      const query = e.target.value.trim();
+
+      if (query.length < 2) {
+        document.getElementById('replacementResults').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Tapez au moins 2 caractères...</div>';
+        return;
+      }
+
+      document.getElementById('replacementResults').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Recherche...</div>';
+
+      replacementSearchTimeout = setTimeout(async () => {
+        try {
+          const response = await fetch(`${API_URL}/rankings/search?q=${encodeURIComponent(query)}&limit=20`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (!response.ok) throw new Error('Search failed');
+          const players = await response.json();
+
+          if (players.length === 0) {
+            document.getElementById('replacementResults').innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Aucun joueur trouvé</div>';
+            return;
+          }
+
+          // Filter out players already in poules
+          const existingLicences = new Set();
+          forfaitCurrentPoules.forEach(p => {
+            p.players.forEach(pl => existingLicences.add(pl.licence?.replace(/\s/g, '')));
+          });
+
+          document.getElementById('replacementResults').innerHTML = players.map(player => {
+            const isInPoules = existingLicences.has(player.licence?.replace(/\s/g, ''));
+            return `
+              <div class="replacement-option ${isInPoules ? 'disabled' : ''}"
+                   onclick="${isInPoules ? '' : `selectReplacementPlayer('${player.licence}', '${player.first_name} ${player.last_name}', '${player.club || ''}')`}"
+                   style="padding: 10px 15px; border-bottom: 1px solid #eee; cursor: ${isInPoules ? 'not-allowed' : 'pointer'};
+                          background: ${isInPoules ? '#f8f9fa' : 'white'}; opacity: ${isInPoules ? '0.5' : '1'};">
+                <div style="font-weight: 500;">${player.first_name} ${player.last_name}</div>
+                <div style="font-size: 12px; color: #666;">${player.club || ''} - ${player.licence}</div>
+                ${isInPoules ? '<div style="font-size: 11px; color: #dc3545;">Déjà dans les poules</div>' : ''}
+              </div>
+            `;
+          }).join('');
+
+        } catch (error) {
+          console.error('Search error:', error);
+          document.getElementById('replacementResults').innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;">Erreur de recherche</div>';
+        }
+      }, 300);
+    });
+
+    function selectReplacementPlayer(licence, name, club) {
+      forfaitReplacementPlayer = { licence, name, club };
+      document.getElementById('confirmReplacementBtn').disabled = false;
+
+      // Highlight selected
+      document.querySelectorAll('.replacement-option').forEach(el => {
+        el.style.background = 'white';
+      });
+      event.currentTarget.style.background = '#d4edda';
+    }
+
+    async function confirmReplacement() {
+      if (!forfaitReplacementPlayer) {
+        alert('Veuillez sélectionner un joueur remplaçant');
+        return;
+      }
+      closeReplacementModal();
+      await regeneratePoules(true);
+    }
   </script>
+
+  <!-- Forfait Management Modal -->
+  <div id="forfaitModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #dc3545 0%, #a71d2a 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+        <h3 style="margin: 0; font-size: 18px;">🚫 Gestion des forfaits</h3>
+        <span class="close-modal" onclick="closeForfaitModal()">&times;</span>
+      </div>
+      <div style="padding: 20px;">
+        <!-- Selectors -->
+        <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 200px;">
+            <label style="display: block; font-size: 12px; color: #666; margin-bottom: 4px;">Catégorie</label>
+            <select id="forfaitCategorySelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+              <option value="">Chargement...</option>
+            </select>
+          </div>
+          <div style="flex: 1; min-width: 200px;">
+            <label style="display: block; font-size: 12px; color: #666; margin-bottom: 4px;">Compétition</label>
+            <select id="forfaitCompetitionSelect" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+              <option value="">Sélectionnez une catégorie</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tournament Info -->
+        <div id="forfaitTournamentInfo" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <strong id="forfaitTournamentName" style="font-size: 16px;"></strong>
+              <div style="color: #666; font-size: 13px;">
+                <span id="forfaitTournamentDate"></span> - <span id="forfaitTournamentLieu"></span>
+              </div>
+            </div>
+            <div id="forfaitPlayerCount" style="font-size: 14px; color: #1F4788;"></div>
+          </div>
+        </div>
+
+        <!-- Instructions -->
+        <div id="forfaitInstructions" style="background: #e7f3ff; padding: 12px 15px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #0c5460;">
+          <strong>💡 Instructions :</strong> Cliquez sur un joueur pour le déclarer forfait. Vous pourrez ensuite régénérer les poules.
+        </div>
+
+        <!-- Current Poules Display -->
+        <div id="forfaitPoulesContainer" style="display: none;">
+          <h4 style="margin: 0 0 15px 0; color: #333;">Composition actuelle des poules</h4>
+          <div id="forfaitPoulesList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px;">
+            <!-- Poules will be loaded here -->
+          </div>
+        </div>
+
+        <!-- No Poules Message -->
+        <div id="forfaitNoPoules" style="display: none; text-align: center; padding: 40px; color: #666;">
+          <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
+          <p>Aucune poule enregistrée pour cette compétition.</p>
+          <p style="font-size: 13px;">Les poules sont enregistrées lors de l'envoi des convocations.</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="forfaitActions" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="regeneratePoulesBtn" class="btn" style="background: #28a745; color: white;" onclick="regeneratePoules(false)">
+              🔄 Régénérer les poules
+            </button>
+            <button id="regenerateWithReplacementBtn" class="btn" style="background: #1F4788; color: white;" onclick="openReplacementModal()">
+              👤 Ajouter un remplaçant
+            </button>
+          </div>
+          <div id="forfaitSummary" style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 6px; display: none;">
+            <strong>Forfaits sélectionnés :</strong> <span id="forfaitList"></span>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="forfaitLoading" style="display: none; text-align: center; padding: 40px;">
+          <div style="font-size: 24px; margin-bottom: 10px;">⏳</div>
+          <p>Chargement...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Replacement Player Modal -->
+  <div id="replacementModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #1F4788 0%, #163560 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+        <h3 style="margin: 0; font-size: 18px;">👤 Ajouter un remplaçant</h3>
+        <span class="close-modal" onclick="closeReplacementModal()">&times;</span>
+      </div>
+      <div style="padding: 20px;">
+        <p style="margin: 0 0 15px 0; color: #666; font-size: 13px;">
+          Recherchez et sélectionnez un joueur pour remplacer le forfait.
+        </p>
+        <input type="text" id="replacementSearch" placeholder="Rechercher un joueur (nom ou licence)..."
+          style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; margin-bottom: 15px;">
+        <div id="replacementResults" style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px;">
+          <div style="padding: 20px; text-align: center; color: #666;">Tapez pour rechercher...</div>
+        </div>
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+          <button class="btn" style="background: #6c757d;" onclick="closeReplacementModal()">Annuler</button>
+          <button id="confirmReplacementBtn" class="btn" style="background: #28a745; color: white;" onclick="confirmReplacement()" disabled>
+            Confirmer et régénérer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Simulation Modal -->
   <div id="simulationModal" class="modal" style="display: none;">
