@@ -3549,16 +3549,22 @@
 
         forfaitPreviewData = await response.json();
         console.log('Preview data received:', forfaitPreviewData);
-        renderPreview(forfaitPreviewData);
+
+        // Hide current poules, show preview in its place
+        const poulesContainer = document.getElementById('forfaitPoulesContainer');
         const previewEl = document.getElementById('forfaitPreview');
-        console.log('Preview element:', previewEl);
+        const actionsEl = document.getElementById('forfaitActions');
+
+        if (poulesContainer) poulesContainer.style.display = 'none';
+        if (actionsEl) actionsEl.style.display = 'none';
+
+        renderPreview(forfaitPreviewData);
         if (previewEl) {
           previewEl.style.display = 'block';
-          // Scroll to show preview
-          previewEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Scroll to top of modal content
+          const modalContent = previewEl.closest('.modal-content');
+          if (modalContent) modalContent.scrollTop = 0;
         }
-        const regenBtn = document.getElementById('regeneratePoulesBtn');
-        if (regenBtn) regenBtn.disabled = false;
 
       } catch (error) {
         console.error('Error previewing poules:', error);
@@ -3595,8 +3601,18 @@
     }
 
     function closePreview() {
-      document.getElementById('forfaitPreview').style.display = 'none';
-      document.getElementById('regeneratePoulesBtn').disabled = true;
+      // Hide preview, restore original poules view
+      const previewEl = document.getElementById('forfaitPreview');
+      const poulesContainer = document.getElementById('forfaitPoulesContainer');
+      const actionsEl = document.getElementById('forfaitActions');
+
+      if (previewEl) previewEl.style.display = 'none';
+      if (poulesContainer) poulesContainer.style.display = 'block';
+      if (actionsEl) actionsEl.style.display = 'block';
+
+      const regenBtn = document.getElementById('regeneratePoulesBtn');
+      if (regenBtn) regenBtn.disabled = true;
+
       forfaitPreviewData = null;
     }
 
@@ -3829,17 +3845,17 @@
           <div id="forfaitSummary" style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 6px; display: none;">
             <strong>Forfaits sélectionnés :</strong> <span id="forfaitList"></span>
           </div>
-          <!-- Preview Result -->
-          <div id="forfaitPreview" style="display: none; margin-top: 20px; padding: 15px; background: #e7f3ff; border: 2px solid #17a2b8; border-radius: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-              <h4 style="margin: 0; color: #0c5460;">👁️ Prévisualisation (non enregistrée)</h4>
-              <button class="btn" style="background: #6c757d; padding: 5px 10px; font-size: 12px;" onclick="closePreview()">✕ Fermer</button>
-            </div>
-            <div id="forfaitPreviewPoules" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;"></div>
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #17a2b8; display: flex; gap: 10px;">
-              <button class="btn" style="background: #28a745; color: white;" onclick="confirmRegeneration()">✓ Confirmer et enregistrer</button>
-              <button class="btn" style="background: #6c757d;" onclick="closePreview()">Annuler</button>
-            </div>
+        </div>
+
+        <!-- Preview Result (separate from actions so it can replace poules view) -->
+        <div id="forfaitPreview" style="display: none; padding: 15px; background: #e7f3ff; border: 2px solid #17a2b8; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h4 style="margin: 0; color: #0c5460;">👁️ Prévisualisation des nouvelles poules</h4>
+          </div>
+          <div id="forfaitPreviewPoules" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;"></div>
+          <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #17a2b8; display: flex; gap: 10px; justify-content: center;">
+            <button class="btn" style="background: #28a745; color: white; padding: 12px 24px; font-size: 15px;" onclick="confirmRegeneration()">✓ Confirmer et enregistrer</button>
+            <button class="btn" style="background: #dc3545; color: white; padding: 12px 24px; font-size: 15px;" onclick="closePreview()">✕ Annuler</button>
           </div>
         </div>
 
