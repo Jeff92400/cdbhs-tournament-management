@@ -7,7 +7,51 @@ This file provides guidance to Claude Code when working with this repository.
 **CDBHS Tournament Management System** - A French billiards tournament management application for the Comité Départemental de Billard des Hauts-de-Seine. Manages player registrations, tournament results, rankings across 13 categories, and email communications.
 
 **Production URL:** https://cdbhs-tournament-management-production.up.railway.app
+**Staging URL:** https://cdbhs-tournament-management-staging.up.railway.app
 **Related App:** Player App (Espace Joueur) in separate repo `cdbhs-player-app` - shares the same PostgreSQL database
+
+## Deployment Workflow
+
+### Branches
+- `main` → Production (auto-deploys to Railway production)
+- `staging` → Staging environment (auto-deploys to Railway staging)
+
+### Development Process
+1. **Create feature branch** from `staging`:
+   ```bash
+   git checkout staging
+   git pull origin staging
+   git checkout -b feature/my-feature
+   ```
+
+2. **Make changes**, commit with descriptive message
+
+3. **Push and merge to staging**:
+   ```bash
+   git push origin feature/my-feature
+   git checkout staging
+   git merge feature/my-feature
+   git push
+   ```
+
+4. **Test on staging URL** - verify changes work correctly
+
+5. **Deploy to production** (if staging tests pass):
+   ```bash
+   git checkout main
+   git merge staging
+   git push
+   ```
+
+### Quick Hotfix (urgent production bugs)
+```bash
+git checkout main
+git checkout -b hotfix/fix-name
+# ... fix ...
+git push origin hotfix/fix-name
+git checkout main && git merge hotfix/fix-name && git push
+git checkout staging && git merge main && git push  # Keep staging in sync
+```
 
 ## Commands
 
