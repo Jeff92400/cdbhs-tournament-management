@@ -1838,8 +1838,86 @@ router.get('/poules/upcoming', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/email/poules/categories
+ * Get categories that have tournaments with saved poules
+ */
+router.get('/poules/categories', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+
+  try {
+    const categories = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT DISTINCT t.mode, t.categorie
+        FROM convocation_poules cp
+        JOIN tournoi_ext t ON cp.tournoi_id = t.tournoi_id
+        WHERE t.debut >= CURRENT_DATE - INTERVAL '1 day'
+        ORDER BY t.mode, t.categorie
+      `, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    res.json(categories);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/email/poules/by-category
+ * Get tournaments with poules by category
+ */
+router.get('/poules/by-category', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { mode, categorie } = req.query;
+
+  try {
+    let sql = `
+      SELECT DISTINCT
+        cp.tournoi_id,
+        t.nom as tournament_name,
+        t.mode,
+        t.categorie,
+        t.debut as tournament_date,
+        t.lieu,
+        COUNT(DISTINCT cp.licence) as player_count
+      FROM convocation_poules cp
+      JOIN tournoi_ext t ON cp.tournoi_id = t.tournoi_id
+      WHERE t.debut >= CURRENT_DATE - INTERVAL '1 day'
+    `;
+    const params = [];
+
+    if (mode) {
+      params.push(mode);
+      sql += ` AND UPPER(t.mode) = UPPER($${params.length})`;
+    }
+    if (categorie) {
+      params.push(categorie);
+      sql += ` AND UPPER(t.categorie) = UPPER($${params.length})`;
+    }
+
+    sql += ` GROUP BY cp.tournoi_id, t.nom, t.mode, t.categorie, t.debut, t.lieu ORDER BY t.debut ASC`;
+
+    const tournaments = await new Promise((resolve, reject) => {
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    res.json(tournaments);
+  } catch (error) {
+    console.error('Error fetching tournaments by category:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * GET /api/email/poules/:tournoiId
  * Get saved poules for a tournament
+ * NOTE: This wildcard route must come AFTER specific routes like /upcoming, /categories, /by-category
  */
 router.get('/poules/:tournoiId', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
@@ -2186,83 +2264,6 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
     });
   } catch (error) {
     console.error('Error regenerating poules:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * GET /api/email/poules/categories
- * Get categories that have tournaments with saved poules
- */
-router.get('/poules/categories', authenticateToken, async (req, res) => {
-  const db = require('../db-loader');
-
-  try {
-    const categories = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT DISTINCT t.mode, t.categorie
-        FROM convocation_poules cp
-        JOIN tournoi_ext t ON cp.tournoi_id = t.tournoi_id
-        WHERE t.debut >= CURRENT_DATE - INTERVAL '1 day'
-        ORDER BY t.mode, t.categorie
-      `, [], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-
-    res.json(categories);
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * GET /api/email/poules/by-category
- * Get tournaments with poules by category
- */
-router.get('/poules/by-category', authenticateToken, async (req, res) => {
-  const db = require('../db-loader');
-  const { mode, categorie } = req.query;
-
-  try {
-    let sql = `
-      SELECT DISTINCT
-        cp.tournoi_id,
-        t.nom as tournament_name,
-        t.mode,
-        t.categorie,
-        t.debut as tournament_date,
-        t.lieu,
-        COUNT(DISTINCT cp.licence) as player_count
-      FROM convocation_poules cp
-      JOIN tournoi_ext t ON cp.tournoi_id = t.tournoi_id
-      WHERE t.debut >= CURRENT_DATE - INTERVAL '1 day'
-    `;
-    const params = [];
-
-    if (mode) {
-      params.push(mode);
-      sql += ` AND UPPER(t.mode) = UPPER($${params.length})`;
-    }
-    if (categorie) {
-      params.push(categorie);
-      sql += ` AND UPPER(t.categorie) = UPPER($${params.length})`;
-    }
-
-    sql += ` GROUP BY cp.tournoi_id, t.nom, t.mode, t.categorie, t.debut, t.lieu ORDER BY t.debut ASC`;
-
-    const tournaments = await new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-
-    res.json(tournaments);
-  } catch (error) {
-    console.error('Error fetching tournaments by category:', error);
     res.status(500).json({ error: error.message });
   }
 });
