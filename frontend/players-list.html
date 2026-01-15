@@ -102,9 +102,6 @@
         </button>
       </div>
       <div style="display: flex; gap: 10px;">
-        <button id="bulkGdprConsentBtn" class="btn admin-only" style="background-color: #1565c0; color: white;">
-          📋 RGPD: Marquer consentement existants
-        </button>
         <button id="clearPlayersBtn" class="btn admin-only" style="background-color: #dc3545; color: white;">
           🗑️ Effacer tous les joueurs
         </button>
@@ -577,67 +574,26 @@
       clubSelect.innerHTML = '<option value="">-- Sélectionner un club --</option>' +
         clubsList.map(club => `<option value="${club}" ${club === player.club ? 'selected' : ''}>${club}</option>`).join('');
 
-      // GDPR consent section - only show for Player App users
+      // GDPR consent section - always visible, editable for any player
       const gdprSection = document.getElementById('gdprConsentSection');
       const gdprCheckbox = document.getElementById('edit_gdpr_consent');
       const gdprInfo = document.getElementById('gdprConsentInfo');
 
-      // Reset GDPR checkbox state
-      gdprCheckbox.checked = false;
+      gdprSection.style.display = 'block';
       gdprCheckbox.disabled = false;
-      gdprInfo.style.display = 'none';
 
-      if (player.player_app_user) {
-        gdprSection.style.display = 'block';
-        // Load GDPR consent status from player account
-        loadGdprConsent(player.licence);
+      // Use GDPR data from player object (stored in players table)
+      if (player.gdpr_consent_date) {
+        gdprCheckbox.checked = true;
+        const date = new Date(player.gdpr_consent_date).toLocaleDateString('fr-FR');
+        gdprInfo.textContent = `✓ Consentement donné le ${date} (v${player.gdpr_consent_version || '1.0'})`;
+        gdprInfo.style.display = 'block';
       } else {
-        gdprSection.style.display = 'none';
-      }
-
-      // Toggle GDPR section when Player App user checkbox changes
-      document.getElementById('edit_player_app_user').onchange = function() {
-        gdprSection.style.display = this.checked ? 'block' : 'none';
-        if (this.checked && !gdprCheckbox.checked) {
-          gdprInfo.style.display = 'none';
-        }
-      };
-
-      document.getElementById('editPlayerModal').style.display = 'flex';
-    }
-
-    // Load GDPR consent status for a player
-    async function loadGdprConsent(licence) {
-      const gdprCheckbox = document.getElementById('edit_gdpr_consent');
-      const gdprInfo = document.getElementById('gdprConsentInfo');
-
-      try {
-        const response = await fetch(`${API_URL}/players/${licence}/account`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-          const account = await response.json();
-          if (account && account.gdpr_consent_date) {
-            gdprCheckbox.checked = true;
-            const date = new Date(account.gdpr_consent_date).toLocaleDateString('fr-FR');
-            gdprInfo.textContent = `✓ Consentement donné le ${date} (v${account.gdpr_consent_version || '1.0'})`;
-            gdprInfo.style.display = 'block';
-          } else {
-            gdprCheckbox.checked = false;
-            gdprInfo.style.display = 'none';
-          }
-        } else {
-          // No account yet - still allow setting consent (will be stored when account is created)
-          gdprCheckbox.checked = false;
-          gdprInfo.textContent = 'Pas encore de compte Player App';
-          gdprInfo.style.display = 'block';
-        }
-      } catch (error) {
-        console.error('Error loading GDPR consent:', error);
         gdprCheckbox.checked = false;
         gdprInfo.style.display = 'none';
       }
+
+      document.getElementById('editPlayerModal').style.display = 'flex';
     }
 
     // Close edit modal
@@ -923,10 +879,8 @@
         playerData.club = clubValue;
       }
 
-      // Include GDPR consent if checkbox is checked and not disabled
-      if (gdprCheckbox && !gdprCheckbox.disabled && gdprCheckbox.checked) {
-        playerData.gdpr_consent = true;
-      }
+      // Always include GDPR consent value (allows setting/clearing)
+      playerData.gdpr_consent = gdprCheckbox.checked;
 
       const success = await updatePlayer(playerData);
       if (success) {
@@ -1108,47 +1062,6 @@
         console.error('Create player error:', error);
         alert('Erreur: ' + error.message);
       }
-    }
-
-    // Bulk GDPR consent button
-    const bulkGdprBtn = document.getElementById('bulkGdprConsentBtn');
-    if (bulkGdprBtn) {
-      bulkGdprBtn.addEventListener('click', async () => {
-        const confirm = window.confirm(
-          '📋 Marquer le consentement RGPD\n\n' +
-          'Cette action va marquer le consentement RGPD pour tous les joueurs ayant un compte Player App mais sans consentement enregistré.\n\n' +
-          'Continuer ?'
-        );
-
-        if (!confirm) return;
-
-        bulkGdprBtn.disabled = true;
-        bulkGdprBtn.textContent = '⏳ En cours...';
-
-        try {
-          const response = await fetch(`${API_URL}/players/bulk-gdpr-consent`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.error || 'Erreur');
-          }
-
-          alert(`✅ Consentement RGPD marqué pour ${data.updated} joueur(s)`);
-        } catch (error) {
-          console.error('Bulk GDPR consent error:', error);
-          alert('❌ Erreur: ' + error.message);
-        } finally {
-          bulkGdprBtn.disabled = false;
-          bulkGdprBtn.textContent = '📋 RGPD: Marquer consentement existants';
-        }
-      });
     }
 
     // Export players button

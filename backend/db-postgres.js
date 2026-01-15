@@ -77,6 +77,10 @@ async function initializeDatabase() {
     // Add player_app_user column to track Player App users (boolean)
     await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS player_app_user BOOLEAN DEFAULT FALSE`);
 
+    // Add GDPR consent columns to players table (migration - January 2026)
+    await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS gdpr_consent_date TIMESTAMP`);
+    await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS gdpr_consent_version VARCHAR(10)`);
+
     // Migrate existing admins from player_accounts.is_admin to players.player_app_role
     await client.query(`
       UPDATE players p
