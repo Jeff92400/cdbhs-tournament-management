@@ -216,6 +216,76 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
   }
 });
 
+// Create a new player
+router.post('/', authenticateToken, async (req, res) => {
+  const {
+    licence,
+    first_name,
+    last_name,
+    club,
+    email,
+    phone,
+    rank_libre,
+    rank_cadre,
+    rank_bande,
+    rank_3bandes,
+    player_app_role,
+    player_app_user,
+    is_active
+  } = req.body;
+
+  if (!licence || !first_name || !last_name) {
+    return res.status(400).json({ error: 'Licence, prénom et nom sont obligatoires' });
+  }
+
+  const normalizedLicence = licence.replace(/\s+/g, '').toUpperCase();
+
+  try {
+    // Check if licence already exists
+    const existing = await new Promise((resolve, reject) => {
+      db.get('SELECT licence FROM players WHERE REPLACE(licence, \' \', \'\') = $1', [normalizedLicence], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (existing) {
+      return res.status(409).json({ error: 'Un joueur avec cette licence existe déjà' });
+    }
+
+    // Insert new player
+    await new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO players (licence, first_name, last_name, club, email, phone, rank_libre, rank_cadre, rank_bande, rank_3bandes, player_app_role, player_app_user, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `, [
+        normalizedLicence,
+        first_name,
+        last_name.toUpperCase(),
+        club || null,
+        email || null,
+        phone || null,
+        rank_libre || 'NC',
+        rank_cadre || 'NC',
+        rank_bande || 'NC',
+        rank_3bandes || 'NC',
+        player_app_role || null,
+        player_app_user ? true : false,
+        is_active !== false ? 1 : 0
+      ], function(err) {
+        if (err) reject(err);
+        else resolve(this);
+      });
+    });
+
+    console.log(`Player created: ${normalizedLicence} - ${first_name} ${last_name}`);
+    res.status(201).json({ success: true, licence: normalizedLicence });
+  } catch (error) {
+    console.error('Create player error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get all players (or filter by active status)
 router.get('/', authenticateToken, (req, res) => {
   const { active } = req.query;
