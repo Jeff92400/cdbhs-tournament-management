@@ -286,6 +286,30 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Bulk update GDPR consent for all existing Player App users without consent
+router.post('/bulk-gdpr-consent', authenticateToken, async (req, res) => {
+  try {
+    const result = await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE player_accounts
+         SET gdpr_consent_date = NOW(), gdpr_consent_version = '1.0'
+         WHERE gdpr_consent_date IS NULL`,
+        [],
+        function(err) {
+          if (err) reject(err);
+          else resolve({ changes: this.changes });
+        }
+      );
+    });
+
+    console.log(`Bulk GDPR consent updated for ${result.changes} accounts`);
+    res.json({ success: true, updated: result.changes });
+  } catch (error) {
+    console.error('Bulk GDPR consent error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get all players (or filter by active status)
 router.get('/', authenticateToken, (req, res) => {
   const { active } = req.query;
@@ -423,25 +447,65 @@ router.put('/:licence', authenticateToken, (req, res) => {
     values.push(req.body.player_app_user ? true : false);
   }
 
-  if (updates.length === 0) {
+  if (updates.length === 0 && !req.body.gdpr_consent) {
     return res.status(400).json({ error: 'No fields to update' });
   }
 
   values.push(licence);
 
-  const query = `UPDATE players SET ${updates.join(', ')} WHERE REPLACE(licence, ' ', '') = REPLACE(?, ' ', '')`;
+  // Update players table if there are updates
+  if (updates.length > 0) {
+    const query = `UPDATE players SET ${updates.join(', ')} WHERE REPLACE(licence, ' ', '') = REPLACE(?, ' ', '')`;
 
-  db.run(query, values, function(err) {
-    if (err) {
-      console.error('Update player error:', err);
-      return res.status(500).json({ error: err.message });
+    db.run(query, values, async function(err) {
+      if (err) {
+        console.error('Update player error:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Player not found' });
+      }
+
+      // If GDPR consent is being updated, also update player_accounts table
+      if (req.body.gdpr_consent) {
+        try {
+          await updateGdprConsent(licence);
+        } catch (gdprErr) {
+          console.error('GDPR consent update error:', gdprErr);
+          // Don't fail the whole request, just log the error
+        }
+      }
+
+      res.json({ success: true, message: 'Player updated successfully' });
+    });
+  } else if (req.body.gdpr_consent) {
+    // Only updating GDPR consent
+    try {
+      await updateGdprConsent(licence);
+      res.json({ success: true, message: 'GDPR consent updated successfully' });
+    } catch (err) {
+      console.error('GDPR consent update error:', err);
+      res.status(500).json({ error: err.message });
     }
-    if (this.changes === 0) {
-      return res.status(404).json({ error: 'Player not found' });
-    }
-    res.json({ success: true, message: 'Player updated successfully' });
-  });
+  }
 });
+
+// Helper function to update GDPR consent in player_accounts
+async function updateGdprConsent(licence) {
+  return new Promise((resolve, reject) => {
+    const normalizedLicence = licence.replace(/\s+/g, '');
+    db.run(
+      `UPDATE player_accounts
+       SET gdpr_consent_date = NOW(), gdpr_consent_version = '1.0'
+       WHERE REPLACE(licence, ' ', '') = $1`,
+      [normalizedLicence],
+      function(err) {
+        if (err) reject(err);
+        else resolve(this);
+      }
+    );
+  });
+}
 
 // Legacy endpoint - update club only (for backwards compatibility)
 router.put('/:licence/club', authenticateToken, (req, res) => {
@@ -485,7 +549,7 @@ router.get('/:licence/account', authenticateToken, (req, res) => {
   const licence = req.params.licence.replace(/\s+/g, '');
 
   db.get(
-    `SELECT id, email, is_admin, last_login, created_at
+    `SELECT id, email, is_admin, last_login, created_at, gdpr_consent_date, gdpr_consent_version
      FROM player_accounts
      WHERE REPLACE(licence, ' ', '') = $1`,
     [licence],
@@ -493,14 +557,17 @@ router.get('/:licence/account', authenticateToken, (req, res) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
+      if (!row) {
+        return res.json({ hasAccount: false, account: null });
+      }
       res.json({
-        hasAccount: !!row,
-        account: row ? {
-          email: row.email,
-          isAdmin: row.is_admin,
-          lastLogin: row.last_login,
-          createdAt: row.created_at
-        } : null
+        hasAccount: true,
+        email: row.email,
+        isAdmin: row.is_admin,
+        lastLogin: row.last_login,
+        createdAt: row.created_at,
+        gdpr_consent_date: row.gdpr_consent_date,
+        gdpr_consent_version: row.gdpr_consent_version
       });
     }
   );

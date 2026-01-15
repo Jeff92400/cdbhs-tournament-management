@@ -569,6 +569,10 @@ async function initializeDatabase() {
       )
     `);
 
+    // Add GDPR consent columns to player_accounts (migration - January 2026)
+    await client.query(`ALTER TABLE player_accounts ADD COLUMN IF NOT EXISTS gdpr_consent_date TIMESTAMP`);
+    await client.query(`ALTER TABLE player_accounts ADD COLUMN IF NOT EXISTS gdpr_consent_version VARCHAR(10)`);
+
     // Announcements table (for Player App notifications)
     await client.query(`
       CREATE TABLE IF NOT EXISTS announcements (
