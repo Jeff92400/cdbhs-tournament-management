@@ -396,7 +396,7 @@ router.get('/:licence', authenticateToken, (req, res) => {
 
 // Update player club name
 // Update player (all fields)
-router.put('/:licence', authenticateToken, (req, res) => {
+router.put('/:licence', authenticateToken, async (req, res) => {
   const { licence } = req.params;
   const { club, first_name, last_name, rank_libre, rank_cadre, rank_bande, rank_3bandes, is_active } = req.body;
 
