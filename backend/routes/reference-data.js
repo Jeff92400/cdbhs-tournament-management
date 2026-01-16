@@ -365,38 +365,46 @@ router.delete('/categories/:id', authenticateToken, (req, res) => {
   const db = getDb();
   const { id } = req.params;
 
-  // Check if used in tournaments or inscriptions
-  db.get(
-    `SELECT
-      (SELECT COUNT(*) FROM tournament_results WHERE category_id = $1) as results_count,
-      (SELECT COUNT(*) FROM tournoi_ext WHERE categorie IN (SELECT display_name FROM categories WHERE id = $1)) as tournois_count
-    `,
-    [id],
-    (err, row) => {
-      if (err) {
-        console.error('Error checking category usage:', err);
-        return res.status(500).json({ error: 'Erreur lors de la vérification' });
-      }
+  // First get the category to check its display_name
+  db.get('SELECT display_name FROM categories WHERE id = $1', [id], (err, category) => {
+    if (err) {
+      console.error('Error fetching category:', err);
+      return res.status(500).json({ error: 'Erreur lors de la récupération' });
+    }
 
-      const totalUsage = (row?.results_count || 0) + (row?.tournois_count || 0);
-      if (totalUsage > 0) {
-        return res.status(400).json({
-          error: `Cette catégorie est utilisée (${row.results_count} résultats, ${row.tournois_count} tournois). Impossible de la supprimer.`
+    if (!category) {
+      return res.status(404).json({ error: 'Catégorie non trouvée' });
+    }
+
+    // Check if used in tournoi_ext
+    db.get(
+      'SELECT COUNT(*) as count FROM tournoi_ext WHERE categorie = $1',
+      [category.display_name],
+      (err, row) => {
+        if (err) {
+          console.error('Error checking category usage:', err);
+          return res.status(500).json({ error: 'Erreur lors de la vérification' });
+        }
+
+        if (row && row.count > 0) {
+          return res.status(400).json({
+            error: `Cette catégorie est utilisée par ${row.count} tournoi(s). Impossible de la supprimer.`
+          });
+        }
+
+        db.run('DELETE FROM categories WHERE id = $1', [id], function(err) {
+          if (err) {
+            console.error('Error deleting category:', err);
+            return res.status(500).json({ error: 'Erreur lors de la suppression' });
+          }
+          if (this.changes === 0) {
+            return res.status(404).json({ error: 'Catégorie non trouvée' });
+          }
+          res.json({ success: true, message: 'Catégorie supprimée' });
         });
       }
-
-      db.run('DELETE FROM categories WHERE id = $1', [id], function(err) {
-        if (err) {
-          console.error('Error deleting category:', err);
-          return res.status(500).json({ error: 'Erreur lors de la suppression' });
-        }
-        if (this.changes === 0) {
-          return res.status(404).json({ error: 'Catégorie non trouvée' });
-        }
-        res.json({ success: true, message: 'Catégorie supprimée' });
-      });
-    }
-  );
+    );
+  });
 });
 
 module.exports = router;
