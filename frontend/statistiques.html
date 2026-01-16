@@ -378,21 +378,20 @@
     /* Pie Chart Styles */
     .chart-container {
       display: flex;
-      gap: 30px;
+      gap: 20px;
       align-items: flex-start;
-      flex-wrap: wrap;
     }
 
     .pie-chart-wrapper {
-      flex: 0 0 250px;
+      flex: 0 0 180px;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
 
     .pie-chart {
-      width: 200px;
-      height: 200px;
+      width: 160px;
+      height: 160px;
       border-radius: 50%;
       position: relative;
     }
@@ -403,8 +402,8 @@
       left: 50%;
       transform: translate(-50%, -50%);
       background: white;
-      width: 80px;
-      height: 80px;
+      width: 70px;
+      height: 70px;
       border-radius: 50%;
       display: flex;
       flex-direction: column;
@@ -414,52 +413,48 @@
     }
 
     .pie-chart-total {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       color: #1F4788;
     }
 
     .pie-chart-label {
-      font-size: 10px;
+      font-size: 9px;
       color: #666;
     }
 
     .chart-legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 15px;
-      justify-content: center;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      color: #444;
-    }
-
-    .legend-color {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
+      display: none;
     }
 
     .table-wrapper {
       flex: 1;
-      min-width: 300px;
-      max-height: 400px;
+      max-height: 300px;
       overflow-y: auto;
+    }
+
+    .table-wrapper .ranking-table {
+      font-size: 12px;
+    }
+
+    .table-wrapper .ranking-table th,
+    .table-wrapper .ranking-table td {
+      padding: 6px 8px;
     }
 
     .club-breakdown-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      grid-template-columns: 1fr 1fr;
       gap: 20px;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
+      .club-breakdown-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
       .chart-container {
         flex-direction: column;
         align-items: center;
@@ -471,10 +466,6 @@
 
       .table-wrapper {
         width: 100%;
-      }
-
-      .club-breakdown-grid {
-        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -577,7 +568,7 @@
 
             <!-- Competing Players by Club -->
             <div class="stats-card">
-              <div class="stats-card-header" id="competingPlayersHeader">Joueurs ayant Compété (Saison)</div>
+              <div class="stats-card-header" id="competingPlayersHeader">Joueurs Engagés en Compétition (Saison)</div>
               <div class="stats-card-body" id="competingPlayersByClub">
                 <div class="loading">
                   <div class="loading-spinner"></div>
@@ -1070,30 +1061,22 @@
                 <div class="pie-chart-label">joueurs</div>
               </div>
             </div>
-            <div class="chart-legend">
-              ${pieData.slice(0, 6).map((item, i) => `
-                <div class="legend-item">
-                  <div class="legend-color" style="background: ${chartColors[i % chartColors.length]};"></div>
-                  <span>${item.club.length > 15 ? item.club.substring(0, 15) + '...' : item.club}</span>
-                </div>
-              `).join('')}
-            </div>
           </div>
           <div class="table-wrapper">
             <table class="ranking-table">
               <thead>
                 <tr>
-                  <th>#</th>
+                  <th style="width: 30px;"></th>
                   <th>Club</th>
-                  <th>Joueurs</th>
-                  <th>%</th>
+                  <th style="width: 60px;">Nb</th>
+                  <th style="width: 50px;">%</th>
                 </tr>
               </thead>
               <tbody>
                 ${data.map((club, i) => `
                   <tr>
-                    <td>${createRankBadge(i + 1)}</td>
-                    <td class="player-name" style="font-size: 12px;">${club.club}</td>
+                    <td><span style="display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: ${chartColors[i % chartColors.length]};"></span></td>
+                    <td class="player-name">${club.club}</td>
                     <td class="stat-value">${club.player_count}</td>
                     <td>${((club.player_count / total) * 100).toFixed(1)}%</td>
                   </tr>
@@ -1127,7 +1110,7 @@
     async function loadCompetingPlayersByClub() {
       const container = document.getElementById('competingPlayersByClub');
       const header = document.getElementById('competingPlayersHeader');
-      header.textContent = `Joueurs ayant Compété (${currentSeason})`;
+      header.textContent = `Joueurs Engagés en Compétition (${currentSeason})`;
 
       try {
         const response = await fetch(`${API_URL}/statistics/clubs/competing-players?season=${currentSeason}`, {
