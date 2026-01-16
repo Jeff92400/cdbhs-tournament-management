@@ -102,7 +102,8 @@ const authLimiter = rateLimit({
   message: { error: 'Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: false
+  skipSuccessfulRequests: false,
+  validate: { trustProxy: false } // Disable validation - we trust Railway's proxy
 });
 
 // General API rate limiter
@@ -111,7 +112,8 @@ const apiLimiter = rateLimit({
   max: 200, // 200 requests per minute per IP
   message: { error: 'Trop de requêtes. Veuillez réessayer dans quelques instants.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { trustProxy: false } // Disable validation - we trust Railway's proxy
 });
 
 // Body parsing middleware
