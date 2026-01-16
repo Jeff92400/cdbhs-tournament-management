@@ -217,11 +217,12 @@ router.get('/stats', authenticateToken, requireViewer, async (req, res) => {
       LIMIT 10
     `);
 
-    // Total Player App users - count from players table
+    // Total Player App users - count from players table (excluding test accounts)
     const totalUsers = await db.query(`
       SELECT COUNT(*) as count
       FROM players
       WHERE player_app_user = TRUE
+        AND (player_app_role IS NULL OR player_app_role != 'test')
     `);
 
     res.json({
