@@ -617,6 +617,34 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_convocation_poules_tournoi ON convocation_poules(tournoi_id)
     `);
 
+    // Game modes reference table (Modes de jeu)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS game_modes (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(20) NOT NULL UNIQUE,
+        display_name VARCHAR(50) NOT NULL,
+        color VARCHAR(10) DEFAULT '#1F4788',
+        display_order INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // FFB rankings reference table (Classements FFB)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ffb_rankings (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(10) NOT NULL UNIQUE,
+        display_name VARCHAR(50) NOT NULL,
+        tier VARCHAR(5) NOT NULL,
+        level_order INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     await client.query('COMMIT');
 
     // Initialize default admin (legacy)
@@ -682,6 +710,54 @@ async function initializeDatabase() {
       VALUES ('LIBRE', 'N3', 'LIBRE - NATIONALE 3')
       ON CONFLICT (game_type, level) DO NOTHING
     `);
+
+    // Initialize game_modes reference data
+    const gameModeResult = await client.query('SELECT COUNT(*) as count FROM game_modes');
+    if (gameModeResult.rows[0].count == 0) {
+      const gameModes = [
+        { code: 'LIBRE', display_name: 'Libre', color: '#1F4788', display_order: 1 },
+        { code: 'BANDE', display_name: 'Bande', color: '#28a745', display_order: 2 },
+        { code: '3BANDES', display_name: '3 Bandes', color: '#dc3545', display_order: 3 },
+        { code: 'CADRE', display_name: 'Cadre', color: '#6f42c1', display_order: 4 }
+      ];
+      for (const mode of gameModes) {
+        await client.query(
+          'INSERT INTO game_modes (code, display_name, color, display_order) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
+          [mode.code, mode.display_name, mode.color, mode.display_order]
+        );
+      }
+      console.log('Game modes initialized');
+    }
+
+    // Initialize ffb_rankings reference data
+    const rankingResult = await client.query('SELECT COUNT(*) as count FROM ffb_rankings');
+    if (rankingResult.rows[0].count == 0) {
+      const rankings = [
+        // National
+        { code: 'N1', display_name: 'Nationale 1', tier: 'N', level_order: 1 },
+        { code: 'N2', display_name: 'Nationale 2', tier: 'N', level_order: 2 },
+        { code: 'N3', display_name: 'Nationale 3', tier: 'N', level_order: 3 },
+        // Regional
+        { code: 'R1', display_name: 'Régionale 1', tier: 'R', level_order: 4 },
+        { code: 'R2', display_name: 'Régionale 2', tier: 'R', level_order: 5 },
+        { code: 'R3', display_name: 'Régionale 3', tier: 'R', level_order: 6 },
+        { code: 'R4', display_name: 'Régionale 4', tier: 'R', level_order: 7 },
+        // Departemental
+        { code: 'D1', display_name: 'Départementale 1', tier: 'D', level_order: 8 },
+        { code: 'D2', display_name: 'Départementale 2', tier: 'D', level_order: 9 },
+        { code: 'D3', display_name: 'Départementale 3', tier: 'D', level_order: 10 },
+        { code: 'D4', display_name: 'Départementale 4', tier: 'D', level_order: 11 },
+        // Non classé
+        { code: 'NC', display_name: 'Non Classé', tier: 'NC', level_order: 99 }
+      ];
+      for (const rank of rankings) {
+        await client.query(
+          'INSERT INTO ffb_rankings (code, display_name, tier, level_order) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
+          [rank.code, rank.display_name, rank.tier, rank.level_order]
+        );
+      }
+      console.log('FFB rankings initialized');
+    }
 
     // Initialize mode mappings (IONOS mode names -> internal game_type)
     const modeMappings = [

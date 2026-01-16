@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestion des Fichiers - CDBHS</title>
+  <link rel="icon" type="image/png" href="images/billiard-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .tabs {
+      display: flex;
+      gap: 5px;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 25px;
+    }
+
+    .tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      color: #1F4788;
+    }
+
+    .tab.active {
+      color: #1F4788;
+      border-bottom-color: #1F4788;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .data-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .data-table tr:hover {
+      background: #f8f9fa;
+    }
+
+    .color-badge {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      vertical-align: middle;
+    }
+
+    .tier-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .tier-N { background: #e3f2fd; color: #1565c0; }
+    .tier-R { background: #e8f5e9; color: #2e7d32; }
+    .tier-D { background: #fff3e0; color: #ef6c00; }
+    .tier-NC { background: #f5f5f5; color: #757575; }
+
+    .status-active {
+      color: #28a745;
+    }
+
+    .status-inactive {
+      color: #dc3545;
+    }
+
+    .add-form {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .add-form h4 {
+      margin: 0 0 15px 0;
+      color: #1F4788;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+      min-width: 120px;
+      margin-bottom: 0;
+    }
+
+    .form-row .form-group.small {
+      flex: 0 0 100px;
+    }
+
+    .action-btns {
+      display: flex;
+      gap: 5px;
+    }
+
+    .btn-icon {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .btn-edit {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .btn-edit:hover {
+      background: #bbdefb;
+    }
+
+    .btn-delete {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .btn-delete:hover {
+      background: #ffcdd2;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+      background: linear-gradient(135deg, #1F4788 0%, #3B5998 100%);
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-body .form-group {
+      margin-bottom: 15px;
+    }
+
+    .modal-footer {
+      padding: 15px 20px;
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .section-description {
+      color: #666;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f0f7ff;
+      border-radius: 8px;
+      border-left: 4px solid #1F4788;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="navbar">
+      <h2><img src="images/billiard-icon.png" alt="ball" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;"></span> Gestion des Fichiers</h2>
+      <div class="nav-links">
+        <a href="dashboard.html">Accueil</a>
+        <a href="rankings.html">Classements</a>
+        <a href="generate-poules.html">Competitions</a>
+        <a href="calendar.html">Calendrier</a>
+        <a href="emailing.html">Com joueurs</a>
+        <a href="settings.html" class="active">Parametres</a>
+        <a href="#" id="logoutBtn" class="nav-logout">Deconnexion</a>
+      </div>
+    </div>
+
+    <div id="errorMessage" class="error" style="display: none;"></div>
+    <div id="successMessage" class="success" style="display: none;"></div>
+
+    <div class="card">
+      <h3>Gestion des Donnees de Reference</h3>
+
+      <div class="section-description">
+        <strong>Information :</strong> Ces fichiers definissent les modes de jeu, classements FFB et categories disponibles dans l'application.
+        Les modifications ici seront utilisees dans toute l'application a terme.
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="game-modes">Modes de Jeu</button>
+        <button class="tab" data-tab="ffb-rankings">Classements FFB</button>
+        <button class="tab" data-tab="categories">Categories</button>
+      </div>
+
+      <!-- Tab: Game Modes -->
+      <div class="tab-content active" id="tab-game-modes">
+        <div class="add-form">
+          <h4>Ajouter un Mode de Jeu</h4>
+          <form id="addGameModeForm" class="form-row">
+            <div class="form-group">
+              <label for="gmCode">Code *</label>
+              <input type="text" id="gmCode" required placeholder="ex: LIBRE" style="text-transform: uppercase;">
+            </div>
+            <div class="form-group">
+              <label for="gmName">Nom d'affichage *</label>
+              <input type="text" id="gmName" required placeholder="ex: Libre">
+            </div>
+            <div class="form-group small">
+              <label for="gmColor">Couleur</label>
+              <input type="color" id="gmColor" value="#1F4788" style="height: 38px; padding: 2px;">
+            </div>
+            <div class="form-group small">
+              <label for="gmOrder">Ordre</label>
+              <input type="number" id="gmOrder" value="0" min="0">
+            </div>
+            <div class="form-group" style="flex: 0 0 auto;">
+              <button type="submit" class="btn btn-primary">Ajouter</button>
+            </div>
+          </form>
+        </div>
+
+        <table class="data-table" id="gameModesTable">
+          <thead>
+            <tr>
+              <th style="width: 40px;">Ordre</th>
+              <th style="width: 50px;">Couleur</th>
+              <th>Code</th>
+              <th>Nom</th>
+              <th style="width: 80px;">Statut</th>
+              <th style="width: 100px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="gameModesBody">
+            <tr><td colspan="6" class="empty-state">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab: FFB Rankings -->
+      <div class="tab-content" id="tab-ffb-rankings">
+        <div class="add-form">
+          <h4>Ajouter un Classement FFB</h4>
+          <form id="addRankingForm" class="form-row">
+            <div class="form-group small">
+              <label for="frCode">Code *</label>
+              <input type="text" id="frCode" required placeholder="ex: R3" style="text-transform: uppercase;">
+            </div>
+            <div class="form-group">
+              <label for="frName">Nom complet *</label>
+              <input type="text" id="frName" required placeholder="ex: Regionale 3">
+            </div>
+            <div class="form-group small">
+              <label for="frTier">Tier *</label>
+              <select id="frTier" required>
+                <option value="N">National</option>
+                <option value="R">Regional</option>
+                <option value="D">Departemental</option>
+                <option value="NC">Non Classe</option>
+              </select>
+            </div>
+            <div class="form-group small">
+              <label for="frOrder">Niveau</label>
+              <input type="number" id="frOrder" value="0" min="0" title="Plus bas = meilleur niveau">
+            </div>
+            <div class="form-group" style="flex: 0 0 auto;">
+              <button type="submit" class="btn btn-primary">Ajouter</button>
+            </div>
+          </form>
+        </div>
+
+        <table class="data-table" id="rankingsTable">
+          <thead>
+            <tr>
+              <th style="width: 60px;">Niveau</th>
+              <th style="width: 80px;">Code</th>
+              <th>Nom</th>
+              <th style="width: 100px;">Tier</th>
+              <th style="width: 80px;">Statut</th>
+              <th style="width: 100px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rankingsBody">
+            <tr><td colspan="6" class="empty-state">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab: Categories -->
+      <div class="tab-content" id="tab-categories">
+        <div class="section-description" style="background: #fff8e1; border-left-color: #ff9800;">
+          <strong>Note :</strong> Les categories sont actuellement gerees via l'ancien systeme.
+          Une fois la migration terminee, vous pourrez creer des categories en combinant un mode de jeu et un classement FFB.
+        </div>
+
+        <table class="data-table" id="categoriesTable">
+          <thead>
+            <tr>
+              <th>Mode de Jeu</th>
+              <th>Classement</th>
+              <th>Nom d'affichage</th>
+            </tr>
+          </thead>
+          <tbody id="categoriesBody">
+            <tr><td colspan="3" class="empty-state">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Back to settings link -->
+    <div style="margin-top: 20px;">
+      <a href="settings.html" style="color: #1F4788;">&larr; Retour aux Parametres</a>
+    </div>
+  </div>
+
+  <!-- Edit Game Mode Modal -->
+  <div id="editGameModeModal" class="modal-overlay" onclick="if(event.target === this) closeModal('editGameModeModal')">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Modifier le Mode de Jeu</h3>
+        <button class="modal-close" onclick="closeModal('editGameModeModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="editGameModeForm">
+          <input type="hidden" id="editGmId">
+          <div class="form-group">
+            <label for="editGmCode">Code *</label>
+            <input type="text" id="editGmCode" required style="text-transform: uppercase;">
+          </div>
+          <div class="form-group">
+            <label for="editGmName">Nom d'affichage *</label>
+            <input type="text" id="editGmName" required>
+          </div>
+          <div class="form-group">
+            <label for="editGmColor">Couleur</label>
+            <input type="color" id="editGmColor" style="height: 38px; width: 100px;">
+          </div>
+          <div class="form-group">
+            <label for="editGmOrder">Ordre d'affichage</label>
+            <input type="number" id="editGmOrder" min="0">
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="editGmActive" checked> Actif
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" onclick="closeModal('editGameModeModal')">Annuler</button>
+        <button type="button" class="btn btn-primary" onclick="saveGameMode()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Ranking Modal -->
+  <div id="editRankingModal" class="modal-overlay" onclick="if(event.target === this) closeModal('editRankingModal')">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Modifier le Classement FFB</h3>
+        <button class="modal-close" onclick="closeModal('editRankingModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="editRankingForm">
+          <input type="hidden" id="editFrId">
+          <div class="form-group">
+            <label for="editFrCode">Code *</label>
+            <input type="text" id="editFrCode" required style="text-transform: uppercase;">
+          </div>
+          <div class="form-group">
+            <label for="editFrName">Nom complet *</label>
+            <input type="text" id="editFrName" required>
+          </div>
+          <div class="form-group">
+            <label for="editFrTier">Tier *</label>
+            <select id="editFrTier" required>
+              <option value="N">National</option>
+              <option value="R">Regional</option>
+              <option value="D">Departemental</option>
+              <option value="NC">Non Classe</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editFrOrder">Niveau (ordre)</label>
+            <input type="number" id="editFrOrder" min="0">
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="editFrActive" checked> Actif
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" onclick="closeModal('editRankingModal')">Annuler</button>
+        <button type="button" class="btn btn-primary" onclick="saveRanking()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth-utils.js"></script>
+  <script>
+    const API_URL = '/api';
+
+    // Check authentication
+    if (!requireAuth()) {
+      throw new Error('Not authenticated');
+    }
+    const token = localStorage.getItem('token');
+
+    // Check admin role
+    const userRole = localStorage.getItem('userRole');
+    if (userRole !== 'admin') {
+      window.location.href = 'settings.html';
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('username');
+      window.location.href = 'login.html';
+    });
+
+    // Tab management
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // Show message helper
+    function showMessage(type, message) {
+      const el = document.getElementById(type === 'error' ? 'errorMessage' : 'successMessage');
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
+
+    // Modal helpers
+    function openModal(modalId) {
+      document.getElementById(modalId).classList.add('active');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
+    }
+
+    // ==================== GAME MODES ====================
+
+    async function loadGameModes() {
+      try {
+        const response = await fetch(`${API_URL}/reference-data/game-modes`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const modes = await response.json();
+          renderGameModes(modes);
+        }
+      } catch (error) {
+        console.error('Error loading game modes:', error);
+        document.getElementById('gameModesBody').innerHTML =
+          '<tr><td colspan="6" class="empty-state">Erreur de chargement</td></tr>';
+      }
+    }
+
+    function renderGameModes(modes) {
+      const tbody = document.getElementById('gameModesBody');
+
+      if (modes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucun mode de jeu</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = modes.map(mode => `
+        <tr>
+          <td>${mode.display_order}</td>
+          <td><span class="color-badge" style="background: ${mode.color};"></span></td>
+          <td><strong>${mode.code}</strong></td>
+          <td>${mode.display_name}</td>
+          <td class="${mode.is_active ? 'status-active' : 'status-inactive'}">
+            ${mode.is_active ? 'Actif' : 'Inactif'}
+          </td>
+          <td class="action-btns">
+            <button class="btn-icon btn-edit" onclick="editGameMode(${mode.id})" title="Modifier">Modif</button>
+            <button class="btn-icon btn-delete" onclick="deleteGameMode(${mode.id}, '${mode.display_name}')" title="Supprimer">Suppr</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Add game mode
+    document.getElementById('addGameModeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        code: document.getElementById('gmCode').value,
+        display_name: document.getElementById('gmName').value,
+        color: document.getElementById('gmColor').value,
+        display_order: parseInt(document.getElementById('gmOrder').value) || 0
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/reference-data/game-modes`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showMessage('success', 'Mode de jeu ajoute');
+          document.getElementById('addGameModeForm').reset();
+          document.getElementById('gmColor').value = '#1F4788';
+          loadGameModes();
+        } else {
+          showMessage('error', result.error || 'Erreur lors de l\'ajout');
+        }
+      } catch (error) {
+        console.error('Error adding game mode:', error);
+        showMessage('error', 'Erreur de connexion');
+      }
+    });
+
+    // Edit game mode
+    async function editGameMode(id) {
+      try {
+        const response = await fetch(`${API_URL}/reference-data/game-modes/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const mode = await response.json();
+          document.getElementById('editGmId').value = mode.id;
+          document.getElementById('editGmCode').value = mode.code;
+          document.getElementById('editGmName').value = mode.display_name;
+          document.getElementById('editGmColor').value = mode.color || '#1F4788';
+          document.getElementById('editGmOrder').value = mode.display_order || 0;
+          document.getElementById('editGmActive').checked = mode.is_active;
+          openModal('editGameModeModal');
+        }
+      } catch (error) {
+        console.error('Error loading game mode:', error);
+        showMessage('error', 'Erreur lors du chargement');
+      }
+    }
+
+    async function saveGameMode() {
+      const id = document.getElementById('editGmId').value;
+      const data = {
+        code: document.getElementById('editGmCode').value,
+        display_name: document.getElementById('editGmName').value,
+        color: document.getElementById('editGmColor').value,
+        display_order: parseInt(document.getElementById('editGmOrder').value) || 0,
+        is_active: document.getElementById('editGmActive').checked
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/reference-data/game-modes/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showMessage('success', 'Mode de jeu mis a jour');
+          closeModal('editGameModeModal');
+          loadGameModes();
+        } else {
+          showMessage('error', result.error || 'Erreur lors de la mise a jour');
+        }
+      } catch (error) {
+        console.error('Error saving game mode:', error);
+        showMessage('error', 'Erreur de connexion');
+      }
+    }
+
+    async function deleteGameMode(id, name) {
+      if (!confirm(`Supprimer le mode de jeu "${name}" ?`)) return;
+
+      try {
+        const response = await fetch(`${API_URL}/reference-data/game-modes/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showMessage('success', 'Mode de jeu supprime');
+          loadGameModes();
+        } else {
+          showMessage('error', result.error || 'Erreur lors de la suppression');
+        }
+      } catch (error) {
+        console.error('Error deleting game mode:', error);
+        showMessage('error', 'Erreur de connexion');
+      }
+    }
+
+    // ==================== FFB RANKINGS ====================
+
+    async function loadRankings() {
+      try {
+        const response = await fetch(`${API_URL}/reference-data/ffb-rankings`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const rankings = await response.json();
+          renderRankings(rankings);
+        }
+      } catch (error) {
+        console.error('Error loading rankings:', error);
+        document.getElementById('rankingsBody').innerHTML =
+          '<tr><td colspan="6" class="empty-state">Erreur de chargement</td></tr>';
+      }
+    }
+
+    function renderRankings(rankings) {
+      const tbody = document.getElementById('rankingsBody');
+
+      if (rankings.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucun classement</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rankings.map(rank => `
+        <tr>
+          <td>${rank.level_order}</td>
+          <td><strong>${rank.code}</strong></td>
+          <td>${rank.display_name}</td>
+          <td><span class="tier-badge tier-${rank.tier}">${getTierName(rank.tier)}</span></td>
+          <td class="${rank.is_active ? 'status-active' : 'status-inactive'}">
+            ${rank.is_active ? 'Actif' : 'Inactif'}
+          </td>
+          <td class="action-btns">
+            <button class="btn-icon btn-edit" onclick="editRanking(${rank.id})" title="Modifier">Modif</button>
+            <button class="btn-icon btn-delete" onclick="deleteRanking(${rank.id}, '${rank.code}')" title="Supprimer">Suppr</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function getTierName(tier) {
+      const names = { 'N': 'National', 'R': 'Regional', 'D': 'Departemental', 'NC': 'Non Classe' };
+      return names[tier] || tier;
+    }
+
+    // Add ranking
+    document.getElementById('addRankingForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        code: document.getElementById('frCode').value,
+        display_name: document.getElementById('frName').value,
+        tier: document.getElementById('frTier').value,
+        level_order: parseInt(document.getElementById('frOrder').value) || 0
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/reference-data/ffb-rankings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showMessage('success', 'Classement ajoute');
+          document.getElementById('addRankingForm').reset();
+          loadRankings();
+        } else {
+          showMessage('error', result.error || 'Erreur lors de l\'ajout');
+        }
+      } catch (error) {
+        console.error('Error adding ranking:', error);
+        showMessage('error', 'Erreur de connexion');
+      }
+    });
+
+    // Edit ranking
+    async function editRanking(id) {
+      try {
+        const response = await fetch(`${API_URL}/reference-data/ffb-rankings/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const rank = await response.json();
+          document.getElementById('editFrId').value = rank.id;
+          document.getElementById('editFrCode').value = rank.code;
+          document.getElementById('editFrName').value = rank.display_name;
+          document.getElementById('editFrTier').value = rank.tier;
+          document.getElementById('editFrOrder').value = rank.level_order || 0;
+          document.getElementById('editFrActive').checked = rank.is_active;
+          openModal('editRankingModal');
+        }
+      } catch (error) {
+        console.error('Error loading ranking:', error);
+        showMessage('error', 'Erreur lors du chargement');
+      }
+    }
+
+    async function saveRanking() {
+      const id = document.getElementById('editFrId').value;
+      const data = {
+        code: document.getElementById('editFrCode').value,
+        display_name: document.getElementById('editFrName').value,
+        tier: document.getElementById('editFrTier').value,
+        level_order: parseInt(document.getElementById('editFrOrder').value) || 0,
+        is_active: document.getElementById('editFrActive').checked
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/reference-data/ffb-rankings/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showMessage('success', 'Classement mis a jour');
+          closeModal('editRankingModal');
+          loadRankings();
+        } else {
+          showMessage('error', result.error || 'Erreur lors de la mise a jour');
+        }
+      } catch (error) {
+        console.error('Error saving ranking:', error);
+        showMessage('error', 'Erreur de connexion');
+      }
+    }
+
+    async function deleteRanking(id, code) {
+      if (!confirm(`Supprimer le classement "${code}" ?`)) return;
+
+      try {
+        const response = await fetch(`${API_URL}/reference-data/ffb-rankings/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showMessage('success', 'Classement supprime');
+          loadRankings();
+        } else {
+          showMessage('error', result.error || 'Erreur lors de la suppression');
+        }
+      } catch (error) {
+        console.error('Error deleting ranking:', error);
+        showMessage('error', 'Erreur de connexion');
+      }
+    }
+
+    // ==================== CATEGORIES ====================
+
+    async function loadCategories() {
+      try {
+        const response = await fetch(`${API_URL}/reference-data/categories`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const categories = await response.json();
+          renderCategories(categories);
+        }
+      } catch (error) {
+        console.error('Error loading categories:', error);
+        document.getElementById('categoriesBody').innerHTML =
+          '<tr><td colspan="3" class="empty-state">Erreur de chargement</td></tr>';
+      }
+    }
+
+    function renderCategories(categories) {
+      const tbody = document.getElementById('categoriesBody');
+
+      if (categories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Aucune categorie</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = categories.map(cat => `
+        <tr>
+          <td>
+            ${cat.game_mode_color ? `<span class="color-badge" style="background: ${cat.game_mode_color}; margin-right: 8px;"></span>` : ''}
+            ${cat.game_mode_name || cat.game_type}
+          </td>
+          <td>
+            ${cat.ranking_tier ? `<span class="tier-badge tier-${cat.ranking_tier}">${cat.ranking_name || cat.level}</span>` : cat.level}
+          </td>
+          <td>${cat.display_name}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Handle URL hash navigation
+    function handleHashNavigation() {
+      const hash = window.location.hash.replace('#', '');
+      if (hash) {
+        const tab = document.querySelector(`.tab[data-tab="${hash}"]`);
+        if (tab) {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById(`tab-${hash}`).classList.add('active');
+        }
+      }
+    }
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashNavigation);
+
+    // Initialize
+    loadGameModes();
+    loadRankings();
+    loadCategories();
+    handleHashNavigation(); // Handle initial hash on page load
+  </script>
+</body>
+</html>
