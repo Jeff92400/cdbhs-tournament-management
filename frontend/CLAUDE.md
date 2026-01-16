@@ -116,3 +116,7 @@ tbody.innerHTML = data.map(item => `
 - Dates displayed in French format (DD/MM/YYYY)
 - Season format displayed as "2024-2025"
 - Club logos are PNGs in `images/clubs/`, matched by normalized name
+- **Billiard icon:** Never use the American 8-ball emoji (🎱). This is a French billiards app (carambole). Always use the French billiard icon:
+  ```html
+  <img src="images/FrenchBillard-Icon-small.png" alt="" style="height: 24px; width: 24px; vertical-align: middle;">
+  ```
