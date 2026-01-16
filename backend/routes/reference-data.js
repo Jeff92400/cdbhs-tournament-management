@@ -403,23 +403,32 @@ router.post('/categories', authenticateToken, (req, res) => {
 
 // Delete category
 router.delete('/categories/:id', authenticateToken, (req, res) => {
-  const db = getDb();
-  const { id } = req.params;
+  try {
+    const db = getDb();
+    const id = parseInt(req.params.id, 10);
 
-  console.log('Deleting category with id:', id);
+    console.log('Deleting category with id:', id, 'type:', typeof id);
 
-  // Direct delete - simplified for now
-  db.run('DELETE FROM categories WHERE id = $1', [id], function(err) {
-    if (err) {
-      console.error('Error deleting category:', err);
-      return res.status(500).json({ error: 'Erreur lors de la suppression: ' + err.message });
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'ID invalide' });
     }
-    console.log('Delete result - changes:', this.changes);
-    if (this.changes === 0) {
-      return res.status(404).json({ error: 'Catégorie non trouvée' });
-    }
-    res.json({ success: true, message: 'Catégorie supprimée' });
-  });
+
+    // Direct delete - simplified for now
+    db.run('DELETE FROM categories WHERE id = $1', [id], function(err) {
+      if (err) {
+        console.error('Error deleting category:', err);
+        return res.status(500).json({ error: 'Erreur lors de la suppression: ' + err.message });
+      }
+      console.log('Delete result - changes:', this.changes);
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Catégorie non trouvée' });
+      }
+      res.json({ success: true, message: 'Catégorie supprimée' });
+    });
+  } catch (error) {
+    console.error('Unexpected error in delete category:', error);
+    res.status(500).json({ error: 'Erreur inattendue: ' + error.message });
+  }
 });
 
 module.exports = router;
