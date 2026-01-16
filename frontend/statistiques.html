@@ -1041,6 +1041,12 @@
         return;
       }
 
+      // Ensure player_count is a number
+      data = data.map(item => ({
+        ...item,
+        player_count: parseInt(item.player_count) || 0
+      }));
+
       const total = data.reduce((sum, item) => sum + item.player_count, 0);
 
       // Top clubs for pie chart (max 10, rest grouped as "Autres")
