@@ -3732,26 +3732,40 @@
           });
         }
 
-        // Build poules data
-        const poulesForApi = forfaitCurrentPoules.map(poule => ({
-          number: poule.number,
-          players: poule.players.filter(p => !p.isForfait).map(p => ({
-            licence: p.licence,
-            name: p.player_name,
-            club: p.club
-          }))
-        }));
-
-        // Build locations data
-        const locations = {};
+        // Build locations data as array (email API expects array with locationNum, name, street, startTime)
+        // Build this first so we can assign locationNum to each poule
+        const locationsMap = new Map();
         forfaitCurrentPoules.forEach(poule => {
-          locations[poule.number] = {
-            name: poule.location_name || '',
-            address: poule.location_address || '',
-            phone: '',
-            time: poule.start_time || ''
+          const locKey = poule.location_name || 'Location 1';
+          if (!locationsMap.has(locKey)) {
+            locationsMap.set(locKey, {
+              locationNum: String(locationsMap.size + 1),
+              name: poule.location_name || '',
+              street: poule.location_address || '',
+              city: '',
+              zip_code: '',
+              startTime: poule.start_time || '14:00'
+            });
+          }
+        });
+        const locations = Array.from(locationsMap.values());
+        console.log('Locations for email:', locations);
+
+        // Build poules data with locationNum for email API
+        const poulesForApi = forfaitCurrentPoules.map(poule => {
+          const locKey = poule.location_name || 'Location 1';
+          const loc = locationsMap.get(locKey);
+          return {
+            number: poule.number,
+            locationNum: loc?.locationNum || '1',
+            players: poule.players.filter(p => !p.isForfait).map(p => ({
+              licence: p.licence,
+              name: p.player_name,
+              club: p.club
+            }))
           };
         });
+        console.log('Poules for email:', poulesForApi);
 
         // Set global variables used by the email section
         selectedPlayers = allPlayers;
@@ -3773,6 +3787,14 @@
         console.log('Category for email:', currentCategory);
 
         currentTournament = t.nom;
+
+        // Set season based on tournament date
+        const tournamentDate = new Date(t.debut);
+        const year = tournamentDate.getFullYear();
+        const month = tournamentDate.getMonth();
+        // Season starts in September
+        currentSeason = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+        console.log('Season for email:', currentSeason);
 
         // Store generation data for the email section
         lastGeneratedData = {
