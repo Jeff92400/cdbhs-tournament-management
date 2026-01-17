@@ -1951,6 +1951,45 @@ router.get('/poules/by-category', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/email/fix-corrupted-names
+ * One-time fix for corrupted player names (undefined undefined)
+ */
+router.post('/fix-corrupted-names', authenticateToken, async (req, res) => {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const db = require('../db-loader');
+
+  try {
+    // Fix corrupted names by joining with players table
+    const result = await new Promise((resolve, reject) => {
+      db.run(`
+        UPDATE convocation_poules
+        SET player_name = (
+          SELECT CONCAT(p.last_name, ' ', p.first_name)
+          FROM players p
+          WHERE REPLACE(p.licence, ' ', '') = REPLACE(convocation_poules.licence, ' ', '')
+        )
+        WHERE player_name = 'undefined undefined'
+          OR player_name IS NULL
+          OR player_name = ''
+          OR player_name LIKE '%undefined%'
+      `, [], function(err) {
+        if (err) reject(err);
+        else resolve({ changes: this.changes });
+      });
+    });
+
+    console.log(`[Fix Names] Updated ${result.changes} corrupted player names`);
+    res.json({ success: true, updated: result.changes });
+  } catch (error) {
+    console.error('Error fixing names:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * GET /api/email/poules/:tournoiId
  * Get saved poules for a tournament
  * NOTE: This wildcard route must come AFTER specific routes like /upcoming, /categories, /by-category
