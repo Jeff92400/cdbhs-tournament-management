@@ -111,10 +111,7 @@
         </select>
         <select id="modeFilter">
           <option value="">Tous les modes</option>
-          <option value="LIBRE">Libre</option>
-          <option value="CADRE">Cadre</option>
-          <option value="BANDE">Bande</option>
-          <option value="3 BANDES">3 Bandes</option>
+          <!-- Options loaded dynamically from API -->
         </select>
         <select id="categorieFilter">
           <option value="">Toutes categories</option>
@@ -176,10 +173,7 @@
             <div>
               <label style="display: block; margin-bottom: 5px; font-weight: bold;">Mode</label>
               <select id="edit_mode" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                <option value="LIBRE">LIBRE</option>
-                <option value="CADRE">CADRE</option>
-                <option value="BANDE">BANDE</option>
-                <option value="3 BANDES">3 BANDES</option>
+                <!-- Options loaded dynamically from API -->
               </select>
             </div>
 
@@ -237,10 +231,7 @@
               <label style="display: block; margin-bottom: 5px; font-weight: bold;">Mode *</label>
               <select id="create_mode" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 <option value="">-- Sélectionner --</option>
-                <option value="LIBRE">LIBRE</option>
-                <option value="CADRE">CADRE</option>
-                <option value="BANDE">BANDE</option>
-                <option value="3 BANDES">3 BANDES</option>
+                <!-- Options loaded dynamically from API -->
               </select>
             </div>
 
@@ -318,6 +309,38 @@
     });
 
     let allTournois = [];
+    let gameModesList = [];
+
+    // Load game modes from reference data API
+    async function loadGameModes() {
+      try {
+        const response = await fetch(`${API_URL}/reference-data/game-modes?active_only=true`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          gameModesList = await response.json();
+
+          // Use display_name for values (for backward compatibility with existing data)
+          // Filter uses .includes() so "3 Bandes" will match tournament modes containing "3 BANDES"
+          // Populate filter dropdown
+          const filterSelect = document.getElementById('modeFilter');
+          filterSelect.innerHTML = '<option value="">Tous les modes</option>' +
+            gameModesList.map(gm => `<option value="${gm.display_name.toUpperCase()}">${gm.display_name}</option>`).join('');
+
+          // Populate edit modal dropdown (use display_name for compatibility)
+          const editSelect = document.getElementById('edit_mode');
+          editSelect.innerHTML = gameModesList.map(gm => `<option value="${gm.display_name.toUpperCase()}">${gm.display_name.toUpperCase()}</option>`).join('');
+
+          // Populate create modal dropdown
+          const createSelect = document.getElementById('create_mode');
+          createSelect.innerHTML = '<option value="">-- Sélectionner --</option>' +
+            gameModesList.map(gm => `<option value="${gm.display_name.toUpperCase()}">${gm.display_name.toUpperCase()}</option>`).join('');
+        }
+      } catch (error) {
+        console.error('Error loading game modes:', error);
+      }
+    }
 
     // Load tournois
     async function loadTournois() {
@@ -899,6 +922,7 @@
     }
 
     // Initialize
+    loadGameModes(); // Load game modes for dropdowns
     loadTournois();
   </script>
 
