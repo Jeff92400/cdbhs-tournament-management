@@ -1508,8 +1508,8 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
       db.get(`
         SELECT te.tournoi_id, te.mode, te.categorie, te.debut
         FROM tournoi_ext te
-        WHERE UPPER(te.mode) = UPPER($1)
-          AND UPPER(te.categorie) = UPPER($2)
+        WHERE UPPER(REPLACE(te.mode, ' ', '')) = UPPER(REPLACE($1, ' ', ''))
+          AND UPPER(REPLACE(te.categorie, ' ', '')) = UPPER(REPLACE($2, ' ', ''))
           AND DATE(te.debut) = DATE($3)
         LIMIT 1
       `, [tournament.game_type, tournament.level, tournament.tournament_date], (err, row) => {
