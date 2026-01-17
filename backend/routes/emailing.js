@@ -1498,15 +1498,9 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
 
     // Find the matching tournoi_ext based on mode, category and date
     // This allows us to get the email from the inscription for THIS specific tournament
-    console.log('[Tournament-Results] Looking for tournoi_ext match:', {
-      game_type: tournament.game_type,
-      level: tournament.level,
-      tournament_date: tournament.tournament_date
-    });
-
     const matchingTournoi = await new Promise((resolve, reject) => {
       db.get(`
-        SELECT te.tournoi_id, te.mode, te.categorie, te.debut
+        SELECT te.tournoi_id
         FROM tournoi_ext te
         WHERE UPPER(REPLACE(te.mode, ' ', '')) = UPPER(REPLACE($1, ' ', ''))
           AND UPPER(REPLACE(te.categorie, ' ', '')) = UPPER(REPLACE($2, ' ', ''))
@@ -1514,28 +1508,9 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
         LIMIT 1
       `, [tournament.game_type, tournament.level, tournament.tournament_date], (err, row) => {
         if (err) reject(err);
-        else {
-          console.log('[Tournament-Results] Matching tournoi_ext found:', row || 'NONE');
-          resolve(row);
-        }
+        else resolve(row);
       });
     });
-
-    // If no match found, log available tournoi_ext for debugging
-    if (!matchingTournoi) {
-      const availableTournois = await new Promise((resolve, reject) => {
-        db.all(`
-          SELECT tournoi_id, mode, categorie, debut
-          FROM tournoi_ext
-          WHERE DATE(debut) = DATE($1)
-          LIMIT 10
-        `, [tournament.tournament_date], (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows || []);
-        });
-      });
-      console.log('[Tournament-Results] Available tournoi_ext on same date:', availableTournois);
-    }
 
     // Get tournament results with emails
     // Priority: 1) Email from inscription for THIS tournament, 2) Email from players table, 3) Email from player_contacts
@@ -1583,54 +1558,6 @@ router.get('/tournament-results/:id', authenticateToken, async (req, res) => {
     });
 
     const emailCount = results.filter(r => r.email && r.email.includes('@')).length;
-
-    // Debug: Log players without email
-    const noEmailPlayers = results.filter(r => !r.email || !r.email.includes('@'));
-    if (noEmailPlayers.length > 0) {
-      console.log('[Tournament-Results] Players WITHOUT email:', noEmailPlayers.map(p => ({
-        name: p.player_name,
-        licence: p.licence
-      })));
-
-      // For each player without email, check all sources
-      for (const player of noEmailPlayers) {
-        const normLicence = (player.licence || '').replace(/\s+/g, '');
-
-        // Check players table
-        const playerEmail = await new Promise((resolve, reject) => {
-          db.get(`SELECT licence, email FROM players WHERE REPLACE(licence, ' ', '') = $1`, [normLicence], (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          });
-        });
-
-        // Check inscriptions for this tournament
-        const inscEmail = await new Promise((resolve, reject) => {
-          db.get(`SELECT licence, email, tournoi_id FROM inscriptions WHERE REPLACE(licence, ' ', '') = $1 AND tournoi_id = $2`,
-            [normLicence, matchingTournoi?.tournoi_id || -1], (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          });
-        });
-
-        // Check all inscriptions for this player
-        const allInsc = await new Promise((resolve, reject) => {
-          db.all(`SELECT licence, email, tournoi_id FROM inscriptions WHERE REPLACE(licence, ' ', '') = $1 LIMIT 5`,
-            [normLicence], (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows || []);
-          });
-        });
-
-        console.log(`[Tournament-Results] Debug for ${player.player_name} (licence: ${player.licence}):`, {
-          normLicence,
-          matchingTournoiId: matchingTournoi?.tournoi_id || -1,
-          playerTableEmail: playerEmail,
-          inscriptionForTournament: inscEmail,
-          allInscriptions: allInsc
-        });
-      }
-    }
 
     res.json({
       tournament,
