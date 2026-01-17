@@ -134,6 +134,36 @@ async function getRankingDataByCategoryName(categoryDisplayName, season) {
   });
 }
 
+// Generate match schedule for a poule based on its size
+// For 4 players: 1v4, 2v3 first (based on seeding), then winners vs winners, losers vs losers
+// For 5 players: 1v5, 2v4 first, then J3 plays losers, finally winners play
+function generateMatchSchedule(pouleSize) {
+  if (pouleSize === 3) {
+    return [
+      { player1: 2, player2: 3, description: 'Joueur 2 vs Joueur 3' },
+      { player1: 1, player2: 0, description: 'Joueur 1 vs Perdant Match 1', dynamic: true },
+      { player1: 1, player2: 0, description: 'Joueur 1 vs Gagnant Match 1', dynamic: true }
+    ];
+  } else if (pouleSize === 4) {
+    return [
+      { player1: 1, player2: 4, description: 'Joueur 1 vs Joueur 4' },
+      { player1: 2, player2: 3, description: 'Joueur 2 vs Joueur 3' },
+      { player1: 0, player2: 0, description: 'Perdants Match 1 et 2', dynamic: true },
+      { player1: 0, player2: 0, description: 'Gagnants Match 1 et 2', dynamic: true }
+    ];
+  } else if (pouleSize === 5) {
+    return [
+      { player1: 1, player2: 5, description: 'Joueur 1 vs Joueur 5' },
+      { player1: 2, player2: 4, description: 'Joueur 2 vs Joueur 4' },
+      { player1: 3, player2: 0, description: 'Joueur 3 vs Perdant Match 1', dynamic: true },
+      { player1: 3, player2: 0, description: 'Joueur 3 vs Perdant Match 2', dynamic: true },
+      { player1: 0, player2: 0, description: 'Gagnants Match 1 et 2', dynamic: true }
+    ];
+  }
+  // For other sizes, no fixed schedule displayed
+  return [];
+}
+
 // Generate PDF convocation for a specific player - includes ALL poules
 async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, locations, gameParams, selectedDistance, rankingData = {}) {
   return new Promise((resolve, reject) => {
@@ -325,6 +355,55 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
           y += 20;
         });
 
+        // Add match schedule for poules with 4 or 5 players
+        const pouleSize = poule.players.length;
+        if (pouleSize === 4 || pouleSize === 5) {
+          const matches = generateMatchSchedule(pouleSize);
+          if (matches.length > 0) {
+            y += 8;
+
+            // Check if we need a new page for match schedule
+            const matchScheduleHeight = 20 + (matches.length * 16);
+            if (y + matchScheduleHeight > doc.page.height - 60) {
+              doc.addPage();
+              y = 40;
+            }
+
+            // Match schedule header
+            doc.rect(40, y, pageWidth, 18).fill('#E8E8E8');
+            doc.fillColor('#333333').fontSize(9).font('Helvetica-Bold')
+               .text('ORDRE DES MATCHS', 50, y + 4);
+            y += 20;
+
+            // Match rows
+            matches.forEach((match, idx) => {
+              const matchNum = idx + 1;
+              const bgColor = idx % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
+              doc.rect(40, y, pageWidth, 15).fill(bgColor);
+
+              doc.fillColor('#666666').fontSize(8).font('Helvetica');
+              doc.text(`Match ${matchNum}:`, 50, y + 3, { width: 50 });
+
+              if (match.dynamic) {
+                // Dynamic match (depends on previous results)
+                doc.font('Helvetica-Oblique').fillColor('#888888')
+                   .text(match.description, 105, y + 3, { width: 400 });
+              } else {
+                // Fixed match - show player names
+                const p1 = poule.players[match.player1 - 1];
+                const p2 = poule.players[match.player2 - 1];
+                if (p1 && p2) {
+                  const p1Name = `${(p1.last_name || '').toUpperCase()} ${p1.first_name || ''}`.trim();
+                  const p2Name = `${(p2.last_name || '').toUpperCase()} ${p2.first_name || ''}`.trim();
+                  doc.font('Helvetica').fillColor('#333333')
+                     .text(`${p1Name}  vs  ${p2Name}`, 105, y + 3, { width: 400 });
+                }
+              }
+              y += 15;
+            });
+          }
+        }
+
         y += 15;
       }
 
@@ -515,6 +594,55 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
           doc.text(playerRanking.rank ? String(playerRanking.rank) : '-', 490, y + 5, { width: 40, align: 'center' });
           y += 20;
         });
+
+        // Add match schedule for poules with 4 or 5 players
+        const pouleSize = poule.players.length;
+        if (pouleSize === 4 || pouleSize === 5) {
+          const matches = generateMatchSchedule(pouleSize);
+          if (matches.length > 0) {
+            y += 8;
+
+            // Check if we need a new page for match schedule
+            const matchScheduleHeight = 20 + (matches.length * 16);
+            if (y + matchScheduleHeight > doc.page.height - 60) {
+              doc.addPage();
+              y = 40;
+            }
+
+            // Match schedule header
+            doc.rect(40, y, pageWidth, 18).fill('#E8E8E8');
+            doc.fillColor('#333333').fontSize(9).font('Helvetica-Bold')
+               .text('ORDRE DES MATCHS', 50, y + 4);
+            y += 20;
+
+            // Match rows
+            matches.forEach((match, idx) => {
+              const matchNum = idx + 1;
+              const bgColor = idx % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
+              doc.rect(40, y, pageWidth, 15).fill(bgColor);
+
+              doc.fillColor('#666666').fontSize(8).font('Helvetica');
+              doc.text(`Match ${matchNum}:`, 50, y + 3, { width: 50 });
+
+              if (match.dynamic) {
+                // Dynamic match (depends on previous results)
+                doc.font('Helvetica-Oblique').fillColor('#888888')
+                   .text(match.description, 105, y + 3, { width: 400 });
+              } else {
+                // Fixed match - show player names
+                const p1 = poule.players[match.player1 - 1];
+                const p2 = poule.players[match.player2 - 1];
+                if (p1 && p2) {
+                  const p1Name = `${(p1.last_name || '').toUpperCase()} ${p1.first_name || ''}`.trim();
+                  const p2Name = `${(p2.last_name || '').toUpperCase()} ${p2.first_name || ''}`.trim();
+                  doc.font('Helvetica').fillColor('#333333')
+                     .text(`${p1Name}  vs  ${p2Name}`, 105, y + 3, { width: 400 });
+                }
+              }
+              y += 15;
+            });
+          }
+        }
 
         y += 15;
       }
