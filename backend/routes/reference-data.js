@@ -112,20 +112,20 @@ router.put('/game-modes/:id', authenticateToken, (req, res) => {
           return res.status(404).json({ error: 'Mode de jeu non trouvé' });
         }
 
-        // If display_name changed, update categories
-        if (oldDisplayName !== display_name) {
-          // Update game_type in categories
+        // If display_name changed, update categories (case-insensitive match)
+        if (oldDisplayName.toUpperCase() !== display_name.toUpperCase()) {
+          // Update game_type in categories (use UPPER for case-insensitive match)
           db.run(
-            'UPDATE categories SET game_type = $1 WHERE game_type = $2',
+            'UPDATE categories SET game_type = $1 WHERE UPPER(game_type) = UPPER($2)',
             [display_name, oldDisplayName],
             (err) => {
               if (err) {
                 console.error('Error updating categories game_type:', err);
               }
 
-              // Also update display_name in categories (replace old name with new)
+              // Also update display_name in categories (use new game_type value)
               db.run(
-                `UPDATE categories SET display_name = $1 || ' ' || level WHERE game_type = $2`,
+                `UPDATE categories SET display_name = $1 || ' ' || level WHERE UPPER(game_type) = UPPER($2)`,
                 [display_name, display_name],
                 (err) => {
                   if (err) {
@@ -336,6 +336,7 @@ router.get('/categories', authenticateToken, (req, res) => {
       fr.tier as ranking_tier
     FROM categories c
     LEFT JOIN game_modes gm ON UPPER(c.game_type) = UPPER(gm.display_name)
+                            OR UPPER(c.game_type) = UPPER(gm.code)
     LEFT JOIN ffb_rankings fr ON UPPER(c.level) = UPPER(fr.code)
     ORDER BY gm.display_order, fr.level_order
   `;
