@@ -679,4 +679,49 @@ router.get('/:licence/history', authenticateToken, (req, res) => {
   });
 });
 
+// Fix duplicate player licence - delete wrong one and update tournament results
+router.post('/fix-duplicate-licence', authenticateToken, async (req, res) => {
+  const { wrongLicence, correctLicence } = req.body;
+
+  if (!wrongLicence || !correctLicence) {
+    return res.status(400).json({ error: 'wrongLicence and correctLicence are required' });
+  }
+
+  try {
+    // Update tournament_results to use correct licence
+    const updateResult = await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE tournament_results SET licence = $1 WHERE REPLACE(licence, ' ', '') = REPLACE($2, ' ', '')`,
+        [correctLicence, wrongLicence],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+
+    // Delete the duplicate player
+    const deleteResult = await new Promise((resolve, reject) => {
+      db.run(
+        `DELETE FROM players WHERE REPLACE(licence, ' ', '') = REPLACE($1, ' ', '')`,
+        [wrongLicence],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+
+    res.json({
+      success: true,
+      message: `Fixed: updated ${updateResult} tournament results, deleted ${deleteResult} duplicate player`,
+      updatedResults: updateResult,
+      deletedPlayers: deleteResult
+    });
+  } catch (error) {
+    console.error('Error fixing duplicate licence:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
