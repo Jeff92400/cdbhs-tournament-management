@@ -1642,8 +1642,10 @@
                 if (inscription) {
                   p.isInscribed = true;
                   p.forfait = inscription.forfait === 1;
-                  // Auto-select inscribed finalists (not forfait)
-                  if (!p.forfait) {
+                  p.desinscrit = inscription.statut === 'désinscrit';
+                  p.inscription_id = inscription.inscription_id;
+                  // Auto-select inscribed finalists (not forfait and not désinscrit)
+                  if (!p.forfait && !p.desinscrit) {
                     p.selected = true;
                   }
                 }
@@ -1654,7 +1656,7 @@
               const rankedLicences = new Set(rankedPlayers.map(p => p.licence.replace(/\s/g, '')));
 
               newPlayers = inscriptions
-                .filter(i => !rankedLicences.has(i.licence?.replace(/\s/g, '')) && i.forfait !== 1)
+                .filter(i => !rankedLicences.has(i.licence?.replace(/\s/g, '')) && i.forfait !== 1 && i.statut !== 'désinscrit')
                 .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
                 .map((i, index) => ({
                   licence: i.licence,
@@ -1663,7 +1665,9 @@
                   club: i.club || '',
                   timestamp: i.timestamp,
                   isNew: true,
-                  forfait: i.forfait
+                  forfait: i.forfait,
+                  desinscrit: i.statut === 'désinscrit',
+                  inscription_id: i.inscription_id
                 }));
 
               // Mark ranked players who are inscribed or forfait AND auto-select them
@@ -1674,14 +1678,16 @@
                 if (inscription) {
                   p.isInscribed = true;
                   p.forfait = inscription.forfait === 1;
-                  // Auto-select inscribed players (not forfait)
-                  if (!p.forfait) {
+                  p.desinscrit = inscription.statut === 'désinscrit';
+                  p.inscription_id = inscription.inscription_id;
+                  // Auto-select inscribed players (not forfait and not désinscrit)
+                  if (!p.forfait && !p.desinscrit) {
                     p.selected = true;
                   }
                 }
               });
 
-              // Auto-select all new players (they are all inscribed by definition)
+              // Auto-select all new players (they are all inscribed by definition, and not désinscrit since we filtered above)
               newPlayers.forEach(p => {
                 p.selected = true;
               });
@@ -1746,16 +1752,19 @@
           : '<p style="padding: 20px; color: #666; text-align: center;">Aucun classement disponible pour ce tournoi</p>';
       } else {
         rankedList.innerHTML = rankedPlayers.map((p, index) => `
-          <div class="player-item ${p.selected ? 'selected' : ''} ${p.forfait ? 'forfait' : ''} ${!p.isInscribed && isFinaleCompetition ? 'not-inscribed' : ''}"
-               data-licence="${p.licence}" data-type="ranked" data-index="${index}"
-               style="${!p.isInscribed && isFinaleCompetition ? 'background: #fff3cd;' : ''}">
-            <input type="checkbox" ${p.selected ? 'checked' : ''} ${p.forfait ? 'disabled' : ''}>
+          <div class="player-item ${p.selected ? 'selected' : ''} ${p.forfait ? 'forfait' : ''} ${p.desinscrit ? 'desinscrit' : ''} ${!p.isInscribed && isFinaleCompetition ? 'not-inscribed' : ''}"
+               data-licence="${p.licence}" data-type="ranked" data-index="${index}" data-inscription-id="${p.inscription_id || ''}"
+               style="${!p.isInscribed && isFinaleCompetition ? 'background: #fff3cd;' : ''} ${p.desinscrit ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
+            <input type="checkbox" ${p.selected ? 'checked' : ''} ${p.forfait || p.desinscrit ? 'disabled' : ''}>
             <span class="player-rank">#${p.rank}</span>
             <span class="player-name">${p.last_name} ${p.first_name}</span>
             <span class="player-club">${p.club || ''}</span>
             <span class="player-licence">${p.licence}</span>
             ${p.isFinalist ? '<span class="badge" style="background: #ffc107; color: #333;">Finaliste</span>' : ''}
-            ${p.forfait ? '<span class="badge badge-forfait">Forfait</span>' : (p.isInscribed ? '<span class="badge badge-inscrit">Inscrit</span>' : (isFinaleCompetition ? '<span class="badge" style="background: #dc3545; color: white;">Non inscrit</span>' : ''))}
+            ${p.forfait ? '<span class="badge badge-forfait">Forfait</span>' :
+              (p.desinscrit ? '<span class="badge" style="background: #6c757d; color: white;">Désinscrit</span><button class="btn-reinscription" data-inscription-id="' + p.inscription_id + '" title="Rétablir inscription" style="margin-left: 5px; padding: 2px 8px; font-size: 11px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Réinscrire</button>' :
+                (p.isInscribed ? '<span class="badge badge-inscrit">Inscrit</span><button class="btn-desinscription" data-inscription-id="' + p.inscription_id + '" title="Désinscrire ce joueur" style="margin-left: 5px; padding: 2px 6px; font-size: 11px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">✕</button>' :
+                  (isFinaleCompetition ? '<span class="badge" style="background: #dc3545; color: white;">Non inscrit</span>' : '')))}
           </div>
         `).join('');
       }
@@ -1812,6 +1821,9 @@
         item.addEventListener('click', (e) => {
           if (e.target.type === 'checkbox') return;
           if (item.classList.contains('forfait')) return;
+          if (item.classList.contains('desinscrit')) return;
+          // Ignore clicks on desinscription/reinscription buttons
+          if (e.target.classList.contains('btn-desinscription') || e.target.classList.contains('btn-reinscription')) return;
 
           const checkbox = item.querySelector('input[type="checkbox"]');
           checkbox.checked = !checkbox.checked;
@@ -1820,6 +1832,96 @@
 
         item.querySelector('input[type="checkbox"]').addEventListener('change', () => {
           togglePlayerSelection(item);
+        });
+      });
+
+      // Add desinscription button handlers
+      document.querySelectorAll('.btn-desinscription').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const inscriptionId = btn.dataset.inscriptionId;
+          const playerItem = btn.closest('.player-item');
+          const playerName = playerItem.querySelector('.player-name').textContent;
+
+          if (!confirm(`Voulez-vous désinscrire ${playerName} de ce tournoi ?`)) return;
+
+          try {
+            const response = await fetch(`${API_URL}/inscriptions/${inscriptionId}/desinscription`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ statut: 'désinscrit' })
+            });
+
+            if (response.ok) {
+              // Update local data and re-render
+              const index = parseInt(playerItem.dataset.index);
+              const type = playerItem.dataset.type;
+              if (type === 'ranked') {
+                rankedPlayers[index].desinscrit = true;
+                rankedPlayers[index].selected = false;
+              }
+              renderPlayerLists();
+              // Show success message
+              const msgEl = document.getElementById('successMessage');
+              msgEl.textContent = `✓ ${playerName} a été désinscrit`;
+              msgEl.style.display = 'block';
+              setTimeout(() => msgEl.style.display = 'none', 3000);
+            } else {
+              const error = await response.json();
+              alert(error.error || 'Erreur lors de la désinscription');
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Erreur lors de la désinscription');
+          }
+        });
+      });
+
+      // Add reinscription button handlers
+      document.querySelectorAll('.btn-reinscription').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const inscriptionId = btn.dataset.inscriptionId;
+          const playerItem = btn.closest('.player-item');
+          const playerName = playerItem.querySelector('.player-name').textContent;
+
+          if (!confirm(`Voulez-vous rétablir l'inscription de ${playerName} ?`)) return;
+
+          try {
+            const response = await fetch(`${API_URL}/inscriptions/${inscriptionId}/desinscription`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ statut: 'inscrit' })
+            });
+
+            if (response.ok) {
+              // Update local data and re-render
+              const index = parseInt(playerItem.dataset.index);
+              const type = playerItem.dataset.type;
+              if (type === 'ranked') {
+                rankedPlayers[index].desinscrit = false;
+                rankedPlayers[index].selected = true;
+              }
+              renderPlayerLists();
+              // Show success message
+              const msgEl = document.getElementById('successMessage');
+              msgEl.textContent = `✓ Inscription de ${playerName} rétablie`;
+              msgEl.style.display = 'block';
+              setTimeout(() => msgEl.style.display = 'none', 3000);
+            } else {
+              const error = await response.json();
+              alert(error.error || 'Erreur lors du rétablissement');
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            alert('Erreur lors du rétablissement');
+          }
         });
       });
 

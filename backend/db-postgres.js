@@ -337,6 +337,10 @@ async function initializeDatabase() {
     // Add source column to track inscription origin (ionos import vs player_app)
     await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'ionos'`);
 
+    // Add statut column to track inscription status (inscrit, désinscrit)
+    // Note: forfait is separate - used only after official convocation is sent
+    await client.query(`ALTER TABLE inscriptions ADD COLUMN IF NOT EXISTS statut VARCHAR(20) DEFAULT 'inscrit'`);
+
     // Add unique constraint on (normalized licence, tournoi_id) to prevent duplicates
     // This ensures a player can only be inscribed once per tournament regardless of source
     await client.query(`

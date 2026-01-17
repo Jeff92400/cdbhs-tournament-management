@@ -1834,6 +1834,38 @@ router.put('/:id', authenticateToken, (req, res) => {
   });
 });
 
+// Desinscription - mark a player as désinscrit (all users can do this, pre-convocation)
+// This is different from forfait which is only used after official convocation
+router.put('/:id/desinscription', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { statut } = req.body; // 'désinscrit' or 'inscrit' (to undo)
+
+  const newStatut = statut || 'désinscrit';
+
+  if (!['inscrit', 'désinscrit'].includes(newStatut)) {
+    return res.status(400).json({ error: 'Statut invalide. Utilisez "inscrit" ou "désinscrit".' });
+  }
+
+  db.run(
+    `UPDATE inscriptions SET statut = $1 WHERE inscription_id = $2`,
+    [newStatut, id],
+    function(err) {
+      if (err) {
+        console.error('Error updating inscription statut:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Inscription not found' });
+      }
+      res.json({
+        success: true,
+        message: newStatut === 'désinscrit' ? 'Joueur désinscrit' : 'Inscription rétablie',
+        statut: newStatut
+      });
+    }
+  );
+});
+
 // Delete a single inscription (admin only)
 router.delete('/:id', authenticateToken, (req, res) => {
   // Check admin role
