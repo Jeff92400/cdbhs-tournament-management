@@ -3664,6 +3664,151 @@
       }
     }
 
+    // Resend convocations to all players in current tournament
+    async function resendConvocationsFromForfait() {
+      if (!forfaitSelectedTournoi || !forfaitCurrentPoules || forfaitCurrentPoules.length === 0) {
+        alert('Aucune poule disponible');
+        return;
+      }
+
+      // Get all active players (not forfeits) from current poules
+      const allPlayers = [];
+      forfaitCurrentPoules.forEach(poule => {
+        poule.players.forEach(player => {
+          if (!player.isForfait) {
+            allPlayers.push({
+              licence: player.licence,
+              name: player.player_name,
+              club: player.club,
+              poule: poule.number,
+              location_name: poule.location_name,
+              location_address: poule.location_address,
+              start_time: poule.start_time
+            });
+          }
+        });
+      });
+
+      if (allPlayers.length === 0) {
+        alert('Aucun joueur actif dans les poules');
+        return;
+      }
+
+      // Confirm
+      const note = "Suite à un désistement, édition de cette nouvelle convocation.";
+      if (!confirm(`Renvoyer les convocations à ${allPlayers.length} joueur(s) avec la note :\n\n"${note}"\n\nContinuer ?`)) {
+        return;
+      }
+
+      const btn = document.getElementById('resendConvocationsBtn');
+      btn.disabled = true;
+      btn.textContent = 'Envoi en cours...';
+
+      try {
+        // Fetch tournament details for email
+        const tournoiResponse = await fetch(`${API_URL}/email/poules/${forfaitSelectedTournoi}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!tournoiResponse.ok) throw new Error('Impossible de charger les détails du tournoi');
+        const tournoiData = await tournoiResponse.json();
+        const t = tournoiData.tournament;
+
+        // Build players array with emails (fetch from inscriptions or players table)
+        const playersWithEmails = [];
+        for (const player of allPlayers) {
+          // Try to get email from inscriptions
+          const inscResponse = await fetch(`${API_URL}/inscriptions?tournoi_id=${forfaitSelectedTournoi}&licence=${player.licence.replace(/\s/g, '')}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          let email = null;
+          if (inscResponse.ok) {
+            const inscData = await inscResponse.json();
+            if (inscData.inscriptions && inscData.inscriptions.length > 0) {
+              email = inscData.inscriptions[0].email;
+            }
+          }
+          playersWithEmails.push({
+            licence: player.licence,
+            name: player.name,
+            club: player.club,
+            email: email,
+            poule: player.poule,
+            location_name: player.location_name,
+            location_address: player.location_address,
+            start_time: player.start_time
+          });
+        }
+
+        // Build poules data for API
+        const poulesForApi = forfaitCurrentPoules.map(poule => ({
+          number: poule.number,
+          players: poule.players.filter(p => !p.isForfait).map(p => ({
+            licence: p.licence,
+            name: p.player_name,
+            club: p.club
+          })),
+          location_name: poule.location_name,
+          location_address: poule.location_address,
+          start_time: poule.start_time
+        }));
+
+        // Build locations data
+        const locations = {};
+        forfaitCurrentPoules.forEach(poule => {
+          locations[poule.number] = {
+            name: poule.location_name || '',
+            address: poule.location_address || '',
+            phone: '',
+            time: poule.start_time || ''
+          };
+        });
+
+        // Send convocations with forfait note
+        const response = await fetch(`${API_URL}/email/send-convocations`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            players: playersWithEmails,
+            poules: poulesForApi,
+            category: `${t.mode} ${t.categorie}`,
+            season: t.saison || currentSeason,
+            tournament: t.nom,
+            tournamentDate: t.debut,
+            tournoiId: forfaitSelectedTournoi,
+            locations: locations,
+            specialNote: note,
+            gameParams: null,
+            selectedDistance: null,
+            isFinale: false
+          })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          let message = `✅ Convocations envoyées: ${result.results.sent.length}`;
+          if (result.results.failed.length > 0) {
+            message += `\n❌ Échecs: ${result.results.failed.length}`;
+          }
+          if (result.results.skipped.length > 0) {
+            message += `\n⚠️ Ignorés (pas d'email): ${result.results.skipped.length}`;
+          }
+          alert(message);
+        } else {
+          alert('Erreur: ' + (result.error || 'Échec de l\'envoi'));
+        }
+      } catch (error) {
+        console.error('Error resending convocations:', error);
+        alert('Erreur: ' + error.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✉️ Renvoyer les convocations';
+      }
+    }
+
     async function regeneratePoules(withReplacement = false) {
       // This is now a fallback - main flow uses preview + confirm
       if (forfaitSelectedPlayers.size === 0 && !withReplacement) {
@@ -3840,6 +3985,9 @@
             </button>
             <button id="regenerateWithReplacementBtn" class="btn" style="background: #1F4788; color: white;" onclick="openReplacementModal()">
               👤 Ajouter un remplaçant
+            </button>
+            <button id="resendConvocationsBtn" class="btn" style="background: #fd7e14; color: white;" onclick="resendConvocationsFromForfait()">
+              ✉️ Renvoyer les convocations
             </button>
           </div>
           <div id="forfaitSummary" style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 6px; display: none;">
