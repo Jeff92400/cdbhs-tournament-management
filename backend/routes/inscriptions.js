@@ -3,8 +3,15 @@ const multer = require('multer');
 const { parse } = require('csv-parse');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
+const { Resend } = require('resend');
 const db = require('../db-loader');
 const { authenticateToken } = require('./auth');
+
+// Initialize Resend for email notifications
+const getResend = () => {
+  if (!process.env.RESEND_API_KEY) return null;
+  return new Resend(process.env.RESEND_API_KEY);
+};
 
 const router = express.Router();
 
@@ -1527,7 +1534,7 @@ router.post('/tournoi', authenticateToken, async (req, res) => {
 });
 
 // Update a tournament (admin only)
-router.put('/tournoi/:id', authenticateToken, (req, res) => {
+router.put('/tournoi/:id', authenticateToken, async (req, res) => {
   // Check admin role
   if (req.user?.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' });
@@ -1536,31 +1543,179 @@ router.put('/tournoi/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   const { nom, mode, categorie, taille, debut, fin, grand_coin, taille_cadre, lieu } = req.body;
 
-  const query = `
-    UPDATE tournoi_ext SET
-      nom = $1,
-      mode = $2,
-      categorie = $3,
-      taille = $4,
-      debut = $5,
-      fin = $6,
-      grand_coin = $7,
-      taille_cadre = $8,
-      lieu = $9
-    WHERE tournoi_id = $10
-  `;
+  try {
+    // Get current tournament data to detect date change
+    const currentTournament = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM tournoi_ext WHERE tournoi_id = $1', [id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
 
-  db.run(query, [nom, mode, categorie, taille || null, debut || null, fin || null, grand_coin || 0, taille_cadre, lieu, id], function(err) {
-    if (err) {
-      console.error('Error updating tournament:', err);
-      return res.status(500).json({ error: err.message });
-    }
-    if (this.changes === 0) {
+    if (!currentTournament) {
       return res.status(404).json({ error: 'Tournament not found' });
     }
-    res.json({ success: true, message: 'Tournament updated' });
-  });
+
+    // Check if date changed
+    const oldDate = currentTournament.debut ? new Date(currentTournament.debut).toISOString().split('T')[0] : null;
+    const newDate = debut ? new Date(debut).toISOString().split('T')[0] : null;
+    const dateChanged = oldDate !== newDate && oldDate && newDate;
+
+    // Update the tournament
+    const query = `
+      UPDATE tournoi_ext SET
+        nom = $1,
+        mode = $2,
+        categorie = $3,
+        taille = $4,
+        debut = $5,
+        fin = $6,
+        grand_coin = $7,
+        taille_cadre = $8,
+        lieu = $9
+      WHERE tournoi_id = $10
+    `;
+
+    await new Promise((resolve, reject) => {
+      db.run(query, [nom, mode, categorie, taille || null, debut || null, fin || null, grand_coin || 0, taille_cadre, lieu, id], function(err) {
+        if (err) reject(err);
+        else resolve(this.changes);
+      });
+    });
+
+    // If date changed, send email notifications to inscribed players
+    let emailsSent = 0;
+    if (dateChanged) {
+      emailsSent = await sendDateChangeNotifications(id, currentTournament, {
+        nom, mode, categorie, debut, lieu
+      }, oldDate, newDate);
+    }
+
+    res.json({
+      success: true,
+      message: dateChanged
+        ? `Tournament updated. ${emailsSent} notification(s) sent for date change.`
+        : 'Tournament updated'
+    });
+
+  } catch (error) {
+    console.error('Error updating tournament:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
+
+/**
+ * Send email notifications to inscribed players when tournament date changes
+ */
+async function sendDateChangeNotifications(tournoiId, oldTournament, newData, oldDate, newDate) {
+  const resend = getResend();
+  if (!resend) {
+    console.log('[Date Change] Resend not configured, skipping notifications');
+    return 0;
+  }
+
+  try {
+    // Get all inscribed players with emails for this tournament
+    const inscriptions = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT i.*, p.first_name, p.last_name,
+               COALESCE(i.email, p.email) as player_email
+        FROM inscriptions i
+        LEFT JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+        WHERE i.tournoi_id = $1
+          AND COALESCE(i.email, p.email) IS NOT NULL
+          AND COALESCE(i.email, p.email) LIKE '%@%'
+      `, [tournoiId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    if (inscriptions.length === 0) {
+      console.log('[Date Change] No players with email to notify');
+      return 0;
+    }
+
+    // Format dates for display
+    const formatDate = (dateStr) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    };
+
+    const oldDateFormatted = formatDate(oldDate);
+    const newDateFormatted = formatDate(newDate);
+    const tournamentName = `${newData.nom || oldTournament.nom} - ${newData.mode} ${newData.categorie}`;
+    const location = newData.lieu || oldTournament.lieu || 'Lieu à confirmer';
+
+    let sentCount = 0;
+
+    for (const inscription of inscriptions) {
+      const playerName = inscription.first_name && inscription.last_name
+        ? `${inscription.first_name} ${inscription.last_name}`
+        : inscription.nom || 'Joueur';
+
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #1F4788 0%, #667eea 100%); padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">⚠️ Changement de Date</h1>
+          </div>
+
+          <div style="padding: 30px; background: #f8f9fa;">
+            <p>Bonjour ${playerName},</p>
+
+            <p>Nous vous informons que la date du tournoi auquel vous êtes inscrit(e) a été modifiée :</p>
+
+            <div style="background: white; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+              <h3 style="margin: 0 0 10px 0; color: #1F4788;">${tournamentName}</h3>
+              <p style="margin: 5px 0;"><strong>📍 Lieu :</strong> ${location}</p>
+              <p style="margin: 5px 0; color: #dc3545;"><strong>❌ Ancienne date :</strong> ${oldDateFormatted}</p>
+              <p style="margin: 5px 0; color: #28a745;"><strong>✅ Nouvelle date :</strong> ${newDateFormatted}</p>
+            </div>
+
+            <p>Si ce changement vous empêche de participer, merci de nous en informer dès que possible en répondant à cet email.</p>
+
+            <p style="margin-top: 30px;">
+              Sportivement,<br>
+              <strong>Comité Départemental Billard Hauts-de-Seine</strong>
+            </p>
+          </div>
+
+          <div style="background: #1F4788; color: white; padding: 15px; text-align: center; font-size: 12px;">
+            <p style="margin: 0;">Cet email a été envoyé automatiquement suite à une modification de calendrier.</p>
+          </div>
+        </div>
+      `;
+
+      try {
+        await resend.emails.send({
+          from: 'CDBHS <convocations@cdbhs.net>',
+          to: inscription.player_email,
+          subject: `⚠️ Changement de date - ${tournamentName}`,
+          html: emailHtml
+        });
+        sentCount++;
+        console.log(`[Date Change] Email sent to ${inscription.player_email}`);
+
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (emailError) {
+        console.error(`[Date Change] Failed to send to ${inscription.player_email}:`, emailError.message);
+      }
+    }
+
+    console.log(`[Date Change] Sent ${sentCount}/${inscriptions.length} notifications for tournament ${tournoiId}`);
+    return sentCount;
+
+  } catch (error) {
+    console.error('[Date Change] Error sending notifications:', error);
+    return 0;
+  }
+}
 
 // Update an inscription (admin only)
 router.put('/:id', authenticateToken, (req, res) => {
