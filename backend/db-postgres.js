@@ -711,6 +711,10 @@ async function initializeDatabase() {
       ON CONFLICT (game_type, level) DO NOTHING
     `);
 
+    // Add is_active and updated_at columns to categories (migration)
+    await client.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`);
+    await client.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+
     // Initialize game_modes reference data
     const gameModeResult = await client.query('SELECT COUNT(*) as count FROM game_modes');
     if (gameModeResult.rows[0].count == 0) {
