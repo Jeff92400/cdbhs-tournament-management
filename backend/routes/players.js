@@ -737,4 +737,32 @@ router.post('/fix-duplicate-licence', authenticateToken, async (req, res) => {
   }
 });
 
+// Find duplicate players (same first_name + last_name)
+router.get('/duplicates', authenticateToken, async (req, res) => {
+  try {
+    const duplicates = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT UPPER(first_name) as first_name, UPPER(last_name) as last_name,
+               COUNT(*) as count,
+               GROUP_CONCAT(licence, ', ') as licences
+        FROM players
+        GROUP BY UPPER(first_name), UPPER(last_name)
+        HAVING COUNT(*) > 1
+        ORDER BY last_name, first_name
+      `, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    res.json({
+      count: duplicates.length,
+      duplicates: duplicates
+    });
+  } catch (error) {
+    console.error('Error finding duplicates:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
