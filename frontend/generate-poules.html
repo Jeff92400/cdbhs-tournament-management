@@ -2901,7 +2901,8 @@
           }
 
           // Send club reminders if convocations were sent successfully
-          if (result.results.sent.length > 0 && lastGeneratedData.locations) {
+          // Skip if this is a resend (forfait) - club was already notified
+          if (result.results.sent.length > 0 && lastGeneratedData.locations && !lastGeneratedData.skipClubReminders) {
             await sendClubReminders(lastGeneratedData, playersWithEmails.length);
           }
         } else {
@@ -3752,17 +3753,34 @@
         console.log('Locations for email:', locations);
 
         // Build poules data with locationNum for email API
+        // Helper to split player name (format: "LASTNAME FIRSTNAME" or "LASTNAME (Nickname) FIRSTNAME")
+        const splitPlayerName = (fullName) => {
+          if (!fullName) return { first_name: '', last_name: '' };
+          const parts = fullName.trim().split(/\s+/);
+          if (parts.length === 1) return { first_name: '', last_name: parts[0] };
+          // First part is last name, rest is first name
+          return {
+            last_name: parts[0],
+            first_name: parts.slice(1).join(' ')
+          };
+        };
+
         const poulesForApi = forfaitCurrentPoules.map(poule => {
           const locKey = poule.location_name || 'Location 1';
           const loc = locationsMap.get(locKey);
           return {
             number: poule.number,
             locationNum: loc?.locationNum || '1',
-            players: poule.players.filter(p => !p.isForfait).map(p => ({
-              licence: p.licence,
-              name: p.player_name,
-              club: p.club
-            }))
+            players: poule.players.filter(p => !p.isForfait).map(p => {
+              const nameParts = splitPlayerName(p.player_name);
+              return {
+                licence: p.licence,
+                name: p.player_name,
+                first_name: nameParts.first_name,
+                last_name: nameParts.last_name,
+                club: p.club
+              };
+            })
           };
         });
         console.log('Poules for email:', poulesForApi);
@@ -3797,13 +3815,15 @@
         console.log('Season for email:', currentSeason);
 
         // Store generation data for the email section
+        // skipClubReminders: true because this is a resend after forfait, club was already notified
         lastGeneratedData = {
           poules: poulesForApi,
           tournamentDate: t.debut,
           tournoiId: forfaitSelectedTournoi,
           locations: locations,
           gameParams: null,
-          selectedDistance: null
+          selectedDistance: null,
+          skipClubReminders: true
         };
 
         // Close forfait modal
