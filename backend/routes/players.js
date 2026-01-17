@@ -386,7 +386,7 @@ router.get('/duplicates', authenticateToken, async (req, res) => {
       db.all(`
         SELECT UPPER(first_name) as first_name, UPPER(last_name) as last_name,
                COUNT(*) as count,
-               GROUP_CONCAT(licence, ', ') as licences
+               STRING_AGG(licence, ', ') as licences
         FROM players
         GROUP BY UPPER(first_name), UPPER(last_name)
         HAVING COUNT(*) > 1
