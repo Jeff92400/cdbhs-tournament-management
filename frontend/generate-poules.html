@@ -3714,8 +3714,12 @@
         if (inscResponse.ok) {
           const inscData = await inscResponse.json();
           // Populate playerEmails global object (used by updateEmailStats)
+          // API returns array directly, not {inscriptions: [...]}
           playerEmails = {};
-          (inscData.inscriptions || []).forEach(insc => {
+          const inscriptions = Array.isArray(inscData) ? inscData : (inscData.inscriptions || []);
+          console.log('Inscriptions loaded:', inscriptions.length, 'entries');
+          inscriptions.forEach(insc => {
+            console.log('Inscription:', insc.licence, 'email:', insc.email);
             const cleanLicence = insc.licence?.replace(/\s/g, '');
             if (cleanLicence && insc.email) {
               playerEmails[cleanLicence] = insc.email;
@@ -3726,27 +3730,6 @@
               player.email = insc.email;
             }
           });
-        }
-
-        // Also fetch emails from players table as fallback
-        for (const player of allPlayers) {
-          const cleanLicence = player.licence?.replace(/\s/g, '');
-          if (!playerEmails[cleanLicence]) {
-            try {
-              const playerResponse = await fetch(`${API_URL}/players?licence=${cleanLicence}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              if (playerResponse.ok) {
-                const playerData = await playerResponse.json();
-                if (playerData.players && playerData.players.length > 0 && playerData.players[0].email) {
-                  playerEmails[cleanLicence] = playerData.players[0].email;
-                  player.email = playerData.players[0].email;
-                }
-              }
-            } catch (e) {
-              console.log('Could not fetch player email for', cleanLicence);
-            }
-          }
         }
 
         // Build poules data
