@@ -3664,11 +3664,7 @@
       }
     }
 
-    // Resend convocations - data storage
-    let resendPlayersData = [];
-    let resendTournamentData = null;
-
-    // Open resend convocations modal
+    // Resend convocations - navigate to the existing email screen with data pre-loaded
     async function resendConvocationsFromForfait() {
       if (!forfaitSelectedTournoi || !forfaitCurrentPoules || forfaitCurrentPoules.length === 0) {
         alert('Aucune poule disponible');
@@ -3686,7 +3682,7 @@
         });
         if (!tournoiResponse.ok) throw new Error('Impossible de charger les détails du tournoi');
         const tournoiData = await tournoiResponse.json();
-        resendTournamentData = tournoiData.tournament;
+        const t = tournoiData.tournament;
 
         // Get all active players from current poules
         const allPlayers = [];
@@ -3696,11 +3692,9 @@
               allPlayers.push({
                 licence: player.licence,
                 name: player.player_name,
-                club: player.club,
-                poule: poule.number,
-                location_name: poule.location_name,
-                location_address: poule.location_address,
-                start_time: poule.start_time
+                first_name: player.player_name?.split(' ').slice(1).join(' ') || '',
+                last_name: player.player_name?.split(' ')[0] || player.player_name,
+                club: player.club
               });
             }
           });
@@ -3708,173 +3702,34 @@
 
         if (allPlayers.length === 0) {
           alert('Aucun joueur actif dans les poules');
+          btn.disabled = false;
+          btn.textContent = '✉️ Renvoyer les convocations';
           return;
         }
 
-        // Fetch all inscriptions for this tournament to get emails
+        // Fetch inscriptions to get emails
         const inscResponse = await fetch(`${API_URL}/inscriptions?tournoi_id=${forfaitSelectedTournoi}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        const emailMap = {};
         if (inscResponse.ok) {
           const inscData = await inscResponse.json();
           (inscData.inscriptions || []).forEach(insc => {
             const cleanLicence = insc.licence?.replace(/\s/g, '');
-            if (cleanLicence && insc.email) {
-              emailMap[cleanLicence] = insc.email;
+            const player = allPlayers.find(p => p.licence?.replace(/\s/g, '') === cleanLicence);
+            if (player && insc.email) {
+              player.email = insc.email;
             }
           });
         }
 
-        // Build players with emails
-        resendPlayersData = allPlayers.map(player => ({
-          ...player,
-          email: emailMap[player.licence?.replace(/\s/g, '')] || null,
-          selected: true
-        }));
-
-        // Populate modal
-        const t = resendTournamentData;
-        document.getElementById('resendTournamentName').textContent = `${t.mode} ${t.categorie} - ${t.nom}`;
-        document.getElementById('resendTournamentDate').textContent = t.debut ?
-          new Date(t.debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
-
-        // Pre-fill message
-        document.getElementById('resendSpecialNote').value = 'Suite à un désistement, édition de cette nouvelle convocation.';
-
-        // Render player list
-        renderResendPlayerList();
-
-        // Reset progress/results
-        document.getElementById('resendProgress').style.display = 'none';
-        document.getElementById('resendResults').style.display = 'none';
-        document.getElementById('confirmResendBtn').disabled = false;
-
-        // Show modal
-        document.getElementById('resendConvocationsModal').style.display = 'flex';
-
-      } catch (error) {
-        console.error('Error loading resend data:', error);
-        alert('Erreur: ' + error.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '✉️ Renvoyer les convocations';
-      }
-    }
-
-    function renderResendPlayerList() {
-      const container = document.getElementById('resendPlayerList');
-      let noEmailCount = 0;
-
-      container.innerHTML = resendPlayersData.map((player, index) => {
-        const hasEmail = !!player.email;
-        if (!hasEmail) noEmailCount++;
-
-        return `
-          <div style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #eee; ${!hasEmail ? 'background: #fff3cd;' : ''}">
-            <input type="checkbox" id="resendPlayer${index}" data-index="${index}"
-                   ${player.selected && hasEmail ? 'checked' : ''} ${!hasEmail ? 'disabled' : ''}
-                   onchange="toggleResendPlayer(${index})"
-                   style="margin-right: 10px; width: 18px; height: 18px;">
-            <div style="flex: 1;">
-              <div style="font-weight: 500;">${player.name}</div>
-              <div style="font-size: 12px; color: #666;">${player.club || ''} - Poule ${player.poule}</div>
-            </div>
-            <div style="text-align: right; font-size: 13px;">
-              ${hasEmail ?
-                `<span style="color: #28a745;">✓ ${player.email}</span>` :
-                `<span style="color: #dc3545;">✗ Pas d'email</span>`}
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      // Update counts
-      updateResendCounts();
-
-      // Show/hide no email warning
-      const warningEl = document.getElementById('resendNoEmailWarning');
-      if (noEmailCount > 0) {
-        warningEl.style.display = 'inline';
-        document.getElementById('resendNoEmailCount').textContent = noEmailCount;
-      } else {
-        warningEl.style.display = 'none';
-      }
-    }
-
-    function toggleResendPlayer(index) {
-      resendPlayersData[index].selected = document.getElementById(`resendPlayer${index}`).checked;
-      updateResendCounts();
-    }
-
-    function updateResendCounts() {
-      const selectedCount = resendPlayersData.filter(p => p.selected && p.email).length;
-      document.getElementById('resendSelectedCount').textContent = selectedCount;
-      document.getElementById('confirmResendBtn').disabled = selectedCount === 0;
-    }
-
-    function resendSelectAll() {
-      resendPlayersData.forEach((p, i) => {
-        if (p.email) {
-          p.selected = true;
-          const cb = document.getElementById(`resendPlayer${i}`);
-          if (cb) cb.checked = true;
-        }
-      });
-      updateResendCounts();
-    }
-
-    function resendDeselectAll() {
-      resendPlayersData.forEach((p, i) => {
-        p.selected = false;
-        const cb = document.getElementById(`resendPlayer${i}`);
-        if (cb) cb.checked = false;
-      });
-      updateResendCounts();
-    }
-
-    function closeResendModal() {
-      document.getElementById('resendConvocationsModal').style.display = 'none';
-    }
-
-    async function confirmResendConvocations() {
-      const selectedPlayers = resendPlayersData.filter(p => p.selected && p.email);
-      if (selectedPlayers.length === 0) {
-        alert('Veuillez sélectionner au moins un joueur avec email');
-        return;
-      }
-
-      const specialNote = document.getElementById('resendSpecialNote').value.trim();
-
-      if (!confirm(`Envoyer les convocations à ${selectedPlayers.length} joueur(s) ?`)) {
-        return;
-      }
-
-      const btn = document.getElementById('confirmResendBtn');
-      btn.disabled = true;
-      btn.textContent = 'Envoi en cours...';
-
-      const progress = document.getElementById('resendProgress');
-      const progressBar = document.getElementById('resendProgressBar');
-      const progressText = document.getElementById('resendProgressText');
-      progress.style.display = 'block';
-      progressBar.style.width = '20%';
-      progressText.textContent = 'Préparation des emails...';
-
-      try {
-        const t = resendTournamentData;
-
-        // Build poules data for API
+        // Build poules data
         const poulesForApi = forfaitCurrentPoules.map(poule => ({
           number: poule.number,
           players: poule.players.filter(p => !p.isForfait).map(p => ({
             licence: p.licence,
             name: p.player_name,
             club: p.club
-          })),
-          location_name: poule.location_name,
-          location_address: poule.location_address,
-          start_time: poule.start_time
+          }))
         }));
 
         // Build locations data
@@ -3888,82 +3743,44 @@
           };
         });
 
-        progressBar.style.width = '50%';
-        progressText.textContent = 'Envoi des convocations...';
+        // Set global variables used by the email section
+        selectedPlayers = allPlayers;
+        currentCategory = `${t.mode} ${t.categorie}`;
+        currentTournament = t.nom;
 
-        // Send convocations
-        const response = await fetch(`${API_URL}/email/send-convocations`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            players: selectedPlayers,
-            poules: poulesForApi,
-            category: `${t.mode} ${t.categorie}`,
-            season: t.saison || currentSeason,
-            tournament: t.nom,
-            tournamentDate: t.debut,
-            tournoiId: forfaitSelectedTournoi,
-            locations: locations,
-            specialNote: specialNote,
-            gameParams: null,
-            selectedDistance: null,
-            isFinale: false
-          })
-        });
+        // Store generation data for the email section
+        lastGeneratedData = {
+          poules: poulesForApi,
+          tournamentDate: t.debut,
+          tournoiId: forfaitSelectedTournoi,
+          locations: locations,
+          gameParams: null,
+          selectedDistance: null
+        };
 
-        progressBar.style.width = '100%';
-        const result = await response.json();
+        // Close forfait modal
+        closeForfaitModal();
 
-        // Show results
-        const resultsEl = document.getElementById('resendResults');
-        resultsEl.style.display = 'block';
+        // Pre-fill the special note field
+        document.getElementById('specialNoteField').value = 'Suite à un désistement, édition de cette nouvelle convocation.';
 
-        if (response.ok) {
-          progressText.textContent = `Terminé - ${result.results.sent.length} envoyé(s)`;
-          progressText.style.color = '#28a745';
+        // Update email stats and show email section
+        updateEmailStats();
 
-          let html = '';
-          if (result.results.sent.length > 0) {
-            html += `<div style="background: #d4edda; padding: 10px; border-radius: 4px; margin-bottom: 8px;">
-              <strong>✅ Envoyés (${result.results.sent.length}):</strong>
-              <ul style="margin: 5px 0 0 15px; padding: 0; font-size: 13px;">${result.results.sent.map(s => `<li>${s.name}</li>`).join('')}</ul>
-            </div>`;
-          }
-          if (result.results.failed.length > 0) {
-            html += `<div style="background: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 8px;">
-              <strong>❌ Échecs (${result.results.failed.length}):</strong>
-              <ul style="margin: 5px 0 0 15px; padding: 0; font-size: 13px;">${result.results.failed.map(f => `<li>${f.name}: ${f.error}</li>`).join('')}</ul>
-            </div>`;
-          }
-          if (result.results.skipped.length > 0) {
-            html += `<div style="background: #fff3cd; padding: 10px; border-radius: 4px;">
-              <strong>⚠️ Ignorés (${result.results.skipped.length}):</strong>
-              <ul style="margin: 5px 0 0 15px; padding: 0; font-size: 13px;">${result.results.skipped.map(s => `<li>${s.name}: ${s.reason}</li>`).join('')}</ul>
-            </div>`;
-          }
-          resultsEl.innerHTML = html;
-        } else {
-          progressText.textContent = 'Erreur';
-          progressText.style.color = '#dc3545';
-          resultsEl.innerHTML = `<div style="background: #f8d7da; padding: 10px; border-radius: 4px;">
-            <strong>❌ Erreur:</strong> ${result.error || 'Échec de l\'envoi'}
-          </div>`;
-        }
+        // Navigate to step 4 (email section)
+        goToStep(4);
+
+        // Scroll to email section
+        setTimeout(() => {
+          document.getElementById('emailSection').scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+
       } catch (error) {
-        console.error('Error sending convocations:', error);
-        progressBar.style.width = '100%';
-        progressText.textContent = 'Erreur';
-        progressText.style.color = '#dc3545';
-        document.getElementById('resendResults').innerHTML = `<div style="background: #f8d7da; padding: 10px; border-radius: 4px;">
-          <strong>❌ Erreur:</strong> ${error.message}
-        </div>`;
-        document.getElementById('resendResults').style.display = 'block';
+        console.error('Error loading resend data:', error);
+        alert('Erreur: ' + error.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = '✉️ Envoyer les convocations';
+        btn.textContent = '✉️ Renvoyer les convocations';
       }
     }
 
@@ -4194,71 +4011,6 @@
           <button class="btn" style="background: #6c757d;" onclick="closeReplacementModal()">Annuler</button>
           <button id="confirmReplacementBtn" class="btn" style="background: #28a745; color: white;" onclick="confirmReplacement()" disabled>
             Confirmer et régénérer
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Resend Convocations Modal -->
-  <div id="resendConvocationsModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
-      <div class="modal-header" style="background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-        <h3 style="margin: 0; font-size: 18px;">✉️ Renvoyer les convocations</h3>
-        <span class="close-modal" onclick="closeResendModal()">&times;</span>
-      </div>
-      <div style="padding: 20px;">
-        <div id="resendTournamentInfo" style="background: #e7f3ff; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-          <strong id="resendTournamentName"></strong>
-          <div style="font-size: 13px; color: #666; margin-top: 4px;" id="resendTournamentDate"></div>
-        </div>
-
-        <!-- Message field -->
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #333;">
-            📝 Message à ajouter sur la convocation :
-          </label>
-          <textarea id="resendSpecialNote"
-                    style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; font-size: 14px; resize: vertical;"
-                    placeholder="Ex: Suite à un désistement, voici la nouvelle composition des poules..."></textarea>
-        </div>
-
-        <!-- Player list with emails -->
-        <div style="margin-bottom: 15px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <label style="font-weight: 600; color: #333;">👥 Joueurs à convoquer :</label>
-            <div style="display: flex; gap: 8px;">
-              <button type="button" class="btn btn-sm" style="padding: 4px 10px; font-size: 12px;" onclick="resendSelectAll()">Tout</button>
-              <button type="button" class="btn btn-sm" style="padding: 4px 10px; font-size: 12px; background: #6c757d;" onclick="resendDeselectAll()">Aucun</button>
-            </div>
-          </div>
-          <div id="resendPlayerList" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background: white;">
-            <!-- Players will be inserted here -->
-          </div>
-          <div style="margin-top: 8px; font-size: 13px; color: #666;">
-            <span id="resendSelectedCount">0</span> joueur(s) sélectionné(s)
-            <span id="resendNoEmailWarning" style="color: #dc3545; margin-left: 10px; display: none;">
-              ⚠️ <span id="resendNoEmailCount">0</span> sans email
-            </span>
-          </div>
-        </div>
-
-        <!-- Progress -->
-        <div id="resendProgress" style="display: none; margin-bottom: 15px;">
-          <div style="background: #e9ecef; border-radius: 4px; overflow: hidden; height: 20px;">
-            <div id="resendProgressBar" style="background: #fd7e14; height: 100%; width: 0%; transition: width 0.3s;"></div>
-          </div>
-          <div id="resendProgressText" style="text-align: center; margin-top: 5px; font-size: 13px; color: #666;">Préparation...</div>
-        </div>
-
-        <!-- Results -->
-        <div id="resendResults" style="display: none; margin-bottom: 15px;"></div>
-
-        <!-- Actions -->
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
-          <button class="btn" style="background: #6c757d;" onclick="closeResendModal()">Annuler</button>
-          <button id="confirmResendBtn" class="btn" style="background: #fd7e14; color: white;" onclick="confirmResendConvocations()">
-            ✉️ Envoyer les convocations
           </button>
         </div>
       </div>
