@@ -98,6 +98,42 @@ async function getRankingDataForCategory(categoryId, season) {
   });
 }
 
+// Fetch ranking data by category display name (fallback when category_id is not available)
+async function getRankingDataByCategoryName(categoryDisplayName, season) {
+  const db = require('../db-loader');
+
+  return new Promise((resolve) => {
+    // First find the category_id by matching display_name
+    const normalizedName = (categoryDisplayName || '').toUpperCase().replace(/\s+/g, ' ').trim();
+
+    db.get(
+      `SELECT id FROM categories WHERE UPPER(REPLACE(display_name, '  ', ' ')) = $1`,
+      [normalizedName],
+      (err, cat) => {
+        if (err || !cat) {
+          // Try partial match
+          db.get(
+            `SELECT id FROM categories WHERE UPPER(display_name) LIKE $1`,
+            [`%${normalizedName}%`],
+            (err2, cat2) => {
+              if (err2 || !cat2) {
+                console.log(`[Ranking] No category found for: ${normalizedName}`);
+                resolve({});
+              } else {
+                console.log(`[Ranking] Found category by partial match: ${cat2.id}`);
+                getRankingDataForCategory(cat2.id, season).then(resolve);
+              }
+            }
+          );
+        } else {
+          console.log(`[Ranking] Found category by exact match: ${cat.id}`);
+          getRankingDataForCategory(cat.id, season).then(resolve);
+        }
+      }
+    );
+  });
+}
+
 // Generate PDF convocation for a specific player - includes ALL poules
 async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, locations, gameParams, selectedDistance, rankingData = {}) {
   return new Promise((resolve, reject) => {
@@ -602,9 +638,14 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
     rankingData = mockRankingData;
     console.log('Using mock ranking data for testing');
   } else if (category.id) {
-    // Fetch real ranking data
+    // Fetch real ranking data by category ID
     rankingData = await getRankingDataForCategory(category.id, season);
-    console.log(`Fetched ranking data for ${Object.keys(rankingData).length} players`);
+    console.log(`Fetched ranking data for ${Object.keys(rankingData).length} players by category ID`);
+  } else if (category.display_name) {
+    // Fallback: try to find category by name and fetch ranking data
+    console.log(`[Ranking] No category ID, trying to find by name: ${category.display_name}`);
+    rankingData = await getRankingDataByCategoryName(category.display_name, season);
+    console.log(`Fetched ranking data for ${Object.keys(rankingData).length} players by category name`);
   }
 
   const results = {
