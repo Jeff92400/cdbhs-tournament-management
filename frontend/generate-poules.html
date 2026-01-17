@@ -3789,12 +3789,26 @@
         // Set global variables used by the email section
         selectedPlayers = allPlayers;
 
-        // Find matching category from categories array (required by email API)
-        const tournoiCategoryName = `${t.mode} ${t.categorie}`.toUpperCase();
+        // Find matching category from categories array (required by email API for ranking data)
+        // Normalize for comparison: remove extra spaces, handle variations like "3 BANDES" vs "3BANDES"
+        const normalizeForMatch = (str) => (str || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        const tournoiMode = normalizeForMatch(t.mode);
+        const tournoiCategorie = normalizeForMatch(t.categorie);
+        const tournoiCategoryName = `${tournoiMode} ${tournoiCategorie}`;
+
+        console.log('Looking for category:', tournoiCategoryName);
+        console.log('Available categories:', categories.map(c => ({ id: c.id, name: c.display_name })));
+
         const matchingCategory = categories.find(c => {
-          const catDisplay = (c.display_name || '').toUpperCase();
-          return catDisplay === tournoiCategoryName ||
-                 catDisplay.includes(t.categorie?.toUpperCase()) && catDisplay.includes(t.mode?.toUpperCase());
+          const catDisplay = normalizeForMatch(c.display_name);
+          // Try exact match first
+          if (catDisplay === tournoiCategoryName) return true;
+          // Try matching mode and categorie separately
+          if (catDisplay.includes(tournoiCategorie) && catDisplay.includes(tournoiMode)) return true;
+          // Try with mode variations (e.g., "3 BANDES" matches "3BANDES")
+          const modeNoSpace = tournoiMode.replace(/\s/g, '');
+          if (catDisplay.includes(tournoiCategorie) && catDisplay.replace(/\s/g, '').includes(modeNoSpace)) return true;
+          return false;
         });
 
         // Use matching category or create a fallback object with required fields
@@ -3803,7 +3817,7 @@
           display_name: `${t.mode} ${t.categorie}`,
           short_name: t.categorie
         };
-        console.log('Category for email:', currentCategory);
+        console.log('Matched category for email:', currentCategory);
 
         currentTournament = t.nom;
 
