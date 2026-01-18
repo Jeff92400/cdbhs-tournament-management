@@ -208,22 +208,10 @@
             </select>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Libre</label>
-              <input type="text" id="edit_rank_libre" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Cadre</label>
-              <input type="text" id="edit_rank_cadre" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Bande</label>
-              <input type="text" id="edit_rank_bande" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">3 Bandes</label>
-              <input type="text" id="edit_rank_3bandes" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #1F4788;">Classements FFB</label>
+            <div id="edit_rankings_container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              <!-- Dynamic ranking fields will be inserted here by JavaScript -->
             </div>
           </div>
 
@@ -289,22 +277,10 @@
             <input type="text" id="create_phone" placeholder="0612345678" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Libre</label>
-              <input type="text" id="create_rank_libre" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Cadre</label>
-              <input type="text" id="create_rank_cadre" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Bande</label>
-              <input type="text" id="create_rank_bande" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">3 Bandes</label>
-              <input type="text" id="create_rank_3bandes" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #1F4788;">Classements FFB</label>
+            <div id="create_rankings_container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              <!-- Dynamic ranking fields will be inserted here by JavaScript -->
             </div>
           </div>
 
@@ -447,6 +423,89 @@
       return clubsList;
     }
 
+    // Get game modes from database for dynamic ranking fields
+    let gameModesList = [];
+
+    async function loadGameModes() {
+      try {
+        const response = await fetch(`${API_URL}/reference-data/game-modes`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          gameModesList = await response.json();
+          // Sort by display_order
+          gameModesList.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        }
+      } catch (error) {
+        console.error('Error loading game modes:', error);
+      }
+      return gameModesList;
+    }
+
+    // Generate dynamic ranking fields HTML
+    function generateRankingFieldsHTML(prefix, playerRankings = {}) {
+      if (!gameModesList || gameModesList.length === 0) {
+        // Fallback to hardcoded fields if game modes not loaded
+        return `
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Libre</label>
+            <input type="text" id="${prefix}_rank_libre" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Cadre</label>
+            <input type="text" id="${prefix}_rank_cadre" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Bande</label>
+            <input type="text" id="${prefix}_rank_bande" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">3 Bandes</label>
+            <input type="text" id="${prefix}_rank_3bandes" placeholder="NC" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+        `;
+      }
+
+      return gameModesList
+        .filter(mode => mode.is_active !== false)
+        .map(mode => {
+          // Get ranking value from player_rankings (keyed by game_mode_id)
+          const rankingData = playerRankings[mode.id] || {};
+          const rankingValue = rankingData.ranking || '';
+
+          return `
+            <div>
+              <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px; font-weight: bold;">
+                <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${mode.color || '#1F4788'};"></span>
+                ${mode.display_name}
+              </label>
+              <input type="text"
+                     id="${prefix}_rank_${mode.id}"
+                     data-game-mode-id="${mode.id}"
+                     placeholder="NC"
+                     value="${rankingValue}"
+                     style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    // Collect rankings from dynamic form fields
+    function collectRankingsFromForm(prefix) {
+      const rankings = {};
+      gameModesList.forEach(mode => {
+        const input = document.getElementById(`${prefix}_rank_${mode.id}`);
+        if (input) {
+          rankings[mode.id] = input.value || null;
+        }
+      });
+      return rankings;
+    }
+
     // Update club name for a player
     async function updateClubName(licence, newClubName) {
       try {
@@ -563,11 +622,11 @@
       document.getElementById('edit_licence_display').value = player.licence;
       document.getElementById('edit_first_name').value = player.first_name || '';
       document.getElementById('edit_last_name').value = player.last_name || '';
-      document.getElementById('edit_rank_libre').value = player.rank_libre || '';
-      document.getElementById('edit_rank_cadre').value = player.rank_cadre || '';
-      document.getElementById('edit_rank_bande').value = player.rank_bande || '';
-      document.getElementById('edit_rank_3bandes').value = player.rank_3bandes || '';
       document.getElementById('edit_player_app_user').checked = player.player_app_user === true;
+
+      // Populate dynamic ranking fields
+      const rankingsContainer = document.getElementById('edit_rankings_container');
+      rankingsContainer.innerHTML = generateRankingFieldsHTML('edit', player.player_rankings || {});
 
       // Populate club dropdown
       const clubSelect = document.getElementById('edit_club');
@@ -863,14 +922,15 @@
 
       const clubValue = document.getElementById('edit_club').value;
       const gdprCheckbox = document.getElementById('edit_gdpr_consent');
+
+      // Collect rankings from dynamic form fields
+      const playerRankings = collectRankingsFromForm('edit');
+
       const playerData = {
         licence: document.getElementById('edit_licence').value,
         first_name: document.getElementById('edit_first_name').value,
         last_name: document.getElementById('edit_last_name').value,
-        rank_libre: document.getElementById('edit_rank_libre').value || null,
-        rank_cadre: document.getElementById('edit_rank_cadre').value || null,
-        rank_bande: document.getElementById('edit_rank_bande').value || null,
-        rank_3bandes: document.getElementById('edit_rank_3bandes').value || null,
+        player_rankings: playerRankings,  // New format: { game_mode_id: 'ranking_value', ... }
         player_app_user: document.getElementById('edit_player_app_user').checked
       };
 
@@ -1000,6 +1060,10 @@
       clubSelect.innerHTML = '<option value="">-- Sélectionner un club --</option>' +
         clubsList.map(club => `<option value="${club}">${club}</option>`).join('');
 
+      // Populate dynamic ranking fields (empty for new player)
+      const rankingsContainer = document.getElementById('create_rankings_container');
+      rankingsContainer.innerHTML = generateRankingFieldsHTML('create', {});
+
       document.getElementById('createPlayerModal').style.display = 'flex';
     }
 
@@ -1014,12 +1078,11 @@
       const club = document.getElementById('create_club').value;
       const email = document.getElementById('create_email').value.trim();
       const phone = document.getElementById('create_phone').value.trim();
-      const rankLibre = document.getElementById('create_rank_libre').value.trim() || 'NC';
-      const rankCadre = document.getElementById('create_rank_cadre').value.trim() || 'NC';
-      const rankBande = document.getElementById('create_rank_bande').value.trim() || 'NC';
-      const rank3Bandes = document.getElementById('create_rank_3bandes').value.trim() || 'NC';
       const playerAppRole = document.getElementById('create_player_app_role').value;
       const playerAppUser = document.getElementById('create_player_app_user').checked;
+
+      // Collect rankings from dynamic form fields
+      const playerRankings = collectRankingsFromForm('create');
 
       if (!licence || !firstName || !lastName) {
         alert('Licence, prénom et nom sont obligatoires');
@@ -1040,10 +1103,7 @@
             club,
             email,
             phone,
-            rank_libre: rankLibre,
-            rank_cadre: rankCadre,
-            rank_bande: rankBande,
-            rank_3bandes: rank3Bandes,
+            player_rankings: playerRankings,  // New format: { game_mode_id: 'ranking_value', ... }
             player_app_role: playerAppRole,
             player_app_user: playerAppUser,
             is_active: true
@@ -1153,7 +1213,10 @@
 
     // Initialize
     async function initialize() {
-      await loadClubsList();
+      await Promise.all([
+        loadClubsList(),
+        loadGameModes()
+      ]);
       loadPlayers();
     }
 

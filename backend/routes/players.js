@@ -83,6 +83,85 @@ async function loadGameModeRankColumns() {
 }
 
 /**
+ * Get all active game modes from database
+ * Returns array: [{ id, code, display_name, color, display_order }, ...]
+ */
+async function getAllGameModes() {
+  return new Promise((resolve, reject) => {
+    db.all(
+      `SELECT id, code, display_name, color, display_order
+       FROM game_modes
+       WHERE is_active = true
+       ORDER BY display_order`,
+      [],
+      (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      }
+    );
+  });
+}
+
+/**
+ * Get player rankings from player_rankings table
+ * Returns object keyed by game_mode_id: { 1: { ranking: 'R1', code: 'LIBRE', display_name: 'Libre' }, ... }
+ */
+async function getPlayerRankings(licence) {
+  return new Promise((resolve, reject) => {
+    db.all(
+      `SELECT pr.game_mode_id, pr.ranking, gm.code, gm.display_name, gm.color
+       FROM player_rankings pr
+       JOIN game_modes gm ON pr.game_mode_id = gm.id
+       WHERE REPLACE(pr.licence, ' ', '') = REPLACE($1, ' ', '')`,
+      [licence],
+      (err, rows) => {
+        if (err) reject(err);
+        else {
+          const rankings = {};
+          (rows || []).forEach(row => {
+            rankings[row.game_mode_id] = {
+              ranking: row.ranking,
+              code: row.code,
+              display_name: row.display_name,
+              color: row.color
+            };
+          });
+          resolve(rankings);
+        }
+      }
+    );
+  });
+}
+
+/**
+ * Save player rankings to player_rankings table
+ * @param {string} licence - Player licence
+ * @param {object} rankings - Object keyed by game_mode_id: { 1: 'R1', 2: 'NC', ... }
+ */
+async function savePlayerRankings(licence, rankings) {
+  const normalizedLicence = licence.replace(/\s+/g, '');
+
+  for (const [gameModeId, ranking] of Object.entries(rankings)) {
+    // Skip if not a valid game mode ID (number)
+    if (!gameModeId || isNaN(parseInt(gameModeId))) continue;
+
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO player_rankings (licence, game_mode_id, ranking, updated_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+         ON CONFLICT (licence, game_mode_id)
+         DO UPDATE SET ranking = $3, updated_at = CURRENT_TIMESTAMP`,
+        [normalizedLicence, parseInt(gameModeId), ranking || null],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+}
+
+/**
  * CSV column mapping for FFB export format
  * Maps CSV column index to game mode code
  */
@@ -345,7 +424,8 @@ router.post('/', authenticateToken, async (req, res) => {
     club,
     email,
     phone,
-    rankings, // New: dynamic rankings object { rank_libre: 'value', rank_cadre: 'value', ... }
+    player_rankings: newPlayerRankings,  // New format: { game_mode_id: 'ranking_value', ... }
+    rankings, // Old dynamic format: { rank_libre: 'value', ... }
     rank_libre, // Legacy support
     rank_cadre,
     rank_bande,
@@ -374,38 +454,50 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'Un joueur avec cette licence existe déjà' });
     }
 
-    // Load game mode rank columns dynamically
-    const rankColumnMap = await loadGameModeRankColumns();
-    const validRankColumns = Object.values(rankColumnMap);
+    // Get all game modes for building legacy columns
+    const gameModes = await getAllGameModes();
 
-    // Build rankings from either new dynamic format or legacy fields
-    const playerRankings = {};
-    if (rankings && typeof rankings === 'object') {
-      // New dynamic format
+    // Build rankings for legacy columns (for backward compatibility)
+    const legacyRankings = {};
+
+    if (newPlayerRankings && typeof newPlayerRankings === 'object') {
+      // New format: keyed by game_mode_id
+      for (const mode of gameModes) {
+        const ranking = newPlayerRankings[mode.id] || 'NC';
+        const rankColumn = `rank_${mode.code.toLowerCase().replace(/\s+/g, '')}`;
+        // Only set if it's one of the 4 original columns
+        if (['rank_libre', 'rank_cadre', 'rank_bande', 'rank_3bandes'].includes(rankColumn)) {
+          legacyRankings[rankColumn] = ranking;
+        }
+      }
+    } else if (rankings && typeof rankings === 'object') {
+      // Old dynamic format
+      const rankColumnMap = await loadGameModeRankColumns();
+      const validRankColumns = Object.values(rankColumnMap);
       for (const [col, val] of Object.entries(rankings)) {
         if (validRankColumns.includes(col)) {
-          playerRankings[col] = val || 'NC';
+          legacyRankings[col] = val || 'NC';
         }
       }
     } else {
-      // Legacy format - map to rank columns
-      if (rank_libre !== undefined) playerRankings.rank_libre = rank_libre || 'NC';
-      if (rank_cadre !== undefined) playerRankings.rank_cadre = rank_cadre || 'NC';
-      if (rank_bande !== undefined) playerRankings.rank_bande = rank_bande || 'NC';
-      if (rank_3bandes !== undefined) playerRankings.rank_3bandes = rank_3bandes || 'NC';
+      // Legacy format - individual fields
+      if (rank_libre !== undefined) legacyRankings.rank_libre = rank_libre || 'NC';
+      if (rank_cadre !== undefined) legacyRankings.rank_cadre = rank_cadre || 'NC';
+      if (rank_bande !== undefined) legacyRankings.rank_bande = rank_bande || 'NC';
+      if (rank_3bandes !== undefined) legacyRankings.rank_3bandes = rank_3bandes || 'NC';
     }
 
-    // Set default NC for any missing rank columns
-    for (const col of validRankColumns) {
-      if (!playerRankings[col]) {
-        playerRankings[col] = 'NC';
+    // Set default NC for any missing legacy rank columns
+    ['rank_libre', 'rank_cadre', 'rank_bande', 'rank_3bandes'].forEach(col => {
+      if (!legacyRankings[col]) {
+        legacyRankings[col] = 'NC';
       }
-    }
+    });
 
     // Normalize club name to canonical form from clubs table
     const normalizedClub = club ? await normalizeClubName(club) : null;
 
-    // Build dynamic INSERT
+    // Build INSERT for players table
     const baseCols = ['licence', 'first_name', 'last_name', 'club', 'email', 'telephone'];
     const baseValues = [
       normalizedLicence,
@@ -416,8 +508,8 @@ router.post('/', authenticateToken, async (req, res) => {
       phone || null
     ];
 
-    const rankCols = Object.keys(playerRankings);
-    const rankValues = Object.values(playerRankings);
+    const rankCols = Object.keys(legacyRankings);
+    const rankValues = Object.values(legacyRankings);
 
     const endCols = ['player_app_role', 'player_app_user', 'is_active'];
     const endValues = [
@@ -439,6 +531,24 @@ router.post('/', authenticateToken, async (req, res) => {
         else resolve(this);
       });
     });
+
+    // Also save to player_rankings table
+    if (newPlayerRankings && typeof newPlayerRankings === 'object') {
+      // New format: save directly
+      await savePlayerRankings(normalizedLicence, newPlayerRankings);
+    } else {
+      // Build player_rankings from legacy data
+      const rankingsToSave = {};
+      for (const mode of gameModes) {
+        const rankColumn = `rank_${mode.code.toLowerCase().replace(/\s+/g, '')}`;
+        if (legacyRankings[rankColumn]) {
+          rankingsToSave[mode.id] = legacyRankings[rankColumn];
+        }
+      }
+      if (Object.keys(rankingsToSave).length > 0) {
+        await savePlayerRankings(normalizedLicence, rankingsToSave);
+      }
+    }
 
     console.log(`Player created: ${normalizedLicence} - ${first_name} ${last_name}`);
     res.status(201).json({ success: true, licence: normalizedLicence });
@@ -510,29 +620,43 @@ router.get('/duplicates', authenticateToken, async (req, res) => {
 });
 
 // Get player by licence
-router.get('/:licence', authenticateToken, (req, res) => {
-  db.get("SELECT * FROM players WHERE REPLACE(licence, ' ', '') = REPLACE(?, ' ', '')", [req.params.licence], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    if (!row) {
+router.get('/:licence', authenticateToken, async (req, res) => {
+  try {
+    const player = await new Promise((resolve, reject) => {
+      db.get("SELECT * FROM players WHERE REPLACE(licence, ' ', '') = REPLACE($1, ' ', '')", [req.params.licence], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!player) {
       return res.status(404).json({ error: 'Player not found' });
     }
-    res.json(row);
-  });
+
+    // Get rankings from player_rankings table
+    const rankings = await getPlayerRankings(req.params.licence);
+
+    // Return player with rankings from new table
+    res.json({
+      ...player,
+      player_rankings: rankings  // New format: { game_mode_id: { ranking, code, display_name, color } }
+    });
+  } catch (err) {
+    console.error('Get player error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Update player club name
 // Update player (all fields)
 router.put('/:licence', authenticateToken, async (req, res) => {
   const { licence } = req.params;
-  const { club, first_name, last_name, rankings, rank_libre, rank_cadre, rank_bande, rank_3bandes, is_active } = req.body;
+  const {
+    club, first_name, last_name, is_active,
+    player_rankings: newPlayerRankings,  // New format: { game_mode_id: 'ranking_value', ... }
+    rankings, rank_libre, rank_cadre, rank_bande, rank_3bandes  // Legacy support
+  } = req.body;
 
   try {
-    // Load game mode rank columns dynamically for validation
-    const rankColumnMap = await loadGameModeRankColumns();
-    const validRankColumns = Object.values(rankColumnMap);
-
     // Build dynamic UPDATE query based on provided fields
     const updates = [];
     const values = [];
@@ -552,9 +676,28 @@ router.put('/:licence', authenticateToken, async (req, res) => {
       values.push(last_name);
     }
 
-    // Handle rankings - new dynamic format or legacy fields
-    if (rankings && typeof rankings === 'object') {
-      // New dynamic format
+    // Handle new player_rankings format (from dynamic form)
+    if (newPlayerRankings && typeof newPlayerRankings === 'object') {
+      // Save to player_rankings table
+      await savePlayerRankings(licence, newPlayerRankings);
+
+      // Also update legacy columns for backward compatibility
+      const gameModes = await getAllGameModes();
+      for (const mode of gameModes) {
+        const ranking = newPlayerRankings[mode.id];
+        if (ranking !== undefined) {
+          const rankColumn = `rank_${mode.code.toLowerCase().replace(/\s+/g, '')}`;
+          // Only update if column exists (for the 4 original modes)
+          if (['rank_libre', 'rank_cadre', 'rank_bande', 'rank_3bandes'].includes(rankColumn)) {
+            updates.push(`${rankColumn} = ?`);
+            values.push(ranking || null);
+          }
+        }
+      }
+    } else if (rankings && typeof rankings === 'object') {
+      // Old dynamic format (keyed by column name)
+      const rankColumnMap = await loadGameModeRankColumns();
+      const validRankColumns = Object.values(rankColumnMap);
       for (const [col, val] of Object.entries(rankings)) {
         if (validRankColumns.includes(col)) {
           updates.push(`${col} = ?`);
@@ -562,7 +705,7 @@ router.put('/:licence', authenticateToken, async (req, res) => {
         }
       }
     } else {
-      // Legacy format support
+      // Legacy format support (individual rank fields)
       if (rank_libre !== undefined) {
         updates.push('rank_libre = ?');
         values.push(rank_libre || null);
@@ -604,6 +747,11 @@ router.put('/:licence', authenticateToken, async (req, res) => {
         updates.push('gdpr_consent_date = NULL');
         updates.push('gdpr_consent_version = NULL');
       }
+    }
+
+    // If only player_rankings was provided and no other updates, still return success
+    if (updates.length === 0 && newPlayerRankings) {
+      return res.json({ success: true, message: 'Player rankings updated successfully' });
     }
 
     if (updates.length === 0) {
