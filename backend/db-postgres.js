@@ -730,18 +730,6 @@ async function initializeDatabase() {
     await client.query(`UPDATE game_modes SET rank_column = 'rank_bande' WHERE UPPER(code) = 'BANDE' OR UPPER(code) = '1BANDE' AND rank_column IS NULL`);
     await client.query(`UPDATE game_modes SET rank_column = 'rank_3bandes' WHERE UPPER(code) LIKE '%3BANDES%' OR UPPER(code) LIKE '%3 BANDES%' AND rank_column IS NULL`);
 
-    // Migration: Sync tournoi_ext.mode with game_modes.display_name
-    // This updates existing tournament modes to use the current display_name from game_modes
-    await client.query(`
-      UPDATE tournoi_ext t
-      SET mode = UPPER(gm.display_name)
-      FROM game_modes gm
-      WHERE UPPER(t.mode) = UPPER(gm.code)
-         OR UPPER(t.mode) = UPPER(gm.display_name)
-         OR UPPER(gm.code) LIKE '%' || UPPER(t.mode) || '%'
-         OR UPPER(gm.display_name) LIKE '%' || UPPER(t.mode) || '%'
-    `);
-
     // Initialize game_modes reference data
     const gameModeResult = await client.query('SELECT COUNT(*) as count FROM game_modes');
     if (gameModeResult.rows[0].count == 0) {

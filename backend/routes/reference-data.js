@@ -137,23 +137,7 @@ router.put('/game-modes/:id', authenticateToken, (req, res) => {
                   if (err) {
                     console.error('Error updating categories display_name:', err);
                   }
-
-                  // Also update tournoi_ext.mode to match the new display_name
-                  // Match against old code, old display_name, or partial matches
-                  db.run(
-                    `UPDATE tournoi_ext SET mode = $1
-                     WHERE UPPER(mode) = UPPER($2)
-                        OR UPPER(mode) = UPPER($3)
-                        OR UPPER($2) LIKE '%' || UPPER(mode) || '%'
-                        OR UPPER($3) LIKE '%' || UPPER(mode) || '%'`,
-                    [display_name.toUpperCase(), oldDisplayName, oldCode],
-                    (err, result) => {
-                      if (err) {
-                        console.error('Error updating tournoi_ext mode:', err);
-                      }
-                      res.json({ success: true, message: 'Mode de jeu mis à jour (catégories et tournois synchronisés)' });
-                    }
-                  );
+                  res.json({ success: true, message: 'Mode de jeu mis à jour (catégories synchronisées)' });
                 }
               );
             }
