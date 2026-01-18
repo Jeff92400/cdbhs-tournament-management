@@ -48,7 +48,7 @@
 <body>
   <div class="container">
     <div class="navbar">
-      <h2><img src="images/billiard-icon.png" alt="🎱" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;">🎱</span> CDBHS Tournois</h2>
+      <h2><img src="images/billiard-icon.png" alt="🎱" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'; this.nextSibling.style.display='inline';"><span style="display:none;">🎱</span> CDBHS Inscriptions</h2>
       <div class="nav-links">
         <a href="dashboard.html">Accueil</a>
         <a href="rankings.html" class="nav-tooltip" data-tooltip="Classement par catégorie de jeu au fur et à mesure des tournois">Classements</a>
@@ -99,6 +99,9 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h3 style="margin: 0;">Inscriptions CDBHS</h3>
         <div style="display: flex; gap: 10px;">
+          <button class="btn" onclick="exportToExcel()" style="background: #17a2b8;">
+            📥 Exporter Excel
+          </button>
           <button class="btn admin-only" onclick="openCreateModal()" style="background: #1F4788;">
             ➕ Ajouter
           </button>
@@ -821,6 +824,52 @@
           }
         }
       });
+    }
+
+    // Export to Excel (CSV)
+    function exportToExcel() {
+      // Get currently filtered inscriptions from the displayed table
+      const rows = document.querySelectorAll('#inscriptionsTableBody tr');
+      if (rows.length === 0) {
+        alert('Aucune inscription à exporter');
+        return;
+      }
+
+      // CSV headers
+      const headers = ['ID', 'Licence', 'Tournoi', 'Mode', 'Categorie', 'Email', 'Telephone', 'Statut', 'Source', 'Date inscription'];
+
+      // Build CSV content
+      let csvContent = headers.join(';') + '\n';
+
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 10) {
+          const rowData = [
+            cells[0].textContent.trim(), // ID
+            cells[1].textContent.trim(), // Licence
+            cells[2].textContent.trim(), // Tournoi
+            cells[3].textContent.trim(), // Mode
+            cells[4].textContent.trim(), // Categorie
+            cells[5].textContent.trim(), // Email
+            cells[6].textContent.trim(), // Telephone
+            cells[7].textContent.trim(), // Statut
+            cells[8].textContent.trim(), // Source
+            cells[9].textContent.trim()  // Date inscription
+          ];
+          csvContent += rowData.join(';') + '\n';
+        }
+      });
+
+      // Create and download file
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `inscriptions_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
     // Apply filters
