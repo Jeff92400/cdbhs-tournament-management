@@ -460,16 +460,19 @@ router.get('/contacts', authenticateToken, async (req, res) => {
     // Match either:
     // 1. Player's club resolves to same canonical name as selected club
     // 2. Direct normalized match if no alias exists
+    // Note: LIMIT 1 prevents error when multiple aliases match (shouldn't happen but safety first)
     query += ` AND (
       COALESCE(
         (SELECT ca.canonical_name FROM club_aliases ca
          WHERE UPPER(REPLACE(REPLACE(REPLACE(ca.alias, ' ', ''), '.', ''), '-', ''))
-             = UPPER(REPLACE(REPLACE(REPLACE(pc.club, ' ', ''), '.', ''), '-', ''))),
+             = UPPER(REPLACE(REPLACE(REPLACE(pc.club, ' ', ''), '.', ''), '-', ''))
+         LIMIT 1),
         pc.club
       ) = COALESCE(
         (SELECT ca2.canonical_name FROM club_aliases ca2
          WHERE UPPER(REPLACE(REPLACE(REPLACE(ca2.alias, ' ', ''), '.', ''), '-', ''))
-             = UPPER(REPLACE(REPLACE(REPLACE($${paramIndex++}, ' ', ''), '.', ''), '-', ''))),
+             = UPPER(REPLACE(REPLACE(REPLACE($${paramIndex++}, ' ', ''), '.', ''), '-', ''))
+         LIMIT 1),
         $${paramIndex++}
       )
     )`;
