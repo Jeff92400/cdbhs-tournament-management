@@ -309,6 +309,9 @@ async function initializeDatabase() {
       )
     `);
 
+    // Add convocation_sent_at column to tournoi_ext (migration - January 2026)
+    await client.query(`ALTER TABLE tournoi_ext ADD COLUMN IF NOT EXISTS convocation_sent_at TIMESTAMP`);
+
     // Player inscriptions table (from CDBHS external DB)
     await client.query(`
       CREATE TABLE IF NOT EXISTS inscriptions (

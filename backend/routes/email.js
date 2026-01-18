@@ -1197,6 +1197,19 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
       }
       console.log(`Saved ${poules.reduce((sum, p) => sum + p.players.length, 0)} players across ${poules.length} poules for tournament ${tournoiId}`);
 
+      // Mark convocation as sent on tournoi_ext
+      await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE tournoi_ext SET convocation_sent_at = CURRENT_TIMESTAMP WHERE tournoi_id = $1`,
+          [tournoiId],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+      console.log(`Marked convocation_sent_at for tournament ${tournoiId}`);
+
     } catch (convoqueError) {
       console.error('Error updating convoque status:', convoqueError);
       // Don't fail the whole operation if convoque update fails
@@ -2044,7 +2057,7 @@ router.get('/poules/upcoming', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/email/poules/categories
- * Get categories that have tournaments with saved poules
+ * Get categories that have tournaments with sent convocations (not yet played)
  */
 router.get('/poules/categories', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
@@ -2056,6 +2069,7 @@ router.get('/poules/categories', authenticateToken, async (req, res) => {
         FROM convocation_poules cp
         JOIN tournoi_ext t ON cp.tournoi_id = t.tournoi_id
         WHERE t.debut >= CURRENT_DATE - INTERVAL '1 day'
+          AND t.convocation_sent_at IS NOT NULL
         ORDER BY t.mode, t.categorie
       `, [], (err, rows) => {
         if (err) reject(err);
@@ -2072,7 +2086,7 @@ router.get('/poules/categories', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/email/poules/by-category
- * Get tournaments with poules by category
+ * Get tournaments with sent convocations by category
  */
 router.get('/poules/by-category', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
@@ -2087,10 +2101,12 @@ router.get('/poules/by-category', authenticateToken, async (req, res) => {
         t.categorie,
         t.debut as tournament_date,
         t.lieu,
+        t.convocation_sent_at,
         COUNT(DISTINCT cp.licence) as player_count
       FROM convocation_poules cp
       JOIN tournoi_ext t ON cp.tournoi_id = t.tournoi_id
       WHERE t.debut >= CURRENT_DATE - INTERVAL '1 day'
+        AND t.convocation_sent_at IS NOT NULL
     `;
     const params = [];
 
@@ -2103,7 +2119,7 @@ router.get('/poules/by-category', authenticateToken, async (req, res) => {
       sql += ` AND UPPER(t.categorie) = UPPER($${params.length})`;
     }
 
-    sql += ` GROUP BY cp.tournoi_id, t.nom, t.mode, t.categorie, t.debut, t.lieu ORDER BY t.debut ASC`;
+    sql += ` GROUP BY cp.tournoi_id, t.nom, t.mode, t.categorie, t.debut, t.lieu, t.convocation_sent_at ORDER BY t.debut ASC`;
 
     const tournaments = await new Promise((resolve, reject) => {
       db.all(sql, params, (err, rows) => {
