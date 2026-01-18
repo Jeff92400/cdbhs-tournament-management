@@ -1049,11 +1049,10 @@ Le CDBHS`;
       [clubReminderBody]
     );
 
-    // Initialize default clubs
+    // Initialize default clubs (5 clubs in CDBHS)
     const clubResult = await client.query('SELECT COUNT(*) as count FROM clubs');
     if (clubResult.rows[0].count == 0) {
       const defaultClubs = [
-        { name: 'Châtillon', display_name: 'Billard Club de Châtillon', logo_filename: 'S_C_M_C_BILLARD_CLUB.png' },
         { name: 'A DE BILLARD COURBEVOIE LA DEFENSE', display_name: 'A DE BILLARD COURBEVOIE LA DEFENSE', logo_filename: 'A_DE_BILLARD_COURBEVOIE_LA_DEFENSE.png' },
         { name: 'BILLARD BOIS COLOMBES', display_name: 'BILLARD BOIS COLOMBES', logo_filename: 'BILLARD_BOIS_COLOMBES.png' },
         { name: 'BILLARD CLUB CLICHOIS', display_name: 'BILLARD CLUB CLICHOIS', logo_filename: 'BILLARD_CLUB_CLICHOIS.png' },
@@ -1069,6 +1068,77 @@ Le CDBHS`;
       }
       console.log('Default clubs initialized');
     }
+
+    // Initialize default club aliases for all 5 clubs (handles common spelling variations from IONOS/FFB)
+    const defaultAliases = [
+      // 1. A DE BILLARD COURBEVOIE LA DEFENSE variations
+      { alias: 'A DE BILLARD COURBEVOIE LA DEFENSE', canonical: 'A DE BILLARD COURBEVOIE LA DEFENSE' },
+      { alias: 'A. DE BILLARD COURBEVOIE LA DEFENSE', canonical: 'A DE BILLARD COURBEVOIE LA DEFENSE' },
+      { alias: 'A. DE BILLARD COURBEVOIE-LA DEFENSE', canonical: 'A DE BILLARD COURBEVOIE LA DEFENSE' },
+      { alias: 'A DE BILLARD COURBEVOIE-LA DEFENSE', canonical: 'A DE BILLARD COURBEVOIE LA DEFENSE' },
+      { alias: 'A.DE BILLARD COURBEVOIE LA DEFENSE', canonical: 'A DE BILLARD COURBEVOIE LA DEFENSE' },
+      { alias: 'A.DE BILLARD COURBEVOIE-LA DEFENSE', canonical: 'A DE BILLARD COURBEVOIE LA DEFENSE' },
+      { alias: 'COURBEVOIE', canonical: 'A DE BILLARD COURBEVOIE LA DEFENSE' },
+      { alias: 'COURBEVOIE LA DEFENSE', canonical: 'A DE BILLARD COURBEVOIE LA DEFENSE' },
+
+      // 2. BILLARD BOIS COLOMBES variations
+      { alias: 'BILLARD BOIS COLOMBES', canonical: 'BILLARD BOIS COLOMBES' },
+      { alias: 'BILLARD BOIS-COLOMBES', canonical: 'BILLARD BOIS COLOMBES' },
+      { alias: 'BOIS COLOMBES', canonical: 'BILLARD BOIS COLOMBES' },
+      { alias: 'BOIS-COLOMBES', canonical: 'BILLARD BOIS COLOMBES' },
+      { alias: 'BC BOIS COLOMBES', canonical: 'BILLARD BOIS COLOMBES' },
+      { alias: 'BC BOIS-COLOMBES', canonical: 'BILLARD BOIS COLOMBES' },
+      { alias: 'L.B.I.E. BOIS COLOMBES', canonical: 'BILLARD BOIS COLOMBES' },
+      { alias: 'LBIE BOIS COLOMBES', canonical: 'BILLARD BOIS COLOMBES' },
+
+      // 3. BILLARD CLUB CLICHOIS variations
+      { alias: 'BILLARD CLUB CLICHOIS', canonical: 'BILLARD CLUB CLICHOIS' },
+      { alias: 'BC CLICHOIS', canonical: 'BILLARD CLUB CLICHOIS' },
+      { alias: 'CLICHOIS', canonical: 'BILLARD CLUB CLICHOIS' },
+      { alias: 'CLICHY', canonical: 'BILLARD CLUB CLICHOIS' },
+      { alias: 'BILLARD CLICHY', canonical: 'BILLARD CLUB CLICHOIS' },
+      { alias: 'B.C. CLICHOIS', canonical: 'BILLARD CLUB CLICHOIS' },
+      { alias: 'BCC', canonical: 'BILLARD CLUB CLICHOIS' },
+
+      // 4. BILLARD CLUB LA GARENNE CLAMART variations
+      { alias: 'BILLARD CLUB LA GARENNE CLAMART', canonical: 'BILLARD CLUB LA GARENNE CLAMART' },
+      { alias: 'BILLARD CLUB LA GARENNE-CLAMART', canonical: 'BILLARD CLUB LA GARENNE CLAMART' },
+      { alias: 'BC LA GARENNE CLAMART', canonical: 'BILLARD CLUB LA GARENNE CLAMART' },
+      { alias: 'BC LA GARENNE-CLAMART', canonical: 'BILLARD CLUB LA GARENNE CLAMART' },
+      { alias: 'LA GARENNE CLAMART', canonical: 'BILLARD CLUB LA GARENNE CLAMART' },
+      { alias: 'LA GARENNE-CLAMART', canonical: 'BILLARD CLUB LA GARENNE CLAMART' },
+      { alias: 'GARENNE CLAMART', canonical: 'BILLARD CLUB LA GARENNE CLAMART' },
+      { alias: 'CLAMART', canonical: 'BILLARD CLUB LA GARENNE CLAMART' },
+      { alias: 'LA GARENNE', canonical: 'BILLARD CLUB LA GARENNE CLAMART' },
+
+      // 5. S C M C BILLARD CLUB (Châtillon) variations
+      { alias: 'S C M C BILLARD CLUB', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'SCMC BILLARD CLUB', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'S.C.M.C. BILLARD CLUB', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'S.C.M.C BILLARD CLUB', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'SCMC', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'S C M C', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'S.C.M.C.', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'S.C.M.C', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'CHATILLON', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'CHÂTILLON', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'Châtillon', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'Chatillon', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'BILLARD CLUB CHATILLON', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'BILLARD CLUB CHÂTILLON', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'BILLARD CLUB DE CHÂTILLON', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'BILLARD CLUB DE CHATILLON', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'BC CHATILLON', canonical: 'S C M C BILLARD CLUB' },
+      { alias: 'BC CHÂTILLON', canonical: 'S C M C BILLARD CLUB' }
+    ];
+
+    for (const { alias, canonical } of defaultAliases) {
+      await client.query(
+        'INSERT INTO club_aliases (alias, canonical_name) VALUES ($1, $2) ON CONFLICT (alias) DO UPDATE SET canonical_name = $2',
+        [alias, canonical]
+      );
+    }
+    console.log('Default club aliases initialized');
 
     // Migration: Ensure club_aliases.canonical_name references valid clubs.name
     // First, update any canonical_name that doesn't match clubs.name to the closest match
