@@ -162,10 +162,8 @@
                 <th>Club</th>
                 <th>Email</th>
                 <th>Téléphone</th>
-                <th>Libre</th>
-                <th>Cadre</th>
-                <th>Bande</th>
-                <th>3 Bandes</th>
+                <!-- Dynamic ranking columns will be inserted here -->
+                <th id="rankingColumnsPlaceholder" style="display:none;"></th>
                 <th>Statut</th>
                 <th class="admin-only" title="Utilisateur de l'app mobile">📱 App</th>
                 <th class="admin-only">Player App role</th>
@@ -506,6 +504,60 @@
       return rankings;
     }
 
+    // Number of ranking columns to show in the table (to avoid table being too wide)
+    const MAX_TABLE_RANKING_COLUMNS = 4;
+
+    // Get game modes to display in table (first N active modes by display_order)
+    function getTableGameModes() {
+      return gameModesList
+        .filter(mode => mode.is_active !== false)
+        .slice(0, MAX_TABLE_RANKING_COLUMNS);
+    }
+
+    // Populate table header with dynamic ranking columns
+    function populateRankingHeaders() {
+      const headerRow = document.querySelector('thead tr');
+      const placeholder = document.getElementById('rankingColumnsPlaceholder');
+
+      if (!headerRow || !placeholder) return;
+
+      // Remove old dynamic headers if any
+      headerRow.querySelectorAll('.dynamic-rank-header').forEach(el => el.remove());
+
+      // Insert new headers before the placeholder
+      const tableModes = getTableGameModes();
+      tableModes.forEach(mode => {
+        const th = document.createElement('th');
+        th.className = 'dynamic-rank-header';
+        th.textContent = mode.display_name;
+        th.title = mode.display_name;
+        th.style.textAlign = 'center';
+        headerRow.insertBefore(th, placeholder);
+      });
+    }
+
+    // Generate ranking cells HTML for a player row
+    function generateRankingCellsHTML(player, inactiveStyle) {
+      const tableModes = getTableGameModes();
+
+      return tableModes.map(mode => {
+        // Try to get ranking from player_rankings (new format) or legacy columns
+        let ranking = 'NC';
+
+        if (player.player_rankings && player.player_rankings[mode.id]) {
+          ranking = player.player_rankings[mode.id].ranking || 'NC';
+        } else {
+          // Fallback to legacy columns
+          const legacyColumn = `rank_${mode.code.toLowerCase().replace(/\s+/g, '')}`;
+          if (player[legacyColumn]) {
+            ranking = player[legacyColumn];
+          }
+        }
+
+        return `<td style="text-align: center; ${inactiveStyle}">${ranking}</td>`;
+      }).join('');
+    }
+
     // Update club name for a player
     async function updateClubName(licence, newClubName) {
       try {
@@ -616,16 +668,33 @@
       };
     }
 
-    // Open edit modal
-    function openEditModal(player) {
+    // Open edit modal - fetch full player data including rankings
+    async function openEditModal(playerFromList) {
+      // Show loading state
+      document.getElementById('editPlayerModal').style.display = 'flex';
+      const rankingsContainer = document.getElementById('edit_rankings_container');
+      rankingsContainer.innerHTML = '<p style="color: #666; font-style: italic;">Chargement des classements...</p>';
+
+      // Fetch full player data with player_rankings
+      let player = playerFromList;
+      try {
+        const response = await fetch(`${API_URL}/players/${playerFromList.licence}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          player = await response.json();
+        }
+      } catch (err) {
+        console.error('Error fetching player details:', err);
+      }
+
       document.getElementById('edit_licence').value = player.licence;
       document.getElementById('edit_licence_display').value = player.licence;
       document.getElementById('edit_first_name').value = player.first_name || '';
       document.getElementById('edit_last_name').value = player.last_name || '';
       document.getElementById('edit_player_app_user').checked = player.player_app_user === true;
 
-      // Populate dynamic ranking fields
-      const rankingsContainer = document.getElementById('edit_rankings_container');
+      // Populate dynamic ranking fields with data from player_rankings table
       rankingsContainer.innerHTML = generateRankingFieldsHTML('edit', player.player_rankings || {});
 
       // Populate club dropdown
@@ -651,8 +720,6 @@
         gdprCheckbox.checked = false;
         gdprInfo.style.display = 'none';
       }
-
-      document.getElementById('editPlayerModal').style.display = 'flex';
     }
 
     // Close edit modal
@@ -718,7 +785,9 @@
       tbody.innerHTML = '';
 
       if (players.length === 0) {
-        const colspan = isAdmin ? 15 : 11;
+        // Calculate colspan: 6 fixed + N ranking + 5 admin or 1 non-admin
+        const rankingCols = getTableGameModes().length;
+        const colspan = isAdmin ? (6 + rankingCols + 5) : (6 + rankingCols + 2);
         tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center; padding: 20px;">Aucun joueur trouvé</td></tr>`;
         return;
       }
@@ -734,10 +803,7 @@
           <td style="${inactiveStyle}">${player.club || '-'}</td>
           <td style="${inactiveStyle}; font-size: 0.85em;">${player.email || '-'}</td>
           <td style="${inactiveStyle}">${player.telephone || '-'}</td>
-          <td style="text-align: center; ${inactiveStyle}">${player.rank_libre || 'NC'}</td>
-          <td style="text-align: center; ${inactiveStyle}">${player.rank_cadre || 'NC'}</td>
-          <td style="text-align: center; ${inactiveStyle}">${player.rank_bande || 'NC'}</td>
-          <td style="text-align: center; ${inactiveStyle}">${player.rank_3bandes || 'NC'}</td>
+          ${generateRankingCellsHTML(player, inactiveStyle)}
           <td style="text-align: center;">
             <span style="color: ${player.is_active ? '#4CAF50' : '#999'}; font-weight: bold;">
               ${player.is_active ? '✓ Actif' : '✗ Inactif'}
@@ -1217,6 +1283,8 @@
         loadClubsList(),
         loadGameModes()
       ]);
+      // Populate dynamic ranking headers after game modes are loaded
+      populateRankingHeaders();
       loadPlayers();
     }
 
