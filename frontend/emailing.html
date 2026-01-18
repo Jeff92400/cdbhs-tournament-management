@@ -476,11 +476,11 @@
               <option value="">Tous les clubs</option>
             </select>
             <select id="modeFilter">
-              <option value="">Tous les modes</option>
+              <option value="">Mode de jeu : tous</option>
               <!-- Options loaded dynamically from API -->
             </select>
             <select id="categoryFilter" disabled>
-              <option value="">Toutes categories</option>
+              <option value="">Classement FFB : tous</option>
             </select>
             <select id="tournoiFilter">
               <option value="">-- Tournois saison en cours --</option>
@@ -1568,7 +1568,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
           // Populate modeFilter dropdown (Composer tab)
           const modeFilter = document.getElementById('modeFilter');
-          modeFilter.innerHTML = '<option value="">Tous les modes</option>' +
+          modeFilter.innerHTML = '<option value="">Mode de jeu : tous</option>' +
             gameModesList.map(gm => `<option value="${gm.code}">${gm.display_name}</option>`).join('');
 
           // Populate relanceModeFilter dropdown (Relances tab)
@@ -1814,7 +1814,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
       const mode = document.getElementById('modeFilter').value;
       const categorySelect = document.getElementById('categoryFilter');
 
-      categorySelect.innerHTML = '<option value="">Toutes categories</option>';
+      categorySelect.innerHTML = '<option value="">Classement FFB : tous</option>';
 
       if (mode && categoriesByMode[mode]) {
         categorySelect.disabled = false;

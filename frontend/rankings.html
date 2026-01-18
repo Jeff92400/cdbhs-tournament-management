@@ -36,8 +36,19 @@
         </div>
 
         <div class="form-group">
-          <label for="categorySelect">Catégorie</label>
-          <select id="categorySelect">
+          <label for="modeSelect">Mode de jeu</label>
+          <select id="modeSelect">
+            <option value="">-- Sélectionner --</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="levelSelect">Classement FFB</label>
+          <select id="levelSelect">
+            <option value="">-- Sélectionner --</option>
+          </select>
+          <!-- Hidden select to store the resolved category ID -->
+          <select id="categorySelect" style="display: none;">
             <option value="">-- Sélectionner une catégorie --</option>
           </select>
         </div>
@@ -123,6 +134,7 @@
 
     let currentCategoryId = null;
     let currentSeason = null;
+    let categories = [];
 
     // Club data for logos
     let CLUBS_DATA = [];
@@ -235,15 +247,20 @@
           return;
         }
 
-        const categories = await response.json();
+        categories = await response.json();
         console.log('Categories loaded:', categories.length);
+
+        // Populate mode selector with unique game types
+        const modes = [...new Set(categories.map(c => c.game_type))].sort();
+        const modeSelect = document.getElementById('modeSelect');
+        modeSelect.innerHTML = '<option value="">-- Sélectionner --</option>';
+        modes.forEach(mode => {
+          modeSelect.innerHTML += `<option value="${mode}">${mode}</option>`;
+        });
+
+        // Keep hidden categorySelect for compatibility
         const select = document.getElementById('categorySelect');
-
-        // Clear existing options except the placeholder
-        while (select.options.length > 1) {
-          select.remove(1);
-        }
-
+        select.innerHTML = '<option value="">-- Sélectionner une catégorie --</option>';
         categories.forEach(category => {
           const option = document.createElement('option');
           option.value = category.id;
@@ -251,11 +268,10 @@
           select.appendChild(option);
         });
 
-        // Auto-select first category
-        if (categories.length > 0) {
-          select.value = categories[0].id;
-          currentCategoryId = categories[0].id;
-          console.log('Auto-selected category:', currentCategoryId);
+        // Auto-select first mode and level
+        if (modes.length > 0) {
+          modeSelect.value = modes[0];
+          modeSelect.dispatchEvent(new Event('change'));
         }
       } catch (error) {
         console.error('Error loading categories:', error);
@@ -526,6 +542,60 @@
       }
     });
 
+    // Mode selector change - populate levels
+    document.getElementById('modeSelect').addEventListener('change', (e) => {
+      const selectedMode = e.target.value;
+      const levelSelect = document.getElementById('levelSelect');
+      const categorySelect = document.getElementById('categorySelect');
+
+      levelSelect.innerHTML = '<option value="">-- Sélectionner --</option>';
+      categorySelect.value = '';
+      currentCategoryId = null;
+
+      if (selectedMode) {
+        // Filter categories by selected mode and get unique levels
+        const levels = categories
+          .filter(c => c.game_type === selectedMode)
+          .map(c => c.level)
+          .filter((v, i, a) => a.indexOf(v) === i)
+          .sort();
+
+        levels.forEach(level => {
+          levelSelect.innerHTML += `<option value="${level}">${level}</option>`;
+        });
+
+        // Auto-select first level
+        if (levels.length > 0) {
+          levelSelect.value = levels[0];
+          levelSelect.dispatchEvent(new Event('change'));
+        }
+      }
+    });
+
+    // Level selector change - set category and load rankings
+    document.getElementById('levelSelect').addEventListener('change', (e) => {
+      const selectedMode = document.getElementById('modeSelect').value;
+      const selectedLevel = e.target.value;
+      const categorySelect = document.getElementById('categorySelect');
+
+      if (selectedMode && selectedLevel) {
+        // Find the matching category
+        const matchingCategory = categories.find(c =>
+          c.game_type === selectedMode && c.level === selectedLevel
+        );
+        if (matchingCategory) {
+          categorySelect.value = matchingCategory.id;
+          currentCategoryId = matchingCategory.id;
+          if (currentSeason && currentCategoryId) {
+            loadRankings();
+          }
+        }
+      } else {
+        categorySelect.value = '';
+        currentCategoryId = null;
+      }
+    });
+
     document.getElementById('categorySelect').addEventListener('change', (e) => {
       currentCategoryId = e.target.value;
       if (currentSeason && currentCategoryId) {
@@ -554,6 +624,24 @@
       if (urlCategoryId) {
         currentCategoryId = urlCategoryId;
         document.getElementById('categorySelect').value = urlCategoryId;
+
+        // Also set mode and level dropdowns based on the category
+        const category = categories.find(c => c.id == urlCategoryId);
+        if (category) {
+          document.getElementById('modeSelect').value = category.game_type;
+          // Populate levels for this mode
+          const levels = categories
+            .filter(c => c.game_type === category.game_type)
+            .map(c => c.level)
+            .filter((v, i, a) => a.indexOf(v) === i)
+            .sort();
+          const levelSelect = document.getElementById('levelSelect');
+          levelSelect.innerHTML = '<option value="">-- Sélectionner --</option>';
+          levels.forEach(level => {
+            levelSelect.innerHTML += `<option value="${level}">${level}</option>`;
+          });
+          levelSelect.value = category.level;
+        }
         console.log('Using URL categoryId:', urlCategoryId);
       }
 

@@ -113,10 +113,10 @@
           <option value="">Toutes les saisons</option>
         </select>
         <select id="modeFilter">
-          <option value="">Tous les modes</option>
+          <option value="">Mode de jeu : tous</option>
         </select>
         <select id="categorieFilter">
-          <option value="">Toutes les catégories</option>
+          <option value="">Classement FFB : tous</option>
         </select>
         <select id="tournoiFilter">
           <option value="">Tous les tournois</option>
@@ -411,7 +411,7 @@
       const selectedSeason = document.getElementById('seasonFilter').value;
 
       // Clear and add default option
-      select.innerHTML = '<option value="">Tous les modes</option>';
+      select.innerHTML = '<option value="">Mode de jeu : tous</option>';
 
       // Filter tournaments by selected season
       let filteredTournois = allTournois;
@@ -450,7 +450,7 @@
       const selectedMode = document.getElementById('modeFilter').value;
 
       // Clear and add default option
-      select.innerHTML = '<option value="">Toutes les catégories</option>';
+      select.innerHTML = '<option value="">Classement FFB : tous</option>';
 
       // Filter tournaments by selected season and mode
       let filteredTournois = allTournois;

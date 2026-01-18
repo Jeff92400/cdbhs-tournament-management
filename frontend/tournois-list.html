@@ -110,11 +110,11 @@
           <option value="">Toutes les saisons</option>
         </select>
         <select id="modeFilter">
-          <option value="">Tous les modes</option>
+          <option value="">Mode de jeu : tous</option>
           <!-- Options loaded dynamically from API -->
         </select>
         <select id="categorieFilter">
-          <option value="">Toutes categories</option>
+          <option value="">Classement FFB : tous</option>
         </select>
         <input type="text" id="searchInput" placeholder="Rechercher par nom ou lieu...">
       </div>
@@ -171,15 +171,17 @@
             </div>
 
             <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Mode</label>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Mode de jeu</label>
               <select id="edit_mode" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 <!-- Options loaded dynamically from API -->
               </select>
             </div>
 
             <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Categorie</label>
-              <input type="text" id="edit_categorie" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Classement FFB</label>
+              <select id="edit_categorie" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">-- Sélectionner --</option>
+              </select>
             </div>
 
             <div>
@@ -228,7 +230,7 @@
             </div>
 
             <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Mode *</label>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Mode de jeu *</label>
               <select id="create_mode" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 <option value="">-- Sélectionner --</option>
                 <!-- Options loaded dynamically from API -->
@@ -236,8 +238,10 @@
             </div>
 
             <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Categorie *</label>
-              <input type="text" id="create_categorie" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Ex: R1, R2, R3, N3...">
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Classement FFB *</label>
+              <select id="create_categorie" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">-- Sélectionner --</option>
+              </select>
             </div>
 
             <div>
@@ -310,6 +314,7 @@
 
     let allTournois = [];
     let gameModesList = [];
+    let categories = [];
 
     // Load game modes from reference data API
     async function loadGameModes() {
@@ -325,7 +330,7 @@
           // Filter uses .includes() so "3 Bandes" will match tournament modes containing "3 BANDES"
           // Populate filter dropdown
           const filterSelect = document.getElementById('modeFilter');
-          filterSelect.innerHTML = '<option value="">Tous les modes</option>' +
+          filterSelect.innerHTML = '<option value="">Mode de jeu : tous</option>' +
             gameModesList.map(gm => `<option value="${gm.display_name.toUpperCase()}">${gm.display_name}</option>`).join('');
 
           // Populate edit modal dropdown (use display_name for compatibility)
@@ -339,6 +344,56 @@
         }
       } catch (error) {
         console.error('Error loading game modes:', error);
+      }
+    }
+
+    // Load categories from API
+    async function loadCategories() {
+      try {
+        const response = await fetch(`${API_URL}/tournaments/categories`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          categories = await response.json();
+        }
+      } catch (error) {
+        console.error('Error loading categories:', error);
+      }
+    }
+
+    // Update category dropdown based on selected mode
+    function updateCategorieDropdown(modeSelectId, categorieSelectId) {
+      const selectedMode = document.getElementById(modeSelectId).value;
+      const categorieSelect = document.getElementById(categorieSelectId);
+      const currentValue = categorieSelect.value;
+
+      categorieSelect.innerHTML = '<option value="">-- Sélectionner --</option>';
+
+      if (selectedMode) {
+        // Map mode display name to game_type in categories
+        // Categories use game_type like "Carambole", "Pool", etc.
+        // Modes in tournoi_ext are uppercase like "CARAMBOLE LIBRE", "CARAMBOLE 3 BANDES"
+        const modeUpper = selectedMode.toUpperCase();
+
+        // Find matching categories - look for game_type that matches start of mode
+        const matchingLevels = categories
+          .filter(c => modeUpper.includes(c.game_type.toUpperCase()))
+          .map(c => c.level)
+          .filter((v, i, a) => a.indexOf(v) === i)
+          .sort();
+
+        matchingLevels.forEach(level => {
+          const option = document.createElement('option');
+          option.value = level;
+          option.textContent = level;
+          categorieSelect.appendChild(option);
+        });
+
+        // Try to restore previous value if it exists in the new options
+        if (currentValue && matchingLevels.includes(currentValue)) {
+          categorieSelect.value = currentValue;
+        }
       }
     }
 
@@ -441,13 +496,14 @@
 
     // Populate categorie filter
     function populateCategorieFilter() {
-      const categories = new Set();
+      const tournoiCategories = new Set();
       allTournois.forEach(t => {
-        if (t.categorie) categories.add(t.categorie);
+        if (t.categorie) tournoiCategories.add(t.categorie);
       });
 
       const select = document.getElementById('categorieFilter');
-      Array.from(categories).sort().forEach(cat => {
+      select.innerHTML = '<option value="">Classement FFB : tous</option>';
+      Array.from(tournoiCategories).sort().forEach(cat => {
         const option = document.createElement('option');
         option.value = cat;
         option.textContent = cat;
@@ -627,7 +683,11 @@
       document.getElementById('edit_tournoi_id').value = tournoi.tournoi_id;
       document.getElementById('edit_nom').value = tournoi.nom || '';
       document.getElementById('edit_mode').value = tournoi.mode || 'LIBRE';
+
+      // Update category dropdown based on selected mode
+      updateCategorieDropdown('edit_mode', 'edit_categorie');
       document.getElementById('edit_categorie').value = tournoi.categorie || '';
+
       document.getElementById('edit_debut').value = tournoi.debut ? tournoi.debut.split('T')[0] : '';
       document.getElementById('edit_fin').value = tournoi.fin ? tournoi.fin.split('T')[0] : '';
       document.getElementById('edit_lieu').value = tournoi.lieu || '';
@@ -766,6 +826,14 @@
     document.getElementById('searchInput').addEventListener('input', applyFilters);
     document.getElementById('dateFromFilter').addEventListener('change', applyFilters);
     document.getElementById('dateToFilter').addEventListener('change', applyFilters);
+
+    // Modal mode change listeners - update category dropdown
+    document.getElementById('edit_mode').addEventListener('change', () => {
+      updateCategorieDropdown('edit_mode', 'edit_categorie');
+    });
+    document.getElementById('create_mode').addEventListener('change', () => {
+      updateCategorieDropdown('create_mode', 'create_categorie');
+    });
 
     // Update season-specific stats (consistent with dashboard)
     async function updateSeasonStats() {
@@ -923,6 +991,7 @@
 
     // Initialize
     loadGameModes(); // Load game modes for dropdowns
+    loadCategories(); // Load categories for modal dropdowns
     loadTournois();
   </script>
 
