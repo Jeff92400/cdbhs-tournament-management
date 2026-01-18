@@ -414,6 +414,12 @@
           </form>
         </div>
 
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+          <button type="button" class="btn" id="syncCategoriesBtn" style="background: #ff9800; padding: 6px 12px; font-size: 13px;">
+            🔄 Synchroniser avec Modes de Jeu
+          </button>
+        </div>
+
         <table class="data-table" id="categoriesTable">
           <thead>
             <tr>
@@ -1115,6 +1121,38 @@
 
     // Listen for hash changes
     window.addEventListener('hashchange', handleHashNavigation);
+
+    // Sync categories with game modes
+    document.getElementById('syncCategoriesBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('syncCategoriesBtn');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ Synchronisation...';
+      btn.disabled = true;
+
+      try {
+        const response = await fetch(`${API_URL}/reference-data/categories/sync`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showMessage('success', result.message);
+          loadCategories(); // Reload to show updates
+        } else {
+          showMessage('error', result.error || 'Erreur lors de la synchronisation');
+        }
+      } catch (error) {
+        console.error('Error syncing categories:', error);
+        showMessage('error', 'Erreur de connexion');
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    });
 
     // Initialize
     loadGameModes();

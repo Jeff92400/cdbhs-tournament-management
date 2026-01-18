@@ -470,4 +470,69 @@ router.delete('/categories/:id', authenticateToken, (req, res) => {
   }
 });
 
+// Sync orphaned categories with game modes
+router.post('/categories/sync', authenticateToken, async (req, res) => {
+  const db = getDb();
+
+  try {
+    // First, get all game modes
+    const gameModes = await new Promise((resolve, reject) => {
+      db.all('SELECT code, display_name FROM game_modes', [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    // Get all categories
+    const categories = await new Promise((resolve, reject) => {
+      db.all('SELECT id, game_type, level, display_name FROM categories', [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    let updatedCount = 0;
+
+    for (const cat of categories) {
+      const catGameType = (cat.game_type || '').toUpperCase().replace(/ /g, '');
+
+      // Try to find matching game mode
+      const matchingMode = gameModes.find(gm => {
+        const gmCode = (gm.code || '').toUpperCase().replace(/ /g, '');
+        const gmName = (gm.display_name || '').toUpperCase().replace(/ /g, '');
+        return catGameType === gmCode || catGameType === gmName;
+      });
+
+      if (matchingMode) {
+        // Check if update is needed (game_type doesn't exactly match display_name)
+        if (cat.game_type !== matchingMode.display_name) {
+          const newDisplayName = `${matchingMode.display_name} - ${cat.level}`;
+
+          await new Promise((resolve, reject) => {
+            db.run(
+              'UPDATE categories SET game_type = $1, display_name = $2 WHERE id = $3',
+              [matchingMode.display_name, newDisplayName, cat.id],
+              (err) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          });
+          updatedCount++;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Synchronisation terminée: ${updatedCount} catégorie(s) mise(s) à jour`,
+      updatedCount
+    });
+
+  } catch (error) {
+    console.error('Error syncing categories:', error);
+    res.status(500).json({ error: 'Erreur lors de la synchronisation' });
+  }
+});
+
 module.exports = router;
