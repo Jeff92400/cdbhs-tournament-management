@@ -756,6 +756,62 @@ async function initializeDatabase() {
       console.log('Game modes initialized');
     }
 
+    // Create player_rankings table for dynamic game mode rankings
+    // This table replaces the hardcoded rank_libre, rank_cadre, rank_bande, rank_3bandes columns
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS player_rankings (
+        id SERIAL PRIMARY KEY,
+        licence TEXT NOT NULL REFERENCES players(licence) ON DELETE CASCADE,
+        game_mode_id INTEGER NOT NULL REFERENCES game_modes(id) ON DELETE CASCADE,
+        ranking TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(licence, game_mode_id)
+      )
+    `);
+
+    // Create index for faster lookups
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_player_rankings_licence ON player_rankings(licence)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_player_rankings_game_mode ON player_rankings(game_mode_id)
+    `);
+
+    // Migrate existing player rankings from hardcoded columns to player_rankings table
+    // This runs only once - checks if player_rankings is empty and players have rank data
+    const playerRankingsCount = await client.query('SELECT COUNT(*) as count FROM player_rankings');
+    if (playerRankingsCount.rows[0].count == 0) {
+      console.log('Migrating player rankings to player_rankings table...');
+
+      // Get all game modes with their rank_column mapping
+      const gameModesForMigration = await client.query(
+        'SELECT id, code, rank_column FROM game_modes WHERE rank_column IS NOT NULL'
+      );
+
+      // For each game mode, insert rankings from the old column
+      for (const mode of gameModesForMigration.rows) {
+        const rankColumn = mode.rank_column;
+
+        // Insert rankings for all players who have a value in this rank column
+        await client.query(`
+          INSERT INTO player_rankings (licence, game_mode_id, ranking)
+          SELECT licence, $1, ${rankColumn}
+          FROM players
+          WHERE ${rankColumn} IS NOT NULL AND ${rankColumn} != ''
+          ON CONFLICT (licence, game_mode_id) DO NOTHING
+        `, [mode.id]);
+
+        const insertedCount = await client.query(`
+          SELECT COUNT(*) as count FROM player_rankings WHERE game_mode_id = $1
+        `, [mode.id]);
+
+        console.log(`  - ${mode.code}: migrated ${insertedCount.rows[0].count} rankings from ${rankColumn}`);
+      }
+
+      console.log('Player rankings migration completed');
+    }
+
     // Initialize ffb_rankings reference data
     const rankingResult = await client.query('SELECT COUNT(*) as count FROM ffb_rankings');
     if (rankingResult.rows[0].count == 0) {
