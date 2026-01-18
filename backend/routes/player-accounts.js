@@ -50,6 +50,7 @@ router.get('/', (req, res) => {
              p.club
       FROM player_accounts pa
       LEFT JOIN players p ON REPLACE(pa.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+      WHERE UPPER(pa.licence) NOT LIKE 'TEST%'
       ORDER BY pa.created_at DESC
     `;
 
@@ -76,9 +77,10 @@ router.get('/', (req, res) => {
            p.club
     FROM player_accounts pa
     LEFT JOIN players p ON REPLACE(pa.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-    WHERE UPPER(pa.licence) LIKE UPPER($1)
-       OR UPPER(pa.email) LIKE UPPER($1)
-       OR UPPER(CONCAT(p.first_name, ' ', p.last_name)) LIKE UPPER($1)
+    WHERE UPPER(pa.licence) NOT LIKE 'TEST%'
+      AND (UPPER(pa.licence) LIKE UPPER($1)
+        OR UPPER(pa.email) LIKE UPPER($1)
+        OR UPPER(CONCAT(p.first_name, ' ', p.last_name)) LIKE UPPER($1))
     ORDER BY pa.created_at DESC
     LIMIT 20
   `;
