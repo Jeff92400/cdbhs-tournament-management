@@ -109,7 +109,14 @@
           <h3 style="margin: 0;">Éditeur de la Politique de Confidentialité</h3>
           <p style="color: #666; margin: 5px 0 0 0;">Ce texte sera affiché dans l'Espace Joueur lorsque les utilisateurs consultent la politique de confidentialité.</p>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <input type="file" id="wordFileInput" accept=".docx,.doc" style="display: none;" onchange="uploadWordFile(event)">
+          <button onclick="document.getElementById('wordFileInput').click()" class="btn" style="background: #6c757d; padding: 10px 15px;">
+            📥 Importer Word
+          </button>
+          <button onclick="downloadAsWord()" class="btn" style="background: #17a2b8; padding: 10px 15px;">
+            📤 Exporter Word
+          </button>
           <button onclick="savePolicy()" class="btn" style="background: #28a745; padding: 10px 25px;">
             Enregistrer
           </button>
@@ -171,6 +178,8 @@ Vous pouvez utiliser le format Markdown :
     </div>
   </div>
 
+  <!-- Mammoth.js for reading Word files -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="js/auth-utils.js"></script>
   <script>
     const API_URL = '/api';
@@ -348,6 +357,156 @@ Vous pouvez utiliser le format Markdown :
 
     // Load on page load
     loadPolicy();
+
+    // ============= WORD FILE IMPORT/EXPORT =============
+
+    // Upload Word file
+    async function uploadWordFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // Show loading message
+      const msgDiv = document.getElementById('policyMessage');
+      msgDiv.textContent = '⏳ Importation du fichier Word en cours...';
+      msgDiv.style.background = '#fff3cd';
+      msgDiv.style.color = '#856404';
+      msgDiv.style.display = 'block';
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+
+        // Use mammoth to extract text from Word file
+        const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+        const text = result.value;
+
+        if (text) {
+          // Convert Word text to markdown-like format
+          const formattedText = convertWordToMarkdown(text);
+          document.getElementById('policyContent').value = formattedText;
+          updateCharCount();
+
+          msgDiv.textContent = `✅ Fichier "${file.name}" importé avec succès !`;
+          msgDiv.style.background = '#d4edda';
+          msgDiv.style.color = '#155724';
+
+          // Show any warnings
+          if (result.messages && result.messages.length > 0) {
+            console.log('Import warnings:', result.messages);
+          }
+        } else {
+          throw new Error('Le fichier semble vide ou ne peut pas être lu');
+        }
+      } catch (error) {
+        console.error('Error importing Word file:', error);
+        msgDiv.textContent = `❌ Erreur: ${error.message}`;
+        msgDiv.style.background = '#f8d7da';
+        msgDiv.style.color = '#721c24';
+      }
+
+      // Reset file input
+      event.target.value = '';
+
+      setTimeout(() => { msgDiv.style.display = 'none'; }, 5000);
+    }
+
+    // Convert Word text to basic markdown format
+    function convertWordToMarkdown(text) {
+      // Clean up the text
+      let result = text
+        // Normalize line endings
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        // Remove multiple blank lines
+        .replace(/\n{3,}/g, '\n\n')
+        // Trim each line
+        .split('\n')
+        .map(line => line.trim())
+        .join('\n');
+
+      // Try to detect and format headings (lines in ALL CAPS or followed by blank line)
+      const lines = result.split('\n');
+      const formattedLines = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const nextLine = lines[i + 1] || '';
+
+        // Detect main title (first non-empty line, often in caps)
+        if (i === 0 && line && line === line.toUpperCase() && line.length < 100) {
+          formattedLines.push('# ' + line);
+        }
+        // Detect section headers (short lines in caps followed by content)
+        else if (line && line === line.toUpperCase() && line.length < 80 && nextLine && nextLine !== nextLine.toUpperCase()) {
+          formattedLines.push('## ' + line);
+        }
+        // Detect numbered sections like "1. SECTION NAME"
+        else if (/^\d+[\.\)]\s+[A-Z]/.test(line) && line.length < 80) {
+          formattedLines.push('### ' + line);
+        }
+        else {
+          formattedLines.push(line);
+        }
+      }
+
+      return formattedLines.join('\n').trim();
+    }
+
+    // Download as Word file
+    function downloadAsWord() {
+      const content = document.getElementById('policyContent').value;
+
+      if (!content) {
+        alert('Aucun contenu à exporter');
+        return;
+      }
+
+      // Convert markdown to HTML for Word
+      const htmlContent = markdownToHtml(content);
+
+      // Create a Word-compatible HTML document
+      const wordDocument = `
+        <!DOCTYPE html>
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <meta charset="utf-8">
+          <title>Politique de Confidentialité</title>
+          <style>
+            body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5; margin: 2cm; }
+            h1 { font-size: 16pt; color: #1F4788; margin-top: 0; }
+            h2 { font-size: 14pt; color: #1F4788; margin-top: 18pt; }
+            h3 { font-size: 12pt; color: #333; margin-top: 12pt; }
+            p { margin: 6pt 0; }
+            ul, ol { margin: 6pt 0 6pt 20pt; }
+            li { margin: 3pt 0; }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+        </html>
+      `;
+
+      // Create blob and download
+      const blob = new Blob([wordDocument], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'Politique_de_Confidentialite.doc';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      // Show success message
+      const msgDiv = document.getElementById('policyMessage');
+      msgDiv.textContent = '✅ Fichier Word téléchargé !';
+      msgDiv.style.background = '#d4edda';
+      msgDiv.style.color = '#155724';
+      msgDiv.style.display = 'block';
+      setTimeout(() => { msgDiv.style.display = 'none'; }, 3000);
+    }
+
+    // ============= END WORD FILE IMPORT/EXPORT =============
   </script>
 </body>
 </html>
