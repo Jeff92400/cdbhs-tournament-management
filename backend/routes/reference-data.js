@@ -82,8 +82,8 @@ router.put('/game-modes/:id', authenticateToken, (req, res) => {
     return res.status(400).json({ error: 'Code et nom sont requis' });
   }
 
-  // First get the old display_name to update categories
-  db.get('SELECT display_name FROM game_modes WHERE id = $1', [id], (err, oldMode) => {
+  // First get the old values to update categories
+  db.get('SELECT code, display_name FROM game_modes WHERE id = $1', [id], (err, oldMode) => {
     if (err) {
       console.error('Error fetching game mode:', err);
       return res.status(500).json({ error: 'Erreur lors de la récupération' });
@@ -93,6 +93,7 @@ router.put('/game-modes/:id', authenticateToken, (req, res) => {
       return res.status(404).json({ error: 'Mode de jeu non trouvé' });
     }
 
+    const oldCode = oldMode.code;
     const oldDisplayName = oldMode.display_name;
 
     db.run(
@@ -112,20 +113,25 @@ router.put('/game-modes/:id', authenticateToken, (req, res) => {
           return res.status(404).json({ error: 'Mode de jeu non trouvé' });
         }
 
-        // If display_name changed, update categories (case-insensitive match)
-        if (oldDisplayName.toUpperCase() !== display_name.toUpperCase()) {
-          // Update game_type in categories (use UPPER for case-insensitive match)
+        // Check if code or display_name changed
+        const codeChanged = oldCode.toUpperCase() !== code.toUpperCase();
+        const displayNameChanged = oldDisplayName.toUpperCase() !== display_name.toUpperCase();
+
+        if (codeChanged || displayNameChanged) {
+          // Update categories that match OLD code or OLD display_name
+          // Set game_type to NEW display_name
           db.run(
-            'UPDATE categories SET game_type = $1 WHERE UPPER(game_type) = UPPER($2)',
-            [display_name, oldDisplayName],
+            `UPDATE categories SET game_type = $1
+             WHERE UPPER(game_type) = UPPER($2) OR UPPER(game_type) = UPPER($3)`,
+            [display_name, oldDisplayName, oldCode],
             (err) => {
               if (err) {
                 console.error('Error updating categories game_type:', err);
               }
 
-              // Also update display_name in categories (use new game_type value)
+              // Also update display_name in categories to reflect new game_type
               db.run(
-                `UPDATE categories SET display_name = $1 || ' ' || level WHERE UPPER(game_type) = UPPER($2)`,
+                `UPDATE categories SET display_name = $1 || ' - ' || level WHERE UPPER(game_type) = UPPER($2)`,
                 [display_name, display_name],
                 (err) => {
                   if (err) {
