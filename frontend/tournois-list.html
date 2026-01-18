@@ -211,6 +211,21 @@
               <label style="display: block; margin-bottom: 5px; font-weight: bold;">Taille cadre</label>
               <input type="text" id="edit_taille_cadre" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
+
+            <div style="grid-column: 1 / -1; margin-top: 10px; padding-top: 15px; border-top: 1px solid #eee;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="edit_notify_on_changes" checked style="width: 18px; height: 18px;">
+                <span>Notifier les joueurs en cas de changement de date ou lieu</span>
+              </label>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Statut</label>
+              <select id="edit_status" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="active">Actif</option>
+                <option value="cancelled">Annulé</option>
+              </select>
+            </div>
           </div>
 
           <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -567,10 +582,19 @@
         const tournoiDate = new Date(tournoi.debut);
         const daysUntil = (tournoiDate - new Date()) / (1000 * 60 * 60 * 24);
         const showSimulation = daysUntil >= 7;
+        const isCancelled = tournoi.status === 'cancelled';
+
+        // Apply greyed-out style for cancelled tournaments
+        if (isCancelled) {
+          row.style.opacity = '0.6';
+          row.style.backgroundColor = '#f5f5f5';
+        }
+
+        const cancelledBadge = isCancelled ? '<span style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px;">ANNULÉ</span>' : '';
 
         row.innerHTML = `
           <td>${tournoi.tournoi_id}</td>
-          <td><strong>${tournoi.nom || '-'}</strong></td>
+          <td><strong>${isCancelled ? '<s>' : ''}${tournoi.nom || '-'}${isCancelled ? '</s>' : ''}</strong>${cancelledBadge}</td>
           <td><span class="badge ${getModeBadgeClass(tournoi.mode)}">${tournoi.mode || '-'}</span></td>
           <td>${tournoi.categorie || '-'}</td>
           <td class="${getDateClass(tournoi.debut)}">${formatDate(tournoi.debut)}</td>
@@ -579,7 +603,7 @@
           <td style="text-align: center;">${tournoi.taille || '-'}</td>
           ${isAdmin ? `
           <td style="text-align: center; white-space: nowrap;">
-            ${showSimulation ? `<button class="btn btn-small simulation-btn" data-tournoi-id="${tournoi.tournoi_id}" style="background: #17a2b8; padding: 5px 10px; font-size: 12px; margin-right: 5px;" title="Voir la simulation des poules">Simulation</button>` : ''}
+            ${showSimulation && !isCancelled ? `<button class="btn btn-small simulation-btn" data-tournoi-id="${tournoi.tournoi_id}" style="background: #17a2b8; padding: 5px 10px; font-size: 12px; margin-right: 5px;" title="Voir la simulation des poules">Simulation</button>` : ''}
             <button class="btn btn-small edit-tournoi-btn" style="background: #4CAF50; padding: 5px 10px; font-size: 12px;">Modifier</button>
           </td>
           ` : ''}
@@ -740,6 +764,10 @@
       document.getElementById('edit_taille').value = tournoi.taille || '';
       document.getElementById('edit_taille_cadre').value = tournoi.taille_cadre || '';
 
+      // New fields for notification toggle and status
+      document.getElementById('edit_notify_on_changes').checked = tournoi.notify_on_changes !== false;
+      document.getElementById('edit_status').value = tournoi.status || 'active';
+
       document.getElementById('editTournoiModal').style.display = 'flex';
     }
 
@@ -777,6 +805,17 @@
     document.getElementById('editTournoiForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
+      const newStatus = document.getElementById('edit_status').value;
+      const currentTournoi = allTournois.find(t => t.tournoi_id === parseInt(document.getElementById('edit_tournoi_id').value));
+      const statusChangedToCancelled = newStatus === 'cancelled' && currentTournoi?.status !== 'cancelled';
+
+      // Confirm if cancelling tournament
+      if (statusChangedToCancelled) {
+        if (!confirm('Voulez-vous vraiment annuler ce tournoi ?\n\nLes joueurs inscrits ne seront PAS notifiés automatiquement.')) {
+          return;
+        }
+      }
+
       const data = {
         tournoi_id: parseInt(document.getElementById('edit_tournoi_id').value),
         nom: document.getElementById('edit_nom').value,
@@ -786,14 +825,16 @@
         fin: document.getElementById('edit_fin').value || null,
         lieu: document.getElementById('edit_lieu').value || null,
         taille: parseInt(document.getElementById('edit_taille').value) || null,
-        taille_cadre: document.getElementById('edit_taille_cadre').value || null
+        taille_cadre: document.getElementById('edit_taille_cadre').value || null,
+        notify_on_changes: document.getElementById('edit_notify_on_changes').checked,
+        status: newStatus
       };
 
       const success = await updateTournoi(data);
       if (success) {
         closeEditModal();
         await loadTournois();
-        alert('Tournoi mis a jour avec succes!');
+        alert('Tournoi mis à jour avec succès!');
       }
     });
 

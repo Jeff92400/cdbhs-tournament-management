@@ -1547,7 +1547,7 @@ router.put('/tournoi/:id', authenticateToken, async (req, res) => {
   }
 
   const { id } = req.params;
-  const { nom, mode, categorie, taille, debut, fin, grand_coin, taille_cadre, lieu } = req.body;
+  const { nom, mode, categorie, taille, debut, fin, grand_coin, taille_cadre, lieu, status, notify_on_changes } = req.body;
 
   try {
     // Get current tournament data to detect date change
@@ -1572,6 +1572,9 @@ router.put('/tournoi/:id', authenticateToken, async (req, res) => {
     const newLieu = (lieu || '').trim();
     const locationChanged = oldLieu !== newLieu && newLieu;
 
+    // Check if status is being changed to cancelled
+    const statusChangedToCancelled = status === 'cancelled' && currentTournament.status !== 'cancelled';
+
     // Update the tournament
     const query = `
       UPDATE tournoi_ext SET
@@ -1583,20 +1586,31 @@ router.put('/tournoi/:id', authenticateToken, async (req, res) => {
         fin = $6,
         grand_coin = $7,
         taille_cadre = $8,
-        lieu = $9
-      WHERE tournoi_id = $10
+        lieu = $9,
+        status = $10,
+        notify_on_changes = $11
+      WHERE tournoi_id = $12
     `;
 
+    // Determine new status and notify_on_changes values
+    const newStatus = status !== undefined ? status : (currentTournament.status || 'active');
+    const newNotifyOnChanges = notify_on_changes !== undefined ? notify_on_changes : (currentTournament.notify_on_changes !== false);
+
     await new Promise((resolve, reject) => {
-      db.run(query, [nom, mode, categorie, taille || null, debut || null, fin || null, grand_coin || 0, taille_cadre, lieu, id], function(err) {
+      db.run(query, [nom, mode, categorie, taille || null, debut || null, fin || null, grand_coin || 0, taille_cadre, lieu, newStatus, newNotifyOnChanges, id], function(err) {
         if (err) reject(err);
         else resolve(this.changes);
       });
     });
 
-    // If date or location changed, send email notifications to inscribed players
+    // Send email notifications only if:
+    // 1. Date or location changed AND
+    // 2. notify_on_changes is enabled (check the CURRENT value, before update) AND
+    // 3. Status is not being changed to cancelled
     let emailsSent = 0;
-    if (dateChanged || locationChanged) {
+    const shouldNotify = currentTournament.notify_on_changes !== false; // Default to true if null/undefined
+
+    if ((dateChanged || locationChanged) && shouldNotify && !statusChangedToCancelled) {
       emailsSent = await sendTournamentChangeNotifications(id, currentTournament, {
         nom, mode, categorie, debut, lieu
       }, {
@@ -1611,19 +1625,25 @@ router.put('/tournoi/:id', authenticateToken, async (req, res) => {
 
     // Build response message
     let changeMessage = '';
-    if (dateChanged && locationChanged) {
-      changeMessage = `${emailsSent} notification(s) sent for date and location change.`;
-    } else if (dateChanged) {
-      changeMessage = `${emailsSent} notification(s) sent for date change.`;
-    } else if (locationChanged) {
-      changeMessage = `${emailsSent} notification(s) sent for location change.`;
+    if (statusChangedToCancelled) {
+      changeMessage = 'Tournoi marqué comme annulé.';
+    } else if (dateChanged || locationChanged) {
+      if (!shouldNotify) {
+        changeMessage = 'Notifications désactivées pour ce tournoi.';
+      } else if (dateChanged && locationChanged) {
+        changeMessage = `${emailsSent} notification(s) envoyée(s) pour le changement de date et lieu.`;
+      } else if (dateChanged) {
+        changeMessage = `${emailsSent} notification(s) envoyée(s) pour le changement de date.`;
+      } else if (locationChanged) {
+        changeMessage = `${emailsSent} notification(s) envoyée(s) pour le changement de lieu.`;
+      }
     }
 
     res.json({
       success: true,
       message: changeMessage
-        ? `Tournament updated. ${changeMessage}`
-        : 'Tournament updated'
+        ? `Tournoi mis à jour. ${changeMessage}`
+        : 'Tournoi mis à jour'
     });
 
   } catch (error) {

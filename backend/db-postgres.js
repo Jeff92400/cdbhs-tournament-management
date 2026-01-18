@@ -314,6 +314,14 @@ async function initializeDatabase() {
     // Add convocation_sent_at column to tournoi_ext (migration - January 2026)
     await client.query(`ALTER TABLE tournoi_ext ADD COLUMN IF NOT EXISTS convocation_sent_at TIMESTAMP`);
 
+    // Add status column to tournoi_ext (migration - January 2026)
+    // Values: 'active' (default), 'cancelled'
+    await client.query(`ALTER TABLE tournoi_ext ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'`);
+
+    // Add notify_on_changes column to tournoi_ext (migration - January 2026)
+    // Controls whether date/location changes trigger automatic email notifications
+    await client.query(`ALTER TABLE tournoi_ext ADD COLUMN IF NOT EXISTS notify_on_changes BOOLEAN DEFAULT TRUE`);
+
     // Player inscriptions table (from CDBHS external DB)
     await client.query(`
       CREATE TABLE IF NOT EXISTS inscriptions (
