@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { authenticateToken } = require('./auth');
+const appSettings = require('../utils/app-settings');
 
 const router = express.Router();
 
@@ -52,33 +53,47 @@ function convertEmailsToMailtoLinks(text) {
 
 // Get contact email from app_settings (with fallback to summary_email)
 async function getContactEmail() {
-  const db = require('../db-loader');
-  return new Promise((resolve) => {
-    db.get(
-      "SELECT value FROM app_settings WHERE key = 'contact_email'",
-      [],
-      (err, row) => {
-        if (row?.value) {
-          resolve(row.value);
-        } else {
-          // Fallback to summary_email
-          db.get(
-            "SELECT value FROM app_settings WHERE key = 'summary_email'",
-            [],
-            (err2, row2) => {
-              resolve(row2?.value || 'cdbhs92@gmail.com');
-            }
-          );
-        }
-      }
-    );
-  });
+  return appSettings.getSetting('summary_email');
 }
 
-// Build contact phrase HTML with configurable email
-function buildContactPhraseHtml(email) {
-  return `<p style="margin-top: 20px; padding: 10px; background: #e8f4f8; border-left: 3px solid #1F4788; font-size: 14px;">
-  Pour toute question ou information, écrivez à <a href="mailto:${email}" style="color: #1F4788;">${email}</a>
+// Get all email-related settings at once (for templates)
+async function getEmailTemplateSettings() {
+  const settings = await appSettings.getSettingsBatch([
+    'primary_color',
+    'secondary_color',
+    'accent_color',
+    'email_noreply',
+    'email_convocations',
+    'email_communication',
+    'email_sender_name',
+    'organization_name',
+    'organization_short_name',
+    'summary_email'
+  ]);
+  return settings;
+}
+
+// Build "from" address for emails
+function buildFromAddress(settings, type = 'noreply') {
+  const senderName = settings.email_sender_name || 'CDBHS';
+  let email;
+  switch (type) {
+    case 'convocations':
+      email = settings.email_convocations || 'convocations@cdbhs.net';
+      break;
+    case 'communication':
+      email = settings.email_communication || 'communication@cdbhs.net';
+      break;
+    default:
+      email = settings.email_noreply || 'noreply@cdbhs.net';
+  }
+  return `${senderName} <${email}>`;
+}
+
+// Build contact phrase HTML with configurable email and color
+function buildContactPhraseHtml(email, primaryColor = '#1F4788') {
+  return `<p style="margin-top: 20px; padding: 10px; background: #e8f4f8; border-left: 3px solid ${primaryColor}; font-size: 14px;">
+  Pour toute question ou information, écrivez à <a href="mailto:${email}" style="color: ${primaryColor};">${email}</a>
 </p>`;
 }
 

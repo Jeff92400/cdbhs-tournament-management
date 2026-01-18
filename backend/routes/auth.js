@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../db-loader');
+const appSettings = require('../utils/app-settings');
 
 const router = express.Router();
 
@@ -292,28 +293,39 @@ router.post('/forgot-password', async (req, res) => {
           const { Resend } = require('resend');
           const resend = new Resend(process.env.RESEND_API_KEY);
 
+          // Get dynamic settings for email branding
+          const emailSettings = await appSettings.getSettingsBatch([
+            'primary_color', 'email_convocations', 'email_sender_name',
+            'organization_name', 'organization_short_name'
+          ]);
+          const primaryColor = emailSettings.primary_color || '#1F4788';
+          const senderEmail = emailSettings.email_convocations || 'convocations@cdbhs.net';
+          const senderName = emailSettings.email_sender_name || 'CDBHS';
+          const orgName = emailSettings.organization_name || 'Comité Départemental de Billard des Hauts-de-Seine';
+          const orgShortName = emailSettings.organization_short_name || 'CDBHS';
+
           const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
           const resetLink = `${baseUrl}/reset-password.html?token=${resetToken}`;
 
           await resend.emails.send({
-            from: 'CDBHS <convocations@cdbhs.net>',
+            from: `${senderName} <${senderEmail}>`,
             to: user.email,
-            subject: 'Réinitialisation de votre mot de passe CDBHS',
+            subject: `Réinitialisation de votre mot de passe ${orgShortName}`,
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #1F4788;">Réinitialisation de mot de passe</h2>
+                <h2 style="color: ${primaryColor};">Réinitialisation de mot de passe</h2>
                 <p>Bonjour ${user.username},</p>
-                <p>Vous avez demandé la réinitialisation de votre mot de passe CDBHS.</p>
+                <p>Vous avez demandé la réinitialisation de votre mot de passe ${orgShortName}.</p>
                 <p>Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe :</p>
                 <p style="text-align: center; margin: 30px 0;">
-                  <a href="${resetLink}" style="background: #1F4788; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  <a href="${resetLink}" style="background: ${primaryColor}; color: white; padding: 15px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                     Réinitialiser mon mot de passe
                   </a>
                 </p>
                 <p style="color: #666; font-size: 14px;">Ce lien expire dans 1 heure.</p>
                 <p style="color: #666; font-size: 14px;">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
                 <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="color: #999; font-size: 12px;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
+                <p style="color: #999; font-size: 12px;">${orgShortName} - ${orgName}</p>
               </div>
             `
           });
@@ -412,29 +424,41 @@ router.post('/forgot', async (req, res) => {
       const { Resend } = require('resend');
       const resend = new Resend(process.env.RESEND_API_KEY);
 
+      // Get dynamic settings for email branding
+      const emailSettings = await appSettings.getSettingsBatch([
+        'primary_color', 'email_noreply', 'email_sender_name',
+        'organization_name', 'organization_short_name', 'summary_email'
+      ]);
+      const primaryColor = emailSettings.primary_color || '#1F4788';
+      const senderEmail = emailSettings.email_noreply || 'noreply@cdbhs.net';
+      const senderName = emailSettings.email_sender_name || 'CDBHS';
+      const orgName = emailSettings.organization_name || 'Comite Departemental de Billard des Hauts-de-Seine';
+      const orgShortName = emailSettings.organization_short_name || 'CDBHS';
+      const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
+
       if (resend) {
         await resend.emails.send({
-          from: 'CDBHS <noreply@cdbhs.net>',
-          replyTo: 'cdbhs92@gmail.com',
+          from: `${senderName} <${senderEmail}>`,
+          replyTo: replyToEmail,
           to: [normalizedEmail],
-          subject: 'CDBHS - Code de reinitialisation',
+          subject: `${orgShortName} - Code de reinitialisation`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-              <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
-                <h1 style="margin: 0; font-size: 24px;">CDBHS Tournois</h1>
+              <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
+                <h1 style="margin: 0; font-size: 24px;">${orgShortName} Tournois</h1>
               </div>
               <div style="padding: 30px; background: #f8f9fa;">
                 <p>Bonjour ${user.username},</p>
                 <p>Vous avez demande la reinitialisation de votre mot de passe.</p>
                 <p>Voici votre code de verification :</p>
-                <div style="background: #1F4788; color: white; font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <div style="background: ${primaryColor}; color: white; font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; padding: 20px; border-radius: 8px; margin: 20px 0;">
                   ${code}
                 </div>
                 <p style="color: #666; font-size: 14px;">Ce code expire dans 10 minutes.</p>
                 <p style="color: #666; font-size: 14px;">Si vous n'avez pas demande cette reinitialisation, ignorez cet email.</p>
               </div>
               <div style="padding: 15px; background: #e9ecef; text-align: center; font-size: 12px; color: #666;">
-                CDBHS - Comite Departemental de Billard des Hauts-de-Seine
+                ${orgShortName} - ${orgName}
               </div>
             </div>
           `

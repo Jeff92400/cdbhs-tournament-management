@@ -1,5 +1,6 @@
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('./auth');
+const appSettings = require('../utils/app-settings');
 
 const router = express.Router();
 
@@ -285,6 +286,8 @@ router.put('/app/:key', authenticateToken, requireAdmin, async (req, res) => {
         console.error('Error updating setting:', err);
         return res.status(500).json({ error: err.message });
       }
+      // Clear settings cache so other routes pick up the change
+      appSettings.clearCache();
       res.json({ success: true, message: 'Setting updated' });
     }
   );
@@ -335,6 +338,8 @@ router.put('/app-bulk', authenticateToken, requireAdmin, async (req, res) => {
         );
       });
     }
+    // Clear settings cache so other routes pick up the changes
+    appSettings.clearCache();
     res.json({ success: true, message: 'Settings updated' });
   } catch (err) {
     console.error('Error updating settings:', err);

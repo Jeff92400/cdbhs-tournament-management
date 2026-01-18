@@ -4,6 +4,7 @@ const fs = require('fs');
 const { Resend } = require('resend');
 const PDFDocument = require('pdfkit');
 const { authenticateToken } = require('./auth');
+const appSettings = require('../utils/app-settings');
 
 const router = express.Router();
 
@@ -16,30 +17,60 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Get summary email from app_settings (with fallback)
 async function getSummaryEmail() {
-  const db = require('../db-loader');
-  return new Promise((resolve) => {
-    db.get(
-      "SELECT value FROM app_settings WHERE key = 'summary_email'",
-      [],
-      (err, row) => {
-        resolve(row?.value || 'cdbhs92@gmail.com');
-      }
-    );
-  });
+  return appSettings.getSetting('summary_email');
 }
 
 // Get contact email from app_settings (with fallback)
 async function getContactEmail() {
-  const db = require('../db-loader');
-  return new Promise((resolve) => {
-    db.get(
-      "SELECT value FROM app_settings WHERE key = 'contact_email'",
-      [],
-      (err, row) => {
-        resolve(row?.value || 'cdbhs92@gmail.com');
-      }
-    );
-  });
+  return appSettings.getSetting('summary_email'); // Uses summary_email as contact
+}
+
+// Get all email-related settings at once (for templates)
+async function getEmailTemplateSettings() {
+  const settings = await appSettings.getSettingsBatch([
+    'primary_color',
+    'secondary_color',
+    'accent_color',
+    'email_noreply',
+    'email_convocations',
+    'email_sender_name',
+    'organization_name',
+    'organization_short_name',
+    'summary_email'
+  ]);
+  return settings;
+}
+
+// Build email header HTML with dynamic settings
+function buildEmailHeader(title, settings) {
+  const primaryColor = settings.primary_color || '#1F4788';
+  return `<div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
+    <h1 style="margin: 0; font-size: 24px;">${title}</h1>
+  </div>`;
+}
+
+// Build email footer HTML with dynamic settings
+function buildEmailFooter(settings) {
+  const primaryColor = settings.primary_color || '#1F4788';
+  const orgName = settings.organization_name || 'Comité Départemental de Billard des Hauts-de-Seine';
+  const shortName = settings.organization_short_name || 'CDBHS';
+  return `<div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
+    <p style="margin: 0;">${shortName} - ${orgName}</p>
+  </div>`;
+}
+
+// Build "from" address for emails
+function buildFromAddress(settings, type = 'noreply') {
+  const senderName = settings.email_sender_name || 'CDBHS';
+  let email;
+  switch (type) {
+    case 'convocations':
+      email = settings.email_convocations || 'convocations@cdbhs.net';
+      break;
+    default:
+      email = settings.email_noreply || 'noreply@cdbhs.net';
+  }
+  return `${senderName} <${email}>`;
 }
 
 // Initialize Resend
@@ -165,7 +196,7 @@ function generateMatchSchedule(pouleSize) {
 }
 
 // Generate PDF convocation for a specific player - includes ALL poules
-async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, locations, gameParams, selectedDistance, rankingData = {}) {
+async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, locations, gameParams, selectedDistance, rankingData = {}, brandingSettings = {}) {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({
@@ -179,10 +210,10 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      // Colors
-      const primaryColor = '#1F4788';
-      const secondaryColor = '#667EEA';
-      const accentColor = '#FFC107';
+      // Colors (from settings or defaults)
+      const primaryColor = brandingSettings.primary_color || '#1F4788';
+      const secondaryColor = brandingSettings.secondary_color || '#667EEA';
+      const accentColor = brandingSettings.accent_color || '#FFC107';
       const redColor = '#DC3545';
       const greenColor = '#28A745';
       const lightGray = '#F8F9FA';
@@ -819,8 +850,11 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
     // Continue anyway - don't block email sending if campaign recording fails
   }
 
-  // Get contact email once for all emails
+  // Get contact email and branding settings once for all emails
   const contactEmail = await getContactEmail();
+  const emailSettings = await getEmailTemplateSettings();
+  const primaryColor = emailSettings.primary_color || '#1F4788';
+  const orgShortName = emailSettings.organization_short_name || 'CDBHS';
 
   // Process each player
   for (const player of players) {
@@ -873,7 +907,8 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
         locations,
         gameParams,
         selectedDistance,
-        rankingData
+        rankingData,
+        emailSettings // Pass branding settings for PDF colors
       );
 
       const base64Content = pdfBuffer.toString('base64');
@@ -911,20 +946,20 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
 
       // Send email using Resend (no CC - summary email sent at the end)
       const emailResult = await resend.emails.send({
-        from: 'CDBHS <noreply@cdbhs.net>',
+        from: buildFromAddress(emailSettings, 'noreply'),
         replyTo: contactEmail,
         to: [player.email],
         subject: emailSubject,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
+            <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
               <h1 style="margin: 0; font-size: 24px;">CONVOCATION</h1>
             </div>
 
             <div style="padding: 20px; background: #f8f9fa;">
               ${specialNoteHtml}
 
-              <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px; border-left: 4px solid #1F4788;">
+              <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px; border-left: 4px solid ${primaryColor};">
                 <p style="margin: 5px 0;"><strong>Categorie :</strong> ${category.display_name}</p>
                 <p style="margin: 5px 0;"><strong>Competition :</strong> ${tournamentLabel}</p>
                 <p style="margin: 5px 0;"><strong>Date :</strong> ${dateStr}</p>
@@ -941,12 +976,12 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
 
               <p style="margin-top: 20px; padding: 10px; background: #fff3cd; border-left: 4px solid #ffc107; font-size: 13px;">
                 📧 <strong>Contact :</strong> Pour toute question ou en cas d'empêchement, contactez-nous à
-                <a href="mailto:${contactEmail}" style="color: #1F4788;">${contactEmail}</a>
+                <a href="mailto:${contactEmail}" style="color: ${primaryColor};">${contactEmail}</a>
               </p>
             </div>
 
-            <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-              <p style="margin: 0;">CDBHS - <a href="mailto:${contactEmail}" style="color: white;">${contactEmail}</a></p>
+            <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
+              <p style="margin: 0;">${orgShortName} - <a href="mailto:${contactEmail}" style="color: white;">${contactEmail}</a></p>
             </div>
           </div>
         `,
@@ -1003,8 +1038,8 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
 
       const summaryHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
-          <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
-            <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+          <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
+            <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
             <h1 style="margin: 0; font-size: 24px;">📋 Récapitulatif Convocations</h1>
             <p style="margin: 10px 0 0 0; opacity: 0.9;">${category.display_name}</p>
           </div>
@@ -1017,17 +1052,17 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
             </div>
 
             <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
-              <h3 style="margin-top: 0; color: #1F4788;">📍 Informations du Tournoi</h3>
+              <h3 style="margin-top: 0; color: ${primaryColor};">📍 Informations du Tournoi</h3>
               <p><strong>Catégorie :</strong> ${category.display_name}</p>
               <p><strong>Compétition :</strong> ${tournamentLabel}</p>
               <p><strong>Date :</strong> ${dateStr}</p>
               ${specialNote ? `<p style="color: #856404;"><strong>Note spéciale :</strong> ${specialNote}</p>` : ''}
             </div>
 
-            <h3 style="color: #1F4788;">📧 Convocations Envoyées (${results.sent.length})</h3>
+            <h3 style="color: ${primaryColor};">📧 Convocations Envoyées (${results.sent.length})</h3>
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
               <thead>
-                <tr style="background: #1F4788; color: white;">
+                <tr style="background: ${primaryColor}; color: white;">
                   <th style="padding: 10px; border: 1px solid #ddd;">#</th>
                   <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Joueur</th>
                   <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Email</th>
@@ -1041,14 +1076,14 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
             <h3 style="color: #28a745;">🎯 Composition des Poules (${poules.length})</h3>
             ${poulesSummaryHtml}
           </div>
-          <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">
-            <p style="margin: 0;">CDBHS - cdbhs92@gmail.com</p>
+          <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
+            <p style="margin: 0;">${orgShortName} - ${summaryEmailAddress}</p>
           </div>
         </div>
       `;
 
       await resend.emails.send({
-        from: 'CDBHS <noreply@cdbhs.net>',
+        from: buildFromAddress(emailSettings, 'noreply'),
         replyTo: contactEmail,
         to: [summaryEmailAddress],
         subject: `📋 Récapitulatif - Convocations ${category.display_name} - ${tournamentLabel} - ${dateStr}`,

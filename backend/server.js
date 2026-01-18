@@ -25,6 +25,9 @@ if (!process.env.DATABASE_URL) {
 // Use database loader - automatically selects PostgreSQL or SQLite
 const db = require('./db-loader');
 
+// App settings helper for dynamic configuration
+const appSettings = require('./utils/app-settings');
+
 const authRoutes = require('./routes/auth');
 const playersRoutes = require('./routes/players');
 const tournamentsRoutes = require('./routes/tournaments');
@@ -203,6 +206,13 @@ async function processTemplatedScheduledEmail(db, resend, scheduled, delay) {
   const emailType = scheduled.email_type;
   console.log(`[Email Scheduler] Processing templated email ${scheduled.id} (${emailType})`);
 
+  // Get dynamic settings for qualification thresholds and email branding
+  const qualificationSettings = await appSettings.getQualificationSettings();
+  const emailSettings = await appSettings.getSettingsBatch([
+    'primary_color', 'email_communication', 'email_sender_name',
+    'organization_name', 'organization_short_name', 'summary_email'
+  ]);
+
   let recipients = [];
   let templateVariables = {};
 
@@ -280,7 +290,9 @@ async function processTemplatedScheduledEmail(db, resend, scheduled, delay) {
         );
       });
 
-      const qualifiedCount = allRankings.length < 9 ? 4 : 6;
+      const qualifiedCount = allRankings.length < qualificationSettings.threshold
+        ? qualificationSettings.small
+        : qualificationSettings.large;
       recipients = allRankings.filter(r => r.rank_position <= qualifiedCount && r.email);
 
       // Fetch finale info from tournoi_ext if not in customData
@@ -466,23 +478,30 @@ async function processTemplatedScheduledEmail(db, resend, scheduled, delay) {
       const outroText = scheduled.outro_text || '';
       const imageHtml = scheduled.image_url ? `<div style="text-align: center; margin: 20px 0;"><img src="${scheduled.image_url}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px;"></div>` : '';
 
+      const primaryColor = emailSettings.primary_color || '#1F4788';
+      const senderName = emailSettings.email_sender_name || 'CDBHS';
+      const senderEmail = emailSettings.email_communication || 'communication@cdbhs.net';
+      const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
+      const orgName = emailSettings.organization_name || 'Comité Départemental Billard Hauts-de-Seine';
+      const orgShortName = emailSettings.organization_short_name || 'CDBHS';
+
       await resend.emails.send({
-        from: 'CDBHS <communication@cdbhs.net>',
-        replyTo: 'cdbhs92@gmail.com',
+        from: `${senderName} <${senderEmail}>`,
+        replyTo: replyToEmail,
         to: [recipient.email],
         cc: scheduled.cc_email ? [scheduled.cc_email] : undefined,
         subject: emailSubject,
         html: `<div style="font-family: Arial; max-width: 600px; margin: 0 auto;">
-          <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
-            <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
-            <h1 style="margin: 0; font-size: 24px;">Comité Départemental Billard Hauts-de-Seine</h1>
+          <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
+            <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+            <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
           </div>
           <div style="padding: 20px; background: #f8f9fa;">
             ${imageHtml}
             ${emailBody.replace(/\n/g, '<br>')}
             ${outroText ? `<br><br>${outroText.replace(/\n/g, '<br>')}` : ''}
           </div>
-          <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">CDBHS - cdbhs92@gmail.com</div>
+          <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">${orgShortName} - ${replyToEmail}</div>
         </div>`
       });
 
@@ -531,6 +550,12 @@ async function checkTournamentAlerts() {
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
+
+  // Get dynamic settings for email branding
+  const emailSettings = await appSettings.getSettingsBatch([
+    'primary_color', 'email_convocations', 'email_sender_name',
+    'organization_short_name'
+  ]);
 
   try {
     console.log('[Tournament Alerts] Checking for upcoming tournaments...');
@@ -646,16 +671,21 @@ async function checkTournamentAlerts() {
     const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
 
     // Send email to each opted-in user
+    const primaryColor = emailSettings.primary_color || '#1F4788';
+    const senderName = emailSettings.email_sender_name || 'CDBHS';
+    const senderEmail = emailSettings.email_convocations || 'convocations@cdbhs.net';
+    const orgShortName = emailSettings.organization_short_name || 'CDBHS';
+
     for (const user of usersToNotify) {
       try {
         await resend.emails.send({
-          from: 'CDBHS <convocations@cdbhs.net>',
+          from: `${senderName} <${senderEmail}>`,
           to: user.email,
-          subject: `⚠️ ${tournamentsNeeding.length} tournoi(s) à relancer - CDBHS`,
+          subject: `⚠️ ${tournamentsNeeding.length} tournoi(s) à relancer - ${orgShortName}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: #1F4788; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="margin: 0; font-size: 24px;">Rappel Tournois CDBHS</h1>
+              <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; font-size: 24px;">Rappel Tournois ${orgShortName}</h1>
               </div>
               <div style="background: #f8f9fa; padding: 20px; border-radius: 0 0 8px 8px;">
                 <p>Bonjour ${user.username},</p>
@@ -713,6 +743,12 @@ async function processScheduledEmails() {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Get dynamic settings for email branding
+  const emailSettings = await appSettings.getSettingsBatch([
+    'primary_color', 'email_communication', 'email_sender_name',
+    'organization_name', 'organization_short_name', 'summary_email'
+  ]);
 
   try {
     // Get all pending emails
@@ -838,17 +874,24 @@ async function processScheduledEmails() {
           // Build optional image HTML
           const imageHtml = scheduled.image_url ? `<div style="text-align: center; margin: 20px 0;"><img src="${scheduled.image_url}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px;"></div>` : '';
 
+          const primaryColor = emailSettings.primary_color || '#1F4788';
+          const senderName = emailSettings.email_sender_name || 'CDBHS';
+          const senderEmail = emailSettings.email_communication || 'communication@cdbhs.net';
+          const orgName = emailSettings.organization_name || 'Comite Departemental Billard Hauts-de-Seine';
+          const orgShortName = emailSettings.organization_short_name || 'CDBHS';
+          const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
+
           await resend.emails.send({
-            from: 'CDBHS <communication@cdbhs.net>',
+            from: `${senderName} <${senderEmail}>`,
             to: [recipient.email],
             subject: emailSubject,
             html: `<div style="font-family: Arial; max-width: 600px; margin: 0 auto;">
-              <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
-                <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="CDBHS" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
-                <h1 style="margin: 0; font-size: 24px;">Comite Departemental Billard Hauts-de-Seine</h1>
+              <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
+                <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+                <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
               </div>
               <div style="padding: 20px; background: #f8f9fa;">${imageHtml}${emailBody.replace(/\n/g, '<br>')}</div>
-              <div style="background: #1F4788; color: white; padding: 10px; text-align: center; font-size: 12px;">CDBHS - cdbhs92@gmail.com</div>
+              <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">${orgShortName} - ${replyToEmail}</div>
             </div>`
           });
 

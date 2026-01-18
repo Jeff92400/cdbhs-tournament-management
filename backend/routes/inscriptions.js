@@ -6,6 +6,7 @@ const ExcelJS = require('exceljs');
 const { Resend } = require('resend');
 const db = require('../db-loader');
 const { authenticateToken } = require('./auth');
+const appSettings = require('../utils/app-settings');
 
 // Initialize Resend for email notifications
 const getResend = () => {
@@ -775,6 +776,9 @@ router.get('/tournoi/upcoming', authenticateToken, (req, res) => {
 // Get upcoming finals (within next 4 weeks)
 router.get('/finales/upcoming', authenticateToken, async (req, res) => {
   try {
+    // Get qualification settings for determining finalist counts
+    const qualificationSettings = await appSettings.getQualificationSettings();
+
     // Get today's date
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -861,8 +865,10 @@ router.get('/finales/upcoming', authenticateToken, async (req, res) => {
           );
         });
 
-        // Determine number of finalists: 6 if >= 10 participants, otherwise 4
-        const numFinalists = rankings.length >= 10 ? 6 : 4;
+        // Determine number of finalists based on configured thresholds
+        const numFinalists = rankings.length >= qualificationSettings.threshold
+          ? qualificationSettings.large
+          : qualificationSettings.small;
         const finalistLicences = rankings.slice(0, numFinalists).map(r => r.licence?.replace(/\s/g, ''));
         console.log(`Finalists: ${finalistLicences.length} (top ${numFinalists} of ${rankings.length})`);
 
@@ -2225,6 +2231,9 @@ router.get('/test-recent-inscriptions', authenticateToken, async (req, res) => {
 // Get upcoming tournaments (within 2 weeks) that need relances
 router.get('/upcoming-relances', authenticateToken, async (req, res) => {
   try {
+    // Get qualification settings for determining finalist counts
+    const qualificationSettings = await appSettings.getQualificationSettings();
+
     const today = new Date();
     const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
     const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
@@ -2292,8 +2301,10 @@ router.get('/upcoming-relances', authenticateToken, async (req, res) => {
           );
         });
 
-        // Determine number of finalists: 6 if >= 10 participants, otherwise 4
-        const numFinalists = rankings.length >= 10 ? 6 : 4;
+        // Determine number of finalists based on configured thresholds
+        const numFinalists = rankings.length >= qualificationSettings.threshold
+          ? qualificationSettings.large
+          : qualificationSettings.small;
         const finalistLicences = rankings.slice(0, numFinalists).map(r => r.licence?.replace(/\s/g, ''));
 
         // Get inscriptions for this tournament (non-forfait)
@@ -2485,6 +2496,9 @@ router.get('/relances', authenticateToken, async (req, res) => {
  */
 router.get('/tournoi/:id/simulation', authenticateToken, async (req, res) => {
   try {
+    // Get qualification settings for determining finalist counts
+    const qualificationSettings = await appSettings.getQualificationSettings();
+
     // Get tournament details
     const tournament = await new Promise((resolve, reject) => {
       db.get('SELECT * FROM tournoi_ext WHERE tournoi_id = $1', [req.params.id], (err, row) => {
@@ -2564,8 +2578,10 @@ router.get('/tournoi/:id/simulation', authenticateToken, async (req, res) => {
           );
         });
 
-        // Determine number of finalists: 6 if >= 10 participants, otherwise 4
-        const numFinalists = rankings.length >= 10 ? 6 : 4;
+        // Determine number of finalists based on configured thresholds
+        const numFinalists = rankings.length >= qualificationSettings.threshold
+          ? qualificationSettings.large
+          : qualificationSettings.small;
         const finalistLicences = rankings.slice(0, numFinalists).map(r => r.licence?.replace(/\s/g, ''));
 
         // Filter inscriptions to only include finalists
