@@ -456,17 +456,19 @@
 
         if (response.ok) {
           const categories = await response.json();
-          // Group by game_type (mode code)
+          // Group by game_type (mode code) - store with NORMALIZED key (no spaces)
           categoriesByMode = {};
           categories.forEach(cat => {
-            const modeCode = (cat.game_type || '').toUpperCase();
-            if (!categoriesByMode[modeCode]) {
-              categoriesByMode[modeCode] = [];
+            // Normalize: uppercase and remove spaces
+            const modeKey = (cat.game_type || '').toUpperCase().replace(/\s+/g, '');
+            if (!categoriesByMode[modeKey]) {
+              categoriesByMode[modeKey] = [];
             }
-            if (cat.level && !categoriesByMode[modeCode].includes(cat.level)) {
-              categoriesByMode[modeCode].push(cat.level);
+            if (cat.level && !categoriesByMode[modeKey].includes(cat.level)) {
+              categoriesByMode[modeKey].push(cat.level);
             }
           });
+          console.log('Categories by mode:', categoriesByMode);
         }
       } catch (error) {
         console.error('Error loading categories:', error);
@@ -475,15 +477,19 @@
     }
 
     // Get valid rankings for a game mode from categories
-    function getValidRankingsForMode(modeCode) {
-      const normalized = (modeCode || '').toUpperCase().replace(/\s+/g, '');
-      // Try exact match first, then partial match
-      let rankings = categoriesByMode[normalized] || categoriesByMode[modeCode.toUpperCase()] || [];
+    function getValidRankingsForMode(modeCode, displayName) {
+      // Try multiple matching strategies
+      const codeNormalized = (modeCode || '').toUpperCase().replace(/\s+/g, '');
+      const nameNormalized = (displayName || '').toUpperCase().replace(/\s+/g, '');
 
-      // Also check with display name variations
+      // Try code first, then display name
+      let rankings = categoriesByMode[codeNormalized] || categoriesByMode[nameNormalized] || [];
+
+      // If still empty, try partial matching
       if (rankings.length === 0) {
         for (const key of Object.keys(categoriesByMode)) {
-          if (key.replace(/\s+/g, '') === normalized) {
+          if (key.includes(codeNormalized) || codeNormalized.includes(key) ||
+              key.includes(nameNormalized) || nameNormalized.includes(key)) {
             rankings = categoriesByMode[key];
             break;
           }
@@ -522,10 +528,16 @@
         .map(mode => {
           // Get ranking value from player_rankings (keyed by game_mode_id)
           const rankingData = playerRankings[mode.id] || {};
-          const rankingValue = (rankingData.ranking || '').toUpperCase();
+          let rankingValue = (rankingData.ranking || '').toUpperCase();
+
+          // Fallback: if no value in player_rankings, check legacy columns
+          if (!rankingValue && playerRankings._legacyData) {
+            const legacyColumn = `rank_${mode.code.toLowerCase().replace(/\s+/g, '')}`;
+            rankingValue = (playerRankings._legacyData[legacyColumn] || '').toUpperCase();
+          }
 
           // Get valid rankings for this mode from categories
-          const validRankings = getValidRankingsForMode(mode.code);
+          const validRankings = getValidRankingsForMode(mode.code, mode.display_name);
 
           // Build options: NC + valid rankings from categories
           let options = '<option value="NC"' + (rankingValue === 'NC' || rankingValue === '' ? ' selected' : '') + '>NC</option>';
@@ -754,7 +766,15 @@
       document.getElementById('edit_player_app_user').checked = player.player_app_user === true;
 
       // Populate dynamic ranking fields with data from player_rankings table
-      rankingsContainer.innerHTML = generateRankingFieldsHTML('edit', player.player_rankings || {});
+      // Also pass legacy data as fallback
+      const rankingsData = player.player_rankings || {};
+      rankingsData._legacyData = {
+        rank_libre: player.rank_libre,
+        rank_cadre: player.rank_cadre,
+        rank_bande: player.rank_bande,
+        rank_3bandes: player.rank_3bandes
+      };
+      rankingsContainer.innerHTML = generateRankingFieldsHTML('edit', rankingsData);
 
       // Populate club dropdown
       const clubSelect = document.getElementById('edit_club');
