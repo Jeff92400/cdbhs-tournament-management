@@ -457,4 +457,253 @@ function escapeIcsText(text) {
     .replace(/\n/g, '\\n');
 }
 
+/**
+ * GET /api/player-accounts/tournament/:id/calendar.ics
+ * Generate iCalendar file for a single tournament
+ * Public endpoint - no auth required
+ */
+router.get('/tournament/:id/calendar.ics', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Get tournament info
+    const tournament = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT tournoi_id, nom, mode, categorie, debut, lieu
+        FROM tournoi_ext
+        WHERE tournoi_id = $1
+      `, [id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournoi non trouvé' });
+    }
+
+    // Generate single-event iCalendar
+    const icsContent = generateSingleTournamentICS(tournament);
+
+    // Set headers for file download
+    const safeName = (tournament.nom || 'tournoi').replace(/[^a-zA-Z0-9]/g, '_');
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="CDBHS_${safeName}.ics"`);
+    res.send(icsContent);
+
+  } catch (error) {
+    console.error('Error generating single tournament calendar:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Generate iCalendar for a single tournament
+ */
+function generateSingleTournamentICS(tournament) {
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+  const eventDate = new Date(tournament.debut);
+  const dateStr = eventDate.toISOString().split('T')[0].replace(/-/g, '');
+  const uid = `tournament-${tournament.tournoi_id}@cdbhs.net`;
+
+  // Determine if it's a finale
+  const isFinale = (tournament.nom || '').toLowerCase().includes('finale');
+  const title = isFinale
+    ? `🏆 FINALE ${tournament.mode} ${tournament.categorie}`
+    : `${tournament.nom} - ${tournament.mode} ${tournament.categorie}`;
+
+  const location = tournament.lieu || 'Lieu à confirmer';
+  const description = `Tournoi CDBHS\\n${tournament.mode} - ${tournament.categorie}\\nLieu: ${location}`;
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//CDBHS//Calendrier Tournois//FR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${escapeIcsText(title)}`,
+    'X-WR-TIMEZONE:Europe/Paris',
+    'BEGIN:VTIMEZONE',
+    'TZID:Europe/Paris',
+    'BEGIN:DAYLIGHT',
+    'TZOFFSETFROM:+0100',
+    'TZOFFSETTO:+0200',
+    'TZNAME:CEST',
+    'DTSTART:19700329T020000',
+    'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+    'END:DAYLIGHT',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0200',
+    'TZOFFSETTO:+0100',
+    'TZNAME:CET',
+    'DTSTART:19701025T030000',
+    'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${timestamp}`,
+    `DTSTART;VALUE=DATE:${dateStr}`,
+    `DTEND;VALUE=DATE:${dateStr}`,
+    `SUMMARY:${escapeIcsText(title)}`,
+    `DESCRIPTION:${escapeIcsText(description)}`,
+    `LOCATION:${escapeIcsText(location)}`,
+    'TRANSP:OPAQUE',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ];
+
+  return ics.join('\r\n');
+}
+
+/**
+ * GET /api/player-accounts/convocation/:inscriptionId/calendar.ics
+ * Generate iCalendar file for a convocation (with specific time and location)
+ * Public endpoint - no auth required
+ */
+router.get('/convocation/:inscriptionId/calendar.ics', async (req, res) => {
+  const { inscriptionId } = req.params;
+
+  try {
+    // Get inscription with convocation details and tournament info
+    const inscription = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT i.inscription_id, i.licence, i.convocation_poule, i.convocation_lieu,
+               i.convocation_adresse, i.convocation_heure, i.convocation_notes,
+               t.tournoi_id, t.nom, t.mode, t.categorie, t.debut, t.lieu,
+               p.first_name, p.last_name
+        FROM inscriptions i
+        JOIN tournoi_ext t ON i.tournoi_id = t.tournoi_id
+        LEFT JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+        WHERE i.inscription_id = $1
+      `, [inscriptionId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!inscription) {
+      return res.status(404).json({ error: 'Convocation non trouvée' });
+    }
+
+    // Generate single-event iCalendar with convocation details
+    const icsContent = generateConvocationICS(inscription);
+
+    // Set headers for file download
+    const safeName = (inscription.nom || 'convocation').replace(/[^a-zA-Z0-9]/g, '_');
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="CDBHS_Convocation_${safeName}.ics"`);
+    res.send(icsContent);
+
+  } catch (error) {
+    console.error('Error generating convocation calendar:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Generate iCalendar for a convocation (with time and specific location)
+ */
+function generateConvocationICS(inscription) {
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+  const eventDate = new Date(inscription.debut);
+  const uid = `convocation-${inscription.inscription_id}@cdbhs.net`;
+
+  // Determine if it's a finale
+  const isFinale = (inscription.nom || '').toLowerCase().includes('finale');
+  const title = isFinale
+    ? `🏆 FINALE ${inscription.mode} ${inscription.categorie}`
+    : `${inscription.nom} - ${inscription.mode} ${inscription.categorie}`;
+
+  // Use convocation location if available, otherwise tournament location
+  const location = inscription.convocation_lieu || inscription.lieu || 'Lieu à confirmer';
+  const address = inscription.convocation_adresse || '';
+  const fullLocation = address ? `${location}, ${address}` : location;
+
+  // Build description with convocation details
+  let descriptionParts = [
+    `Tournoi CDBHS`,
+    `${inscription.mode} - ${inscription.categorie}`
+  ];
+
+  if (inscription.convocation_poule) {
+    descriptionParts.push(`Poule: ${inscription.convocation_poule}`);
+  }
+  descriptionParts.push(`Lieu: ${fullLocation}`);
+  if (inscription.convocation_notes) {
+    descriptionParts.push(`Note: ${inscription.convocation_notes}`);
+  }
+
+  const description = descriptionParts.join('\\n');
+
+  // Handle time if available
+  let dtStart, dtEnd;
+  if (inscription.convocation_heure) {
+    // Parse time (format: "HH:MM" or "HH:MM:SS")
+    const [hours, minutes] = inscription.convocation_heure.split(':').map(Number);
+    eventDate.setHours(hours, minutes, 0);
+
+    // Format as local time with timezone
+    const dateStr = eventDate.toISOString().split('T')[0].replace(/-/g, '');
+    const timeStr = `${String(hours).padStart(2, '0')}${String(minutes).padStart(2, '0')}00`;
+    dtStart = `DTSTART;TZID=Europe/Paris:${dateStr}T${timeStr}`;
+
+    // End time: assume 6 hours for a tournament
+    const endDate = new Date(eventDate);
+    endDate.setHours(endDate.getHours() + 6);
+    const endDateStr = endDate.toISOString().split('T')[0].replace(/-/g, '');
+    const endTimeStr = `${String(endDate.getHours()).padStart(2, '0')}${String(endDate.getMinutes()).padStart(2, '0')}00`;
+    dtEnd = `DTEND;TZID=Europe/Paris:${endDateStr}T${endTimeStr}`;
+  } else {
+    // All-day event
+    const dateStr = eventDate.toISOString().split('T')[0].replace(/-/g, '');
+    dtStart = `DTSTART;VALUE=DATE:${dateStr}`;
+    dtEnd = `DTEND;VALUE=DATE:${dateStr}`;
+  }
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//CDBHS//Convocation Tournoi//FR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${escapeIcsText(title)}`,
+    'X-WR-TIMEZONE:Europe/Paris',
+    'BEGIN:VTIMEZONE',
+    'TZID:Europe/Paris',
+    'BEGIN:DAYLIGHT',
+    'TZOFFSETFROM:+0100',
+    'TZOFFSETTO:+0200',
+    'TZNAME:CEST',
+    'DTSTART:19700329T020000',
+    'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+    'END:DAYLIGHT',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0200',
+    'TZOFFSETTO:+0100',
+    'TZNAME:CET',
+    'DTSTART:19701025T030000',
+    'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+    'END:STANDARD',
+    'END:VTIMEZONE',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${timestamp}`,
+    dtStart,
+    dtEnd,
+    `SUMMARY:${escapeIcsText(title)}`,
+    `DESCRIPTION:${escapeIcsText(description)}`,
+    `LOCATION:${escapeIcsText(fullLocation)}`,
+    'TRANSP:OPAQUE',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ];
+
+  return ics.join('\r\n');
+}
+
 module.exports = router;
