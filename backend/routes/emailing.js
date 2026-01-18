@@ -440,9 +440,10 @@ router.get('/contacts', authenticateToken, async (req, res) => {
     query += ` AND REPLACE(pc.licence, ' ', '') IN (SELECT REPLACE(pa.licence, ' ', '') FROM player_accounts pa)`;
   }
 
-  // Filter by club
+  // Filter by club (use normalized matching to handle variations like "A. DE" vs "A DE", hyphens, etc.)
   if (club) {
-    query += ` AND pc.club = $${paramIndex++}`;
+    // Normalize: remove periods, replace hyphens with spaces, collapse multiple spaces
+    query += ` AND UPPER(REPLACE(REPLACE(REPLACE(pc.club, '.', ''), '-', ' '), '  ', ' ')) = UPPER(REPLACE(REPLACE(REPLACE($${paramIndex++}, '.', ''), '-', ' '), '  ', ' '))`;
     params.push(club);
   }
 
