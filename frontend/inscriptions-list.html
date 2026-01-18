@@ -250,9 +250,9 @@
             <input type="text" id="edit_telephone" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
             <div>
-              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Convoque</label>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Convoqué</label>
               <select id="edit_convoque" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 <option value="0">Non</option>
                 <option value="1">Oui</option>
@@ -263,6 +263,13 @@
               <select id="edit_forfait" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                 <option value="0">Non</option>
                 <option value="1">Oui</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 5px; font-weight: bold;">Statut</label>
+              <select id="edit_statut" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="inscrit">Inscrit</option>
+                <option value="désinscrit">Désinscrit</option>
               </select>
             </div>
           </div>
@@ -902,6 +909,7 @@
       document.getElementById('edit_telephone').value = inscription.telephone || '';
       document.getElementById('edit_convoque').value = inscription.convoque || 0;
       document.getElementById('edit_forfait').value = inscription.forfait || 0;
+      document.getElementById('edit_statut').value = inscription.statut || 'inscrit';
       document.getElementById('edit_commentaire').value = inscription.commentaire || '';
       document.getElementById('edit_source').value = inscription.source || 'ionos';
 
@@ -1002,6 +1010,7 @@
         telephone: document.getElementById('edit_telephone').value || null,
         convoque: parseInt(document.getElementById('edit_convoque').value),
         forfait: parseInt(document.getElementById('edit_forfait').value),
+        statut: document.getElementById('edit_statut').value,
         commentaire: document.getElementById('edit_commentaire').value || null,
         source: document.getElementById('edit_source').value
       };
