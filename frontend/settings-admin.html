@@ -156,11 +156,18 @@
         </form>
       </div>
 
-      <!-- Player Accounts List -->
+      <!-- Player Accounts Search -->
       <div id="playerAccountsListContainer">
-        <h4 style="margin-bottom: 15px; color: #1F4788;">Comptes existants</h4>
+        <h4 style="margin-bottom: 15px; color: #1F4788;">Rechercher un compte</h4>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+          <input type="text" id="playerAccountSearch" placeholder="Rechercher par nom, licence ou email..."
+                 style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+          <button onclick="searchPlayerAccounts()" class="btn" style="background: #1F4788; padding: 10px 20px;">
+            Rechercher
+          </button>
+        </div>
         <div id="playerAccountsList" style="display: grid; gap: 10px;">
-          <p style="color: #666; text-align: center;">Chargement...</p>
+          <p style="color: #666; text-align: center; font-style: italic;">Entrez au moins 2 caractères pour rechercher</p>
         </div>
       </div>
     </div>
@@ -1204,10 +1211,24 @@
 
     // ============= PLAYER APP ACCOUNTS =============
 
-    // Load player accounts
-    async function loadPlayerAccounts() {
+    // Search player accounts
+    async function searchPlayerAccounts() {
+      const searchInput = document.getElementById('playerAccountSearch');
+      const search = searchInput.value.trim();
+
+      if (search.length < 2) {
+        document.getElementById('playerAccountsList').innerHTML = `
+          <p style="color: #666; text-align: center; font-style: italic;">Entrez au moins 2 caractères pour rechercher</p>
+        `;
+        return;
+      }
+
       try {
-        const response = await fetch(`${API_URL}/player-accounts`, {
+        document.getElementById('playerAccountsList').innerHTML = `
+          <p style="color: #666; text-align: center;">Recherche...</p>
+        `;
+
+        const response = await fetch(`${API_URL}/player-accounts?search=${encodeURIComponent(search)}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -1220,7 +1241,7 @@
         }
 
         const accounts = await response.json();
-        renderPlayerAccountsList(accounts);
+        renderPlayerAccountsList(accounts, search);
       } catch (error) {
         console.error('Error loading player accounts:', error);
         document.getElementById('playerAccountsList').innerHTML = `
@@ -1229,12 +1250,21 @@
       }
     }
 
+    // Keyboard support for search
+    document.getElementById('playerAccountSearch').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        searchPlayerAccounts();
+      }
+    });
+
     // Render player accounts list
-    function renderPlayerAccountsList(accounts) {
+    function renderPlayerAccountsList(accounts, searchQuery = '') {
       const container = document.getElementById('playerAccountsList');
 
       if (accounts.length === 0) {
-        container.innerHTML = '<p style="color: #666; text-align: center;">Aucun compte joueur créé</p>';
+        container.innerHTML = searchQuery
+          ? `<p style="color: #666; text-align: center;">Aucun compte trouvé pour "${searchQuery}"</p>`
+          : '<p style="color: #666; text-align: center; font-style: italic;">Entrez au moins 2 caractères pour rechercher</p>';
         return;
       }
 
@@ -1303,7 +1333,7 @@
         document.getElementById('errorMessage').style.display = 'none';
 
         document.getElementById('addPlayerAccountForm').reset();
-        loadPlayerAccounts();
+        searchPlayerAccounts();
 
       } catch (error) {
         console.error('Error creating player account:', error);
@@ -1333,7 +1363,7 @@
           throw new Error(data.error || 'Erreur lors de la modification');
         }
 
-        loadPlayerAccounts();
+        searchPlayerAccounts();
         document.getElementById('successMessage').textContent = 'Statut admin modifié !';
         document.getElementById('successMessage').style.display = 'block';
 
@@ -1359,7 +1389,7 @@
           throw new Error(data.error || 'Erreur lors de la suppression');
         }
 
-        loadPlayerAccounts();
+        searchPlayerAccounts();
         document.getElementById('successMessage').textContent = `Compte "${licence}" supprimé !`;
         document.getElementById('successMessage').style.display = 'block';
 
@@ -1449,9 +1479,6 @@
         errorDiv.style.display = 'block';
       }
     }
-
-    // Load player accounts on page load
-    loadPlayerAccounts();
 
     // ============= END PLAYER APP ACCOUNTS =============
 
