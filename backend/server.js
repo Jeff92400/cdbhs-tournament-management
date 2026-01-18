@@ -131,7 +131,13 @@ const frontendPath = fs.existsSync(path.join(__dirname, 'frontend'))
 app.use(express.static(frontendPath));
 
 // API Routes with rate limiting
-app.use('/api/auth', authLimiter, authRoutes); // Strict rate limit on auth
+// Apply strict rate limit only to login/password endpoints, general limit for other auth routes
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/forgot', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password-token', authLimiter);
+app.use('/api/auth/reset-with-code', authLimiter);
+app.use('/api/auth', apiLimiter, authRoutes); // General limit for other auth routes (/me, /users)
 app.use('/api/players', apiLimiter, playersRoutes);
 app.use('/api/tournaments', apiLimiter, tournamentsRoutes);
 app.use('/api/rankings', apiLimiter, rankingsRoutes);
