@@ -1701,7 +1701,7 @@ Catégorie : {category}
 Date : {tournament_date}
 Lieu : {location}
 
-Si cette désinscription est une erreur, vous pouvez vous réinscrire via l'application CDBHS tant que les inscriptions sont ouvertes (jusqu'à 7 jours avant le tournoi).
+Si cette désinscription est une erreur, veuillez contacter le comité via "Contact" ou par email cdbhs92@gmail.com.
 
 Sportivement,
 Le Comité Départemental de Billard des Hauts-de-Seine`
