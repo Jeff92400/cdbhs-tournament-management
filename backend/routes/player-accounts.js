@@ -36,9 +36,31 @@ async function loadGameModes() {
  * List player accounts with player info
  * Optional query params:
  * - search: Filter by name, licence, or email (min 2 chars required)
+ * - all: Set to 'true' to return all accounts (for dedicated management page)
  */
 router.get('/', (req, res) => {
-  const { search } = req.query;
+  const { search, all } = req.query;
+
+  // If all=true, return all accounts (for dedicated player-accounts.html page)
+  if (all === 'true') {
+    const query = `
+      SELECT pa.id, pa.licence, pa.email, pa.is_admin, pa.email_verified,
+             pa.created_at, pa.last_login,
+             CONCAT(p.first_name, ' ', p.last_name) as player_name,
+             p.club
+      FROM player_accounts pa
+      LEFT JOIN players p ON REPLACE(pa.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+      ORDER BY pa.created_at DESC
+    `;
+
+    return db.all(query, [], (err, rows) => {
+      if (err) {
+        console.error('Error loading player accounts:', err);
+        return res.status(500).json({ error: 'Failed to load player accounts' });
+      }
+      res.json(rows || []);
+    });
+  }
 
   // If no search query, return empty array (require search to list accounts)
   if (!search || search.trim().length < 2) {

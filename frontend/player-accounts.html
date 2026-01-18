@@ -165,7 +165,7 @@
     // Load accounts
     async function loadAccounts() {
       try {
-        const response = await fetch(`${API_URL}/player-accounts`, {
+        const response = await fetch(`${API_URL}/player-accounts?all=true`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
