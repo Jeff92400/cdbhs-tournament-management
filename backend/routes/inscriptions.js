@@ -2446,8 +2446,8 @@ router.get('/tournoi/:id/simulation', authenticateToken, async (req, res) => {
       });
     });
 
-    // Filter out forfaits
-    let activeInscriptions = inscriptions.filter(i => i.forfait !== 1);
+    // Filter out forfaits and désinscrit players
+    let activeInscriptions = inscriptions.filter(i => i.forfait !== 1 && i.statut !== 'désinscrit');
 
     // For Finales, filter to only include qualified finalists
     const isFinale = tournament.nom && tournament.nom.toUpperCase().includes('FINALE');
