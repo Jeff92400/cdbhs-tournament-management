@@ -725,11 +725,14 @@
 
     // Get status badge
     function getStatusBadge(inscription) {
+      if (inscription.statut === 'désinscrit') {
+        return '<span class="badge" style="background: #6c757d; color: white;">Désinscrit</span>';
+      }
       if (inscription.forfait === 1) {
         return '<span class="badge badge-forfait">Forfait</span>';
       }
       if (inscription.convoque === 1) {
-        return '<span class="badge badge-convoque">Convoque</span>';
+        return '<span class="badge badge-convoque">Convoqué</span>';
       }
       return '<span class="badge badge-non-convoque">Inscrit</span>';
     }
