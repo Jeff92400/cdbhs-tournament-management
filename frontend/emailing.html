@@ -1811,10 +1811,13 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
     // Update category dropdown based on selected mode
     function updateCategoryFilter() {
-      const mode = document.getElementById('modeFilter').value;
+      const modeRaw = document.getElementById('modeFilter').value;
       const categorySelect = document.getElementById('categoryFilter');
 
       categorySelect.innerHTML = '<option value="">Classement FFB : tous</option>';
+
+      // Normalize mode to match categoriesByMode keys (remove spaces, uppercase)
+      const mode = modeRaw ? modeRaw.toUpperCase().replace(/ /g, '') : '';
 
       if (mode && categoriesByMode[mode]) {
         categorySelect.disabled = false;
@@ -3092,11 +3095,14 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
     }
 
     function updateRelanceCategoryFilter() {
-      const mode = document.getElementById('relanceModeFilter').value;
+      const modeRaw = document.getElementById('relanceModeFilter').value;
       const categorySelect = document.getElementById('relanceCategoryFilter');
       const typeSelect = document.getElementById('relanceTypeSelect');
 
       categorySelect.innerHTML = '<option value="">-- Sélectionner --</option>';
+
+      // Normalize mode to match categoriesByMode keys (remove spaces, uppercase)
+      const mode = modeRaw ? modeRaw.toUpperCase().replace(/ /g, '') : '';
 
       if (mode && categoriesByMode[mode]) {
         categorySelect.disabled = false;
