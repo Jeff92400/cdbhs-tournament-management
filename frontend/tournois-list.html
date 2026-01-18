@@ -329,8 +329,7 @@
         if (response.ok) {
           gameModesList = await response.json();
 
-          // Use display_name for values (for backward compatibility with existing data)
-          // Filter uses .includes() so "3 Bandes" will match tournament modes containing "3 BANDES"
+          // Use display_name for values - filter uses exact match
           // Populate filter dropdown
           const filterSelect = document.getElementById('modeFilter');
           filterSelect.innerHTML = '<option value="">Mode de jeu : tous</option>' +
@@ -377,11 +376,11 @@
         // Map mode display name to game_type in categories
         // Categories use game_type like "Carambole", "Pool", etc.
         // Modes in tournoi_ext are uppercase like "CARAMBOLE LIBRE", "CARAMBOLE 3 BANDES"
-        const modeUpper = selectedMode.toUpperCase();
+        const modeUpper = selectedMode.toUpperCase().replace(/ /g, '');
 
-        // Find matching categories - look for game_type that matches start of mode
+        // Find matching categories - exact match on game_type (normalized)
         const matchingLevels = categories
-          .filter(c => modeUpper.includes(c.game_type.toUpperCase()))
+          .filter(c => modeUpper === c.game_type.toUpperCase().replace(/ /g, ''))
           .map(c => c.level)
           .filter((v, i, a) => a.indexOf(v) === i)
           .sort();
