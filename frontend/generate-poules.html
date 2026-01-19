@@ -1258,14 +1258,26 @@
       const gameType = modeToGameType[mode.toUpperCase()] || modeToGameType[modeNormalized] || mode.toUpperCase();
       const normalizedLevel = levelMapping[categorie.toUpperCase()] || categorie.toUpperCase();
 
-      // Find matching category (use startsWith for flexible matching with suffixes like "GC")
-      const matchingCategory = categories.find(c =>
-        c.game_type.toUpperCase() === gameType &&
-        (c.level.toUpperCase() === normalizedLevel ||
-         c.level.toUpperCase() === categorie.toUpperCase() ||
-         c.level.toUpperCase().startsWith(normalizedLevel) ||
-         c.level.toUpperCase().startsWith(categorie.toUpperCase()))
-      );
+      // Normalize for comparison: remove spaces and convert to uppercase
+      const normalizeForCompare = (str) => str.toUpperCase().replace(/\s+/g, '');
+
+      // Find matching category (flexible matching: ignore spaces, handle level variations)
+      const matchingCategory = categories.find(c => {
+        const cGameType = normalizeForCompare(c.game_type);
+        const cLevel = c.level.toUpperCase();
+        const targetGameType = normalizeForCompare(gameType);
+
+        // Game type must match (ignoring spaces)
+        if (cGameType !== targetGameType) return false;
+
+        // Level can match in several ways
+        return cLevel === normalizedLevel ||
+               cLevel === categorie.toUpperCase() ||
+               cLevel.startsWith(normalizedLevel) ||
+               cLevel.startsWith(categorie.toUpperCase()) ||
+               normalizedLevel.startsWith(cLevel) ||
+               categorie.toUpperCase() === cLevel.replace(/\s+/g, '').substring(0, categorie.length);
+      });
 
       if (matchingCategory) {
         // Set mode and level dropdowns
