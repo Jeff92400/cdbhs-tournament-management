@@ -998,61 +998,81 @@
     // Load categories
     async function loadCategories() {
       try {
-        const response = await fetch(`${API_URL}/tournaments`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const tournaments = await response.json();
-          if (!Array.isArray(tournaments)) {
-            console.error('Invalid tournaments data');
-            return;
-          }
+        // Fetch both tournaments and all categories in parallel
+        const [tournamentsResponse, categoriesResponse] = await Promise.all([
+          fetch(`${API_URL}/tournaments`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${API_URL}/tournaments/categories`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
 
-          // Extract unique categories
-          const categoryMap = new Map();
-          tournaments.forEach(t => {
-            const key = `${t.game_type}-${t.level}`;
-            if (!categoryMap.has(key)) {
+        // Build category map starting with all categories from the categories table
+        const categoryMap = new Map();
+
+        // First, add all categories from the categories table (ensures all are available)
+        if (categoriesResponse.ok) {
+          const allCategories = await categoriesResponse.json();
+          if (Array.isArray(allCategories)) {
+            allCategories.forEach(c => {
+              const key = `${c.game_type}-${c.level}`;
               categoryMap.set(key, {
-                id: t.category_id,
-                game_type: t.game_type,
-                level: t.level,
-                display_name: t.display_name
+                id: c.id,
+                game_type: c.game_type,
+                level: c.level,
+                display_name: c.display_name
               });
-            }
-          });
-
-          categories = Array.from(categoryMap.values());
-
-          // Populate mode selector with unique game types
-          const modes = [...new Set(categories.map(c => c.game_type))].sort();
-          const modeSelect = document.getElementById('modeSelect');
-          modeSelect.innerHTML = '<option value="">-- Sélectionner --</option>';
-          modes.forEach(mode => {
-            modeSelect.innerHTML += `<option value="${mode}">${mode}</option>`;
-          });
-
-          // Keep hidden categorySelect for compatibility
-          const select = document.getElementById('categorySelect');
-          select.innerHTML = '<option value="">-- Sélectionner --</option>';
-          categories.forEach(cat => {
-            select.innerHTML += `<option value="${cat.id}">${cat.display_name}</option>`;
-          });
-
-          // Extract unique seasons
-          const seasons = [...new Set(tournaments.map(t => t.season))].sort().reverse();
-          const seasonSelect = document.getElementById('seasonSelect');
-          seasonSelect.innerHTML = '<option value="">-- Sélectionner --</option>';
-          seasons.forEach(season => {
-            seasonSelect.innerHTML += `<option value="${season}">${season}</option>`;
-          });
-
-          // Pre-select current season if available
-          if (seasons.length > 0) {
-            seasonSelect.value = seasons[0];
-            currentSeason = seasons[0];
+            });
           }
         }
+
+        // Then add/update from existing tournaments (to get category_id mapping if different)
+        if (tournamentsResponse.ok) {
+          const tournaments = await tournamentsResponse.json();
+          if (Array.isArray(tournaments)) {
+            tournaments.forEach(t => {
+              const key = `${t.game_type}-${t.level}`;
+              if (!categoryMap.has(key)) {
+                categoryMap.set(key, {
+                  id: t.category_id,
+                  game_type: t.game_type,
+                  level: t.level,
+                  display_name: t.display_name
+                });
+              }
+            });
+
+            // Extract unique seasons
+            const seasons = [...new Set(tournaments.map(t => t.season))].sort().reverse();
+            const seasonSelect = document.getElementById('seasonSelect');
+            seasonSelect.innerHTML = '<option value="">-- Sélectionner --</option>';
+            seasons.forEach(season => {
+              seasonSelect.innerHTML += `<option value="${season}">${season}</option>`;
+            });
+
+            // Pre-select current season if available
+            if (seasons.length > 0) {
+              seasonSelect.value = seasons[0];
+              currentSeason = seasons[0];
+            }
+          }
+        }
+
+        // Populate mode selector with unique game types
+        const modes = [...new Set(categories.map(c => c.game_type))].sort();
+        const modeSelect = document.getElementById('modeSelect');
+        modeSelect.innerHTML = '<option value="">-- Sélectionner --</option>';
+        modes.forEach(mode => {
+          modeSelect.innerHTML += `<option value="${mode}">${mode}</option>`;
+        });
+
+        // Keep hidden categorySelect for compatibility
+        const select = document.getElementById('categorySelect');
+        select.innerHTML = '<option value="">-- Sélectionner --</option>';
+        categories.forEach(cat => {
+          select.innerHTML += `<option value="${cat.id}">${cat.display_name}</option>`;
+        });
       } catch (error) {
         console.error('Error loading categories:', error);
       }
