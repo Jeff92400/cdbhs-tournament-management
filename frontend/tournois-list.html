@@ -707,7 +707,7 @@
     // Export to Excel (CSV)
     function exportToExcel() {
       // Get currently filtered tournois from the displayed table
-      const rows = document.querySelectorAll('#tournoisTableBody tr');
+      const rows = document.querySelectorAll('#tournoisBody tr');
       if (rows.length === 0) {
         alert('Aucun tournoi à exporter');
         return;
