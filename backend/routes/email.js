@@ -49,6 +49,120 @@ function buildEmailHeader(title, settings) {
   </div>`;
 }
 
+// Generate finale match schedule based on number of players
+// Returns HTML table with match schedule
+function generateFinaleMatchScheduleHtml(numPlayers, players, primaryColor = '#1F4788') {
+  // Build player name lookup by position (1-indexed)
+  const getPlayerName = (pos) => {
+    const p = players[pos - 1];
+    return p ? `${p.first_name} ${p.last_name}` : `Joueur ${pos}`;
+  };
+
+  let matchesHtml = '';
+  let tableInfo = '';
+
+  if (numPlayers === 3) {
+    // 3 players: simple round robin
+    tableInfo = '1 table';
+    const matches = [
+      { num: 1, p1: 1, p2: 2 },
+      { num: 2, p1: 1, p2: 3 },
+      { num: 3, p1: 2, p2: 3 }
+    ];
+    matchesHtml = matches.map((m, idx) => `
+      <tr style="background: ${idx % 2 === 0 ? 'white' : '#f8f9fa'};">
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${m.num}</td>
+        <td style="padding: 8px; border: 1px solid #ddd;">${getPlayerName(m.p1)}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">vs</td>
+        <td style="padding: 8px; border: 1px solid #ddd;">${getPlayerName(m.p2)}</td>
+      </tr>
+    `).join('');
+  } else if (numPlayers === 4) {
+    // 4 players on 2 tables
+    tableInfo = '2 tables';
+    const matches = [
+      { num: 1, p1: 2, p2: 3 },
+      { num: 2, p1: 1, p2: 4 },
+      { num: 3, p1: 3, p2: 4, note: '(perdants M1 & M2)' },
+      { num: 4, p1: 1, p2: 2, note: '(gagnants M1 & M2)' },
+      { num: 5, p1: 1, p2: 3, note: '(restant joueur 1)' },
+      { num: 6, p1: 2, p2: 4, note: '(restant joueur 4)' }
+    ];
+    matchesHtml = matches.map((m, idx) => `
+      <tr style="background: ${idx % 2 === 0 ? 'white' : '#f8f9fa'};">
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${m.num}</td>
+        <td style="padding: 8px; border: 1px solid #ddd;">${getPlayerName(m.p1)}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">vs</td>
+        <td style="padding: 8px; border: 1px solid #ddd;">${getPlayerName(m.p2)}</td>
+      </tr>
+    `).join('');
+  } else if (numPlayers >= 6) {
+    // 6 players on 3 tables - show by table
+    tableInfo = '3 tables';
+    const table1 = [
+      { p1: 1, p2: 6 }, { p1: 2, p2: 3 }, { p1: 1, p2: 4 }, { p1: 5, p2: 6 }, { p1: 4, p2: 5 }
+    ];
+    const table2 = [
+      { p1: 2, p2: 5 }, { p1: 4, p2: 6 }, { p1: 3, p2: 5 }, { p1: 1, p2: 3 }, { p1: 1, p2: 2 }
+    ];
+    const table3 = [
+      { p1: 3, p2: 4 }, { p1: 1, p2: 5 }, { p1: 2, p2: 6 }, { p1: 2, p2: 4 }, { p1: 3, p2: 6 }
+    ];
+
+    const buildTableHtml = (tableName, matches) => {
+      return `
+        <div style="flex: 1; min-width: 180px;">
+          <h4 style="margin: 0 0 8px 0; color: ${primaryColor}; text-align: center;">${tableName}</h4>
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            ${matches.map((m, idx) => `
+              <tr style="background: ${idx % 2 === 0 ? 'white' : '#f8f9fa'};">
+                <td style="padding: 6px; border: 1px solid #ddd;">${getPlayerName(m.p1)}</td>
+                <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">vs</td>
+                <td style="padding: 6px; border: 1px solid #ddd;">${getPlayerName(m.p2)}</td>
+              </tr>
+            `).join('')}
+          </table>
+        </div>
+      `;
+    };
+
+    return `
+      <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 8px; border: 1px solid #ddd;">
+        <h3 style="margin: 0 0 10px 0; color: ${primaryColor};">🏆 Programme des Matchs (${tableInfo})</h3>
+        <p style="margin: 0 0 15px 0; font-size: 13px; color: #666;">Tous contre tous - chaque joueur affronte tous les autres</p>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          ${buildTableHtml('Table 1', table1)}
+          ${buildTableHtml('Table 2', table2)}
+          ${buildTableHtml('Table 3', table3)}
+        </div>
+      </div>
+    `;
+  } else {
+    return ''; // No schedule for other numbers
+  }
+
+  // Return standard table format for 3 and 4 players
+  return `
+    <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 8px; border: 1px solid #ddd;">
+      <h3 style="margin: 0 0 10px 0; color: ${primaryColor};">🏆 Programme des Matchs (${tableInfo})</h3>
+      <p style="margin: 0 0 15px 0; font-size: 13px; color: #666;">Tous contre tous - chaque joueur affronte tous les autres</p>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: ${primaryColor}; color: white;">
+            <th style="padding: 8px; border: 1px solid #ddd;">Match</th>
+            <th style="padding: 8px; border: 1px solid #ddd;">Joueur</th>
+            <th style="padding: 8px; border: 1px solid #ddd;"></th>
+            <th style="padding: 8px; border: 1px solid #ddd;">Joueur</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${matchesHtml}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 // Build email footer HTML with dynamic settings
 function buildEmailFooter(settings) {
   const primaryColor = settings.primary_color || '#1F4788';
@@ -386,9 +500,84 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
           y += 20;
         });
 
-        // Add match schedule for poules with 4 or 5 players
+        // Add match schedule for poules
         const pouleSize = poule.players.length;
-        if (pouleSize === 4 || pouleSize === 5) {
+
+        // For finales: round-robin format (tous contre tous)
+        if (isFinale && (pouleSize === 3 || pouleSize === 4 || pouleSize === 6)) {
+          y += 8;
+
+          // Define finale matches based on player count
+          let finaleMatches = [];
+          let tableInfo = '';
+
+          if (pouleSize === 3) {
+            tableInfo = '(1 table)';
+            finaleMatches = [
+              { p1: 1, p2: 2 },
+              { p1: 1, p2: 3 },
+              { p1: 2, p2: 3 }
+            ];
+          } else if (pouleSize === 4) {
+            tableInfo = '(2 tables)';
+            finaleMatches = [
+              { p1: 2, p2: 3 },
+              { p1: 1, p2: 4 },
+              { p1: 3, p2: 4 },
+              { p1: 1, p2: 2 },
+              { p1: 1, p2: 3 },
+              { p1: 2, p2: 4 }
+            ];
+          } else if (pouleSize === 6) {
+            tableInfo = '(3 tables)';
+            // 6 players: round-robin across 3 tables in rounds
+            finaleMatches = [
+              // Round 1
+              { p1: 1, p2: 6, table: 1 }, { p1: 2, p2: 5, table: 2 }, { p1: 3, p2: 4, table: 3 },
+              // Round 2
+              { p1: 2, p2: 3, table: 1 }, { p1: 4, p2: 6, table: 2 }, { p1: 1, p2: 5, table: 3 },
+              // Round 3
+              { p1: 1, p2: 4, table: 1 }, { p1: 3, p2: 5, table: 2 }, { p1: 2, p2: 6, table: 3 },
+              // Round 4
+              { p1: 5, p2: 6, table: 1 }, { p1: 1, p2: 3, table: 2 }, { p1: 2, p2: 4, table: 3 },
+              // Round 5
+              { p1: 4, p2: 5, table: 1 }, { p1: 1, p2: 2, table: 2 }, { p1: 3, p2: 6, table: 3 }
+            ];
+          }
+
+          // Calculate height needed
+          const matchScheduleHeight = 25 + (finaleMatches.length * 14);
+          if (y + matchScheduleHeight > doc.page.height - 60) {
+            doc.addPage();
+            y = 40;
+          }
+
+          // Header - gold for finale
+          doc.rect(40, y, pageWidth, 20).fill('#D4AF37');
+          doc.fillColor('#1F4788').fontSize(10).font('Helvetica-Bold')
+             .text(`PROGRAMME DES MATCHS ${tableInfo} - Tous contre tous`, 50, y + 5, { width: pageWidth - 20 });
+          y += 22;
+
+          // Match rows
+          finaleMatches.forEach((match, idx) => {
+            const bgColor = idx % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
+            doc.rect(40, y, pageWidth, 14).fill(bgColor);
+
+            const p1 = poule.players[match.p1 - 1];
+            const p2 = poule.players[match.p2 - 1];
+            const p1Name = p1 ? `${(p1.last_name || '').toUpperCase()} ${p1.first_name || ''}`.trim() : `Joueur ${match.p1}`;
+            const p2Name = p2 ? `${(p2.last_name || '').toUpperCase()} ${p2.first_name || ''}`.trim() : `Joueur ${match.p2}`;
+
+            doc.fillColor('#666666').fontSize(8).font('Helvetica');
+            const matchLabel = match.table ? `T${match.table}:` : `${idx + 1}:`;
+            doc.text(matchLabel, 50, y + 3, { width: 25 });
+            doc.font('Helvetica').fillColor('#333333')
+               .text(`${p1Name}  vs  ${p2Name}`, 80, y + 3, { width: 400 });
+            y += 14;
+          });
+
+        } else if (pouleSize === 4 || pouleSize === 5) {
+          // Regular tournament: knockout-style matches
           const matches = generateMatchSchedule(pouleSize);
           if (matches.length > 0) {
             y += 8;
@@ -626,9 +815,84 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
           y += 20;
         });
 
-        // Add match schedule for poules with 4 or 5 players
+        // Add match schedule for poules
         const pouleSize = poule.players.length;
-        if (pouleSize === 4 || pouleSize === 5) {
+
+        // For finales: round-robin format (tous contre tous)
+        if (isFinale && (pouleSize === 3 || pouleSize === 4 || pouleSize === 6)) {
+          y += 8;
+
+          // Define finale matches based on player count
+          let finaleMatches = [];
+          let tableInfo = '';
+
+          if (pouleSize === 3) {
+            tableInfo = '(1 table)';
+            finaleMatches = [
+              { p1: 1, p2: 2 },
+              { p1: 1, p2: 3 },
+              { p1: 2, p2: 3 }
+            ];
+          } else if (pouleSize === 4) {
+            tableInfo = '(2 tables)';
+            finaleMatches = [
+              { p1: 2, p2: 3 },
+              { p1: 1, p2: 4 },
+              { p1: 3, p2: 4 },
+              { p1: 1, p2: 2 },
+              { p1: 1, p2: 3 },
+              { p1: 2, p2: 4 }
+            ];
+          } else if (pouleSize === 6) {
+            tableInfo = '(3 tables)';
+            // 6 players: round-robin across 3 tables in rounds
+            finaleMatches = [
+              // Round 1
+              { p1: 1, p2: 6, table: 1 }, { p1: 2, p2: 5, table: 2 }, { p1: 3, p2: 4, table: 3 },
+              // Round 2
+              { p1: 2, p2: 3, table: 1 }, { p1: 4, p2: 6, table: 2 }, { p1: 1, p2: 5, table: 3 },
+              // Round 3
+              { p1: 1, p2: 4, table: 1 }, { p1: 3, p2: 5, table: 2 }, { p1: 2, p2: 6, table: 3 },
+              // Round 4
+              { p1: 5, p2: 6, table: 1 }, { p1: 1, p2: 3, table: 2 }, { p1: 2, p2: 4, table: 3 },
+              // Round 5
+              { p1: 4, p2: 5, table: 1 }, { p1: 1, p2: 2, table: 2 }, { p1: 3, p2: 6, table: 3 }
+            ];
+          }
+
+          // Calculate height needed
+          const matchScheduleHeight = 25 + (finaleMatches.length * 14);
+          if (y + matchScheduleHeight > doc.page.height - 60) {
+            doc.addPage();
+            y = 40;
+          }
+
+          // Header - gold for finale
+          doc.rect(40, y, pageWidth, 20).fill('#D4AF37');
+          doc.fillColor('#1F4788').fontSize(10).font('Helvetica-Bold')
+             .text(`PROGRAMME DES MATCHS ${tableInfo} - Tous contre tous`, 50, y + 5, { width: pageWidth - 20 });
+          y += 22;
+
+          // Match rows
+          finaleMatches.forEach((match, idx) => {
+            const bgColor = idx % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
+            doc.rect(40, y, pageWidth, 14).fill(bgColor);
+
+            const p1 = poule.players[match.p1 - 1];
+            const p2 = poule.players[match.p2 - 1];
+            const p1Name = p1 ? `${(p1.last_name || '').toUpperCase()} ${p1.first_name || ''}`.trim() : `Joueur ${match.p1}`;
+            const p2Name = p2 ? `${(p2.last_name || '').toUpperCase()} ${p2.first_name || ''}`.trim() : `Joueur ${match.p2}`;
+
+            doc.fillColor('#666666').fontSize(8).font('Helvetica');
+            const matchLabel = match.table ? `T${match.table}:` : `${idx + 1}:`;
+            doc.text(matchLabel, 50, y + 3, { width: 25 });
+            doc.font('Helvetica').fillColor('#333333')
+               .text(`${p1Name}  vs  ${p2Name}`, 80, y + 3, { width: 400 });
+            y += 14;
+          });
+
+        } else if (pouleSize === 4 || pouleSize === 5) {
+          // Regular tournament: knockout-style matches
           const matches = generateMatchSchedule(pouleSize);
           if (matches.length > 0) {
             y += 8;
@@ -969,6 +1233,8 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
                 ${playerLocation?.phone ? `<p style="margin: 5px 0; color: #666;">📞 ${playerLocation.phone}</p>` : ''}
                 <p style="margin: 5px 0;"><strong>Votre poule :</strong> ${playerPoule.pouleNumber}</p>
               </div>
+
+              ${isFinale ? generateFinaleMatchScheduleHtml(playerPoule.players.length, playerPoule.players, primaryColor) : ''}
 
               <div style="line-height: 1.6;">
                 ${emailBodyHtml}
