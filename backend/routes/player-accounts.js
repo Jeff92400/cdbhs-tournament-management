@@ -426,7 +426,9 @@ function generateICalendar(tournaments, playerName, eligibleCategories) {
       : `${tournament.nom} - ${tournament.mode} ${tournament.categorie}`;
 
     const location = tournament.lieu || 'Lieu à confirmer';
-    const description = `Tournoi CDBHS\\n${tournament.mode} - ${tournament.categorie}\\nLieu: ${location}`;
+    const description = isFinale
+      ? `Finale départementale CDBHS`
+      : `Compétition départementale CDBHS`;
 
     ics.push(
       'BEGIN:VEVENT',
@@ -516,7 +518,9 @@ function generateSingleTournamentICS(tournament) {
     : `${tournament.nom} - ${tournament.mode} ${tournament.categorie}`;
 
   const location = tournament.lieu || 'Lieu à confirmer';
-  const description = `Tournoi CDBHS\\n${tournament.mode} - ${tournament.categorie}\\nLieu: ${location}`;
+  const description = isFinale
+    ? `Finale départementale CDBHS`
+    : `Compétition départementale CDBHS`;
 
   const ics = [
     'BEGIN:VCALENDAR',
