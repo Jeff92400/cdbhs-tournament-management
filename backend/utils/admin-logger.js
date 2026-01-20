@@ -4,7 +4,7 @@
  * Utility to log admin/viewer actions in the Tournament Management App
  */
 
-const db = require('../db-postgres');
+const db = require('../db-loader');
 
 /**
  * Log an admin action
@@ -17,7 +17,7 @@ const db = require('../db-postgres');
  * @param {string|number} [options.targetId] - ID of the target
  * @param {string} [options.targetName] - Display name of the target
  */
-async function logAdminAction({ req, action, details, targetType, targetId, targetName }) {
+function logAdminAction({ req, action, details, targetType, targetId, targetName }) {
   try {
     const userId = req.user?.userId || null;
     const username = req.user?.username || 'unknown';
@@ -25,11 +25,16 @@ async function logAdminAction({ req, action, details, targetType, targetId, targ
     const ipAddress = req.ip || req.connection?.remoteAddress || null;
     const userAgent = req.headers?.['user-agent'] || null;
 
-    await db.run(
+    db.run(
       `INSERT INTO admin_activity_logs
        (user_id, username, user_role, action_type, action_details, target_type, target_id, target_name, ip_address, user_agent)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [userId, username, userRole, action, details, targetType, targetId?.toString(), targetName, ipAddress, userAgent]
+      [userId, username, userRole, action, details, targetType, targetId?.toString(), targetName, ipAddress, userAgent],
+      (err) => {
+        if (err) {
+          console.error('Failed to log admin action:', err.message);
+        }
+      }
     );
   } catch (error) {
     // Don't throw - logging should not break the main operation
