@@ -165,3 +165,7 @@ Optional:
 
 - `backend/CLAUDE.md` - Detailed backend documentation
 - `frontend/CLAUDE.md` - Detailed frontend documentation
+
+## TODO / Future Work
+
+- **Email address consolidation:** Replace all hardcoded `cdbhs92@gmail.com` references across email flows with the `summary_email` setting from Organization settings (`app_settings` table). Files to update include: `backend/routes/emailing.js`, `backend/routes/email.js`, `backend/routes/inscriptions.js`, `frontend/emailing.html`, `frontend/generate-poules.html`, and others. The notification email should always be loaded dynamically from the database.
