@@ -535,6 +535,7 @@ router.post('/send', authenticateToken, async (req, res) => {
     let sentCount = 0;
     let failedCount = 0;
     const errors = [];
+    const sentPlayers = [];
 
     for (const player of players) {
       try {
@@ -638,11 +639,80 @@ router.post('/send', authenticateToken, async (req, res) => {
         }
 
         sentCount++;
+        sentPlayers.push(player);
         await delay(1500); // Rate limiting
       } catch (error) {
         console.error(`Error sending to ${player.email}:`, error.message);
         failedCount++;
         errors.push({ player: `${player.first_name} ${player.last_name}`, error: error.message });
+      }
+    }
+
+    // Send summary email to organization (only if not test mode and at least one sent)
+    if (!isTestMode && sentCount > 0) {
+      try {
+        const recipientListHtml = sentPlayers.map((p, idx) => `
+          <tr style="background: ${idx % 2 === 0 ? '#fff' : '#f8f9fa'};">
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${idx + 1}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.first_name} ${p.last_name}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.club || '-'}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.email}</td>
+          </tr>
+        `).join('');
+
+        const summaryHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+            <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
+              <img src="${logoUrl}" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <h1 style="margin: 0; font-size: 24px;">📋 Récapitulatif Invitations Player App</h1>
+            </div>
+            <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
+              <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin-bottom: 20px;">
+                <strong>✅ Envoi terminé avec succès</strong><br>
+                ${sentCount} invitation(s) envoyée(s) sur ${players.length} joueur(s)
+                ${failedCount > 0 ? `<br><span style="color: #dc3545;">${failedCount} échec(s)</span>` : ''}
+              </div>
+
+              <h3 style="color: ${primaryColor};">📧 Invitations Envoyées (${sentCount})</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px;">
+                <thead>
+                  <tr style="background: ${primaryColor}; color: white;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">#</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Joueur</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Club</th>
+                    <th style="padding: 10px; border: 1px solid #ddd; text-align: left;">Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${recipientListHtml}
+                </tbody>
+              </table>
+
+              ${errors.length > 0 ? `
+                <h3 style="color: #dc3545;">❌ Échecs (${errors.length})</h3>
+                <ul style="color: #dc3545;">
+                  ${errors.map(e => `<li>${e.player}: ${e.error}</li>`).join('')}
+                </ul>
+              ` : ''}
+            </div>
+            <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
+              <p style="margin: 0;">${orgShortName} - ${replyToEmail}</p>
+            </div>
+          </div>
+        `;
+
+        await resend.emails.send({
+          from: `${senderName} <${senderEmail}>`,
+          replyTo: replyToEmail,
+          to: [replyToEmail],
+          subject: `📋 Récapitulatif - ${sentCount} invitation(s) Player App envoyée(s)`,
+          html: summaryHtml
+        });
+
+        console.log(`Summary email sent to ${replyToEmail}`);
+      } catch (summaryError) {
+        console.error('Error sending summary email:', summaryError);
+        // Don't fail the whole operation if summary email fails
       }
     }
 
