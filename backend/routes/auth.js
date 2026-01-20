@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../db-loader');
 const appSettings = require('../utils/app-settings');
+const { logAdminAction, ACTION_TYPES } = require('../utils/admin-logger');
 
 const router = express.Router();
 
@@ -128,11 +129,23 @@ router.post('/login', (req, res) => {
     }
 
     if (!user) {
+      // Log failed login attempt (user not found)
+      logAdminAction({
+        req: { ...req, user: { username: username } },
+        action: ACTION_TYPES.LOGIN_FAILED,
+        details: 'Utilisateur non trouvé'
+      });
       return res.status(401).json({ error: 'Nom d\'utilisateur ou mot de passe incorrect' });
     }
 
     bcrypt.compare(password, user.password_hash, (err, result) => {
       if (err || !result) {
+        // Log failed login attempt (wrong password)
+        logAdminAction({
+          req: { ...req, user: { userId: user.id, username: user.username, role: user.role } },
+          action: ACTION_TYPES.LOGIN_FAILED,
+          details: 'Mot de passe incorrect'
+        });
         return res.status(401).json({ error: 'Nom d\'utilisateur ou mot de passe incorrect' });
       }
 
@@ -148,6 +161,13 @@ router.post('/login', (req, res) => {
         JWT_SECRET,
         { expiresIn: '24h' }
       );
+
+      // Log successful login
+      logAdminAction({
+        req: { ...req, user: { userId: user.id, username: user.username, role: user.role } },
+        action: ACTION_TYPES.LOGIN_SUCCESS,
+        details: `Connexion réussie pour ${user.username}`
+      });
 
       res.json({
         token,
@@ -249,6 +269,16 @@ router.post('/change-password', authenticateToken, (req, res) => {
           if (err) {
             return res.status(500).json({ error: 'Erreur lors de la mise à jour' });
           }
+
+          // Log password change
+          logAdminAction({
+            req,
+            action: ACTION_TYPES.PASSWORD_CHANGED,
+            details: 'Mot de passe modifié par l\'utilisateur',
+            targetType: 'user',
+            targetId: user.id,
+            targetName: user.username
+          });
 
           res.json({ message: 'Mot de passe changé avec succès' });
         });
@@ -575,6 +605,16 @@ router.post('/users', authenticateToken, requireAdmin, (req, res) => {
             return res.status(500).json({ error: 'Error creating user' });
           }
 
+          // Log user creation
+          logAdminAction({
+            req,
+            action: ACTION_TYPES.USER_CREATED,
+            details: `Création utilisateur: ${username} (${userRole})`,
+            targetType: 'user',
+            targetId: this.lastID,
+            targetName: username
+          });
+
           res.json({
             message: 'User created successfully',
             user: { id: this.lastID, username, role: userRole, email: userEmail }
@@ -653,6 +693,17 @@ router.put('/users/:id', authenticateToken, requireAdmin, (req, res) => {
           if (err) {
             return res.status(500).json({ error: 'Error updating user' });
           }
+
+          // Log user update (with password)
+          logAdminAction({
+            req,
+            action: ACTION_TYPES.USER_UPDATED,
+            details: `Modification utilisateur (avec mot de passe)`,
+            targetType: 'user',
+            targetId: userId,
+            targetName: user.username
+          });
+
           res.json({ message: 'User updated successfully' });
         });
       });
@@ -667,6 +718,17 @@ router.put('/users/:id', authenticateToken, requireAdmin, (req, res) => {
         if (err) {
           return res.status(500).json({ error: 'Error updating user' });
         }
+
+        // Log user update
+        logAdminAction({
+          req,
+          action: ACTION_TYPES.USER_UPDATED,
+          details: `Modification utilisateur`,
+          targetType: 'user',
+          targetId: userId,
+          targetName: user.username
+        });
+
         res.json({ message: 'User updated successfully' });
       });
     }
@@ -682,16 +744,33 @@ router.delete('/users/:id', authenticateToken, requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Cannot delete your own account' });
   }
 
-  db.run('DELETE FROM users WHERE id = $1', [userId], function(err) {
+  // Get user info before deleting (for logging)
+  db.get('SELECT username FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
-      return res.status(500).json({ error: 'Error deleting user' });
+      return res.status(500).json({ error: 'Error finding user' });
     }
 
-    if (this.changes === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    db.run('DELETE FROM users WHERE id = $1', [userId], function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Error deleting user' });
+      }
 
-    res.json({ message: 'User deleted successfully' });
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Log user deletion
+      logAdminAction({
+        req,
+        action: ACTION_TYPES.USER_DELETED,
+        details: `Suppression utilisateur: ${user?.username || 'inconnu'}`,
+        targetType: 'user',
+        targetId: userId,
+        targetName: user?.username
+      });
+
+      res.json({ message: 'User deleted successfully' });
+    });
   });
 });
 

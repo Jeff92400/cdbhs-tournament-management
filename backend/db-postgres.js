@@ -662,6 +662,31 @@ async function initializeDatabase() {
       )
     `);
 
+    // Admin activity logs table - tracks admin/viewer actions in Tournament App
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS admin_activity_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        username VARCHAR(100) NOT NULL,
+        user_role VARCHAR(20),
+        action_type VARCHAR(50) NOT NULL,
+        action_details TEXT,
+        target_type VARCHAR(50),
+        target_id VARCHAR(100),
+        target_name VARCHAR(255),
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    // Index for faster queries by date and user
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_admin_logs_created ON admin_activity_logs(created_at DESC)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_admin_logs_user ON admin_activity_logs(user_id)
+    `);
+
     await client.query('COMMIT');
 
     // Initialize default admin (legacy)

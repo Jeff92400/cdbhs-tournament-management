@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../db-loader');
 const { authenticateToken } = require('./auth');
+const { logAdminAction, ACTION_TYPES } = require('../utils/admin-logger');
 
 const router = express.Router();
 
@@ -455,6 +456,16 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
                     recalculateRankings(categoryId, season, () => {
                       // Clean up uploaded file
                       fs.unlinkSync(req.file.path);
+
+                      // Log tournament import
+                      logAdminAction({
+                        req,
+                        action: ACTION_TYPES.IMPORT_TOURNAMENT,
+                        details: `Import tournoi ${tournamentNumber}, saison ${season}, ${imported} joueurs`,
+                        targetType: 'tournament',
+                        targetId: finalTournamentId,
+                        targetName: `T${tournamentNumber} - ${season}`
+                      });
 
                       res.json({
                         message: 'Tournament imported successfully',
@@ -1037,6 +1048,16 @@ router.get('/:id/export', authenticateToken, async (req, res) => {
               'Content-Disposition',
               `attachment; filename="${filename}"`
             );
+
+            // Log export action
+            logAdminAction({
+              req,
+              action: ACTION_TYPES.EXPORT_DATA,
+              details: `Export Excel: ${filename}`,
+              targetType: 'tournament',
+              targetId: tournamentId,
+              targetName: `${filenameTournamentLabel} - ${tournament.display_name}`
+            });
 
             await workbook.xlsx.write(res);
             res.end();

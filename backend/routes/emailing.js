@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { authenticateToken } = require('./auth');
 const appSettings = require('../utils/app-settings');
+const { logAdminAction, ACTION_TYPES } = require('../utils/admin-logger');
 
 const router = express.Router();
 
@@ -1104,6 +1105,18 @@ router.post('/send', authenticateToken, async (req, res) => {
       ? `MODE TEST: Email envoyé uniquement à ${testEmail}`
       : `Emails envoyés: ${results.sent.length}, Échecs: ${results.failed.length}, Ignorés: ${results.skipped.length}${summarySent ? ' + récapitulatif envoyé' : ''}`;
 
+    // Log email campaign send
+    if (!testMode) {
+      logAdminAction({
+        req,
+        action: ACTION_TYPES.SEND_CAMPAIGN,
+        details: `Campagne "${subject}" - ${results.sent.length} envoyés, ${results.failed.length} échecs`,
+        targetType: 'campaign',
+        targetId: campaignId,
+        targetName: subject
+      });
+    }
+
     res.json({
       success: true,
       message,
@@ -2119,6 +2132,18 @@ router.post('/send-results', authenticateToken, async (req, res) => {
           [true, tournamentId],
           () => resolve()
         );
+      });
+    }
+
+    // Log results email send
+    if (!testMode) {
+      logAdminAction({
+        req,
+        action: ACTION_TYPES.SEND_RESULTS,
+        details: `Résultats ${tournament.display_name} - ${sentResults.sent.length} envoyés`,
+        targetType: 'tournament',
+        targetId: tournamentId,
+        targetName: tournament.display_name
       });
     }
 

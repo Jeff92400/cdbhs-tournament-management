@@ -1,0 +1,184 @@
+/**
+ * Admin Activity Logs Routes
+ *
+ * GET /api/admin-logs - Get admin activity logs with filters
+ * GET /api/admin-logs/stats - Get quick statistics
+ * GET /api/admin-logs/action-types - Get list of action types
+ */
+
+const express = require('express');
+const router = express.Router();
+const db = require('../db-postgres');
+const { authenticateToken, requireViewer, requireAdmin } = require('./auth');
+
+/**
+ * GET /api/admin-logs
+ * Get admin activity logs with optional filters
+ */
+router.get('/', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const {
+      startDate,
+      endDate,
+      actionType,
+      username,
+      limit = 100,
+      offset = 0
+    } = req.query;
+
+    let query = `
+      SELECT
+        id,
+        user_id,
+        username,
+        user_role,
+        action_type,
+        action_details,
+        target_type,
+        target_id,
+        target_name,
+        ip_address,
+        created_at
+      FROM admin_activity_logs
+      WHERE 1=1
+    `;
+    const params = [];
+    let paramIndex = 1;
+
+    if (startDate) {
+      query += ` AND created_at >= $${paramIndex}`;
+      params.push(startDate);
+      paramIndex++;
+    }
+
+    if (endDate) {
+      query += ` AND created_at <= $${paramIndex}`;
+      params.push(endDate + ' 23:59:59');
+      paramIndex++;
+    }
+
+    if (actionType) {
+      const actionTypes = actionType.split(',').map(t => t.trim());
+      query += ` AND action_type = ANY($${paramIndex})`;
+      params.push(actionTypes);
+      paramIndex++;
+    }
+
+    if (username) {
+      query += ` AND username ILIKE $${paramIndex}`;
+      params.push(`%${username}%`);
+      paramIndex++;
+    }
+
+    // Get total count for pagination
+    const countQuery = query.replace(
+      /SELECT[\s\S]*?FROM/,
+      'SELECT COUNT(*) as total FROM'
+    );
+    const countResult = await db.get(countQuery, params);
+    const total = parseInt(countResult?.total || 0);
+
+    // Add ordering and pagination
+    query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(parseInt(limit), parseInt(offset));
+
+    const logs = await db.all(query, params);
+
+    res.json({
+      logs,
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Error fetching admin logs:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des logs' });
+  }
+});
+
+/**
+ * GET /api/admin-logs/stats
+ * Get quick statistics for dashboard
+ */
+router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // Last 7 days stats
+    const stats = await db.get(`
+      SELECT
+        COUNT(*) FILTER (WHERE action_type = 'LOGIN_SUCCESS' AND created_at >= NOW() - INTERVAL '7 days') as logins,
+        COUNT(*) FILTER (WHERE action_type LIKE 'IMPORT%' AND created_at >= NOW() - INTERVAL '7 days') as imports,
+        COUNT(*) FILTER (WHERE action_type LIKE 'SEND%' AND created_at >= NOW() - INTERVAL '7 days') as emails,
+        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') as total_actions
+      FROM admin_activity_logs
+    `);
+
+    // Active users
+    const activeUsers = await db.all(`
+      SELECT DISTINCT username, user_role, MAX(created_at) as last_activity
+      FROM admin_activity_logs
+      WHERE created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY username, user_role
+      ORDER BY last_activity DESC
+    `);
+
+    res.json({
+      logins: parseInt(stats?.logins || 0),
+      imports: parseInt(stats?.imports || 0),
+      emails: parseInt(stats?.emails || 0),
+      totalActions: parseInt(stats?.total_actions || 0),
+      activeUsers
+    });
+  } catch (error) {
+    console.error('Error fetching admin logs stats:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des statistiques' });
+  }
+});
+
+/**
+ * GET /api/admin-logs/action-types
+ * Get list of distinct action types for filtering
+ */
+router.get('/action-types', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const actionTypes = await db.all(`
+      SELECT DISTINCT action_type, COUNT(*) as count
+      FROM admin_activity_logs
+      GROUP BY action_type
+      ORDER BY count DESC
+    `);
+
+    res.json(actionTypes);
+  } catch (error) {
+    console.error('Error fetching action types:', error);
+    res.status(500).json({ error: 'Erreur lors de la récupération des types d\'actions' });
+  }
+});
+
+/**
+ * DELETE /api/admin-logs
+ * Clear old logs (admin only, with date range)
+ */
+router.delete('/', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { beforeDate } = req.body;
+
+    if (!beforeDate) {
+      return res.status(400).json({ error: 'Date requise' });
+    }
+
+    const result = await db.run(
+      'DELETE FROM admin_activity_logs WHERE created_at < $1',
+      [beforeDate]
+    );
+
+    res.json({
+      message: 'Logs supprimés',
+      deleted: result?.rowCount || 0
+    });
+  } catch (error) {
+    console.error('Error deleting admin logs:', error);
+    res.status(500).json({ error: 'Erreur lors de la suppression des logs' });
+  }
+});
+
+module.exports = router;
