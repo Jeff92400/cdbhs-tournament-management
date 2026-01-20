@@ -222,6 +222,31 @@ function initializeDatabase() {
       )
     `);
 
+    // Player invitations table - tracks invitations sent to players to join the Player App
+    db.run(`
+      CREATE TABLE IF NOT EXISTS player_invitations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_contact_id INTEGER NOT NULL,
+        licence TEXT NOT NULL,
+        email TEXT NOT NULL,
+        first_name TEXT,
+        last_name TEXT,
+        club TEXT,
+        sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        sent_by_user_id INTEGER,
+        sent_by_username TEXT,
+        has_signed_up INTEGER DEFAULT 0,
+        signed_up_at DATETIME,
+        resend_count INTEGER DEFAULT 0,
+        last_resent_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (player_contact_id) REFERENCES player_contacts(id)
+      )
+    `);
+    // Create indexes for faster lookups
+    db.run(`CREATE INDEX IF NOT EXISTS idx_player_invitations_licence ON player_invitations(REPLACE(licence, ' ', ''))`);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_player_invitations_email ON player_invitations(email)`);
+
     // Initialize default admin password (admin123 - should be changed)
     db.get('SELECT COUNT(*) as count FROM admin', [], (err, row) => {
       if (!err && row.count === 0) {

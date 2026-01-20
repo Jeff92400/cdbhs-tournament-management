@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitations Joueurs - CDBHS</title>
+  <link rel="icon" type="image/png" href="images/billiard-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .stats-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border: 1px solid #e0e0e0;
+    }
+    .stat-card .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #1F4788;
+    }
+    .stat-card .stat-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      margin-top: 5px;
+    }
+    .stat-card.success .stat-value { color: #28a745; }
+    .stat-card.warning .stat-value { color: #ffc107; }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 10px;
+    }
+    .tab-btn {
+      padding: 10px 20px;
+      border: none;
+      background: #f0f0f0;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: #1F4788;
+      color: white;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .filter-bar select, .filter-bar input {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .filter-bar select { min-width: 150px; }
+    .filter-bar input[type="text"] { min-width: 200px; }
+
+    .player-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .player-table th, .player-table td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    .player-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #333;
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+    .player-table tr:hover {
+      background: #f5f5f5;
+    }
+    .player-table .checkbox-col {
+      width: 40px;
+      text-align: center;
+    }
+    .player-table input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status-badge.signed-up {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-badge.pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .status-badge.invited {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+
+    .action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding: 10px 0;
+    }
+    .selection-info {
+      font-size: 14px;
+      color: #666;
+    }
+    .selection-info strong {
+      color: #1F4788;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .settings-panel {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .settings-panel h3 {
+      margin-top: 0;
+      color: #1F4788;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .settings-panel .settings-content {
+      display: none;
+      margin-top: 15px;
+    }
+    .settings-panel.expanded .settings-content {
+      display: block;
+    }
+    .settings-panel h3::after {
+      content: '\\25B6';
+      font-size: 12px;
+      transition: transform 0.2s;
+    }
+    .settings-panel.expanded h3::after {
+      transform: rotate(90deg);
+    }
+
+    .template-editor textarea {
+      width: 100%;
+      min-height: 300px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.5;
+      resize: vertical;
+    }
+    .template-editor input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+    .template-variables {
+      background: #e3f2fd;
+      padding: 10px 15px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 13px;
+    }
+    .template-variables code {
+      background: white;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin: 0 3px;
+    }
+
+    .pdf-upload {
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      margin-top: 15px;
+      transition: border-color 0.2s;
+    }
+    .pdf-upload:hover {
+      border-color: #1F4788;
+    }
+    .pdf-upload input[type="file"] {
+      display: none;
+    }
+    .pdf-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: #d4edda;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      overflow-y: auto;
+    }
+    .modal-content {
+      background: white;
+      max-width: 600px;
+      margin: 50px auto;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 { margin: 0; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    .empty-state h4 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    @media (max-width: 768px) {
+      .stats-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .filter-bar {
+        flex-direction: column;
+      }
+      .action-bar {
+        flex-direction: column;
+        gap: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="navbar">
+      <h2><img src="images/billiard-icon.png" alt="" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.style.display='none'"> Invitations Joueurs</h2>
+      <div class="nav-links">
+        <a href="dashboard.html">Accueil</a>
+        <a href="settings.html">Parametres</a>
+        <a href="#" id="logoutBtn" class="nav-logout">Deconnexion</a>
+      </div>
+    </div>
+
+    <div id="errorMessage" class="error" style="display: none;"></div>
+    <div id="successMessage" class="success" style="display: none;"></div>
+
+    <!-- Stats Cards -->
+    <div class="stats-cards">
+      <div class="stat-card">
+        <div class="stat-value" id="statTotal">-</div>
+        <div class="stat-label">Invitations envoyees</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-value" id="statSignedUp">-</div>
+        <div class="stat-label">Inscrits</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-value" id="statPending">-</div>
+        <div class="stat-label">En attente</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statRate">-</div>
+        <div class="stat-label">Taux d'inscription</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="send">Envoyer des invitations</button>
+      <button class="tab-btn" data-tab="tracking">Suivi des invitations</button>
+      <button class="tab-btn admin-only" data-tab="settings">Parametres</button>
+    </div>
+
+    <!-- Tab: Send Invitations -->
+    <div class="tab-content active" id="tab-send">
+      <div class="card">
+        <h3>Selectionner les joueurs a inviter</h3>
+
+        <div class="filter-bar">
+          <select id="candidateClubFilter">
+            <option value="">Tous les clubs</option>
+          </select>
+          <input type="text" id="candidateSearch" placeholder="Rechercher un joueur...">
+          <label style="display: flex; align-items: center; gap: 5px;">
+            <input type="checkbox" id="excludeInvited" checked>
+            Exclure les deja invites
+          </label>
+        </div>
+
+        <div class="action-bar">
+          <div class="selection-info">
+            <span id="selectionCount">0</span> joueur(s) selectionne(s)
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-secondary" onclick="selectAllVisible()">Tout selectionner</button>
+            <button class="btn btn-secondary" onclick="clearSelection()">Tout deselectionner</button>
+            <button class="btn" onclick="openSendModal()" id="sendBtn" disabled>Envoyer les invitations</button>
+          </div>
+        </div>
+
+        <div style="max-height: 500px; overflow-y: auto;">
+          <table class="player-table">
+            <thead>
+              <tr>
+                <th class="checkbox-col"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                <th>Nom</th>
+                <th>Club</th>
+                <th>Email</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="candidatesTable">
+              <tr><td colspan="5" class="empty-state">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Tracking -->
+    <div class="tab-content" id="tab-tracking">
+      <div class="card">
+        <h3>Historique des invitations</h3>
+
+        <div class="filter-bar">
+          <select id="trackingClubFilter">
+            <option value="">Tous les clubs</option>
+          </select>
+          <select id="trackingStatusFilter">
+            <option value="">Tous les statuts</option>
+            <option value="signed_up">Inscrits</option>
+            <option value="pending">En attente</option>
+          </select>
+          <input type="text" id="trackingSearch" placeholder="Rechercher...">
+          <button class="btn btn-secondary" onclick="syncSignups()">Synchroniser statuts</button>
+        </div>
+
+        <div style="max-height: 500px; overflow-y: auto;">
+          <table class="player-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Club</th>
+                <th>Email</th>
+                <th>Date d'envoi</th>
+                <th>Envoye par</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="trackingTable">
+              <tr><td colspan="7" class="empty-state">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Settings (admin only) -->
+    <div class="tab-content" id="tab-settings">
+      <div class="card">
+        <h3>Template email</h3>
+
+        <div class="template-variables">
+          <strong>Variables disponibles :</strong>
+          <code>{first_name}</code> - Prenom du joueur
+          <code>{organisation_name}</code> - Nom de l'organisation
+        </div>
+
+        <div class="template-editor">
+          <label>Sujet :</label>
+          <input type="text" id="templateSubject" placeholder="Sujet de l'email">
+
+          <label style="margin-top: 15px; display: block;">Corps du message :</label>
+          <textarea id="templateBody" placeholder="Corps du message..."></textarea>
+
+          <div style="margin-top: 15px; display: flex; gap: 10px;">
+            <button class="btn" onclick="saveTemplate()">Enregistrer le template</button>
+            <button class="btn btn-secondary" onclick="resetTemplate()">Reinitialiser</button>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 30px;">Guide PDF</h3>
+        <p style="color: #666; font-size: 14px;">
+          Ce document sera joint automatiquement a chaque invitation envoyee.
+        </p>
+
+        <div id="pdfInfo"></div>
+
+        <div class="pdf-upload" onclick="document.getElementById('pdfInput').click()">
+          <input type="file" id="pdfInput" accept="application/pdf" onchange="uploadPdf(this)">
+          <p style="margin: 0; color: #666;">Cliquez pour telecharger un nouveau PDF</p>
+          <p style="margin: 5px 0 0 0; font-size: 12px; color: #999;">Taille max: 10 MB</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send Confirmation Modal -->
+  <div class="modal" id="sendModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Confirmer l'envoi</h3>
+        <button class="modal-close" onclick="closeSendModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Vous allez envoyer une invitation a <strong id="sendCount">0</strong> joueur(s).</p>
+
+        <div style="margin-top: 20px;">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <input type="checkbox" id="testModeCheckbox">
+            Mode test (envoyer uniquement a cette adresse)
+          </label>
+          <input type="email" id="testEmailInput" placeholder="Email de test" style="width: 100%; margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; display: none;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeSendModal()">Annuler</button>
+        <button class="btn" onclick="confirmSend()">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth-utils.js"></script>
+  <script>
+    const API_URL = '/api';
+
+    // Check authentication
+    if (!requireAuth()) {
+      throw new Error('Not authenticated');
+    }
+    const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('userRole');
+
+    // Show/hide admin elements
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = userRole === 'admin' ? '' : 'none';
+    });
+
+    // State
+    let candidates = [];
+    let selectedIds = new Set();
+    let clubs = [];
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('token');
+      localStorage.removeItem('userRole');
+      window.location.href = 'login.html';
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // Test mode toggle
+    document.getElementById('testModeCheckbox').addEventListener('change', (e) => {
+      document.getElementById('testEmailInput').style.display = e.target.checked ? 'block' : 'none';
+    });
+
+    // Load stats
+    async function loadStats() {
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/stats`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const stats = await response.json();
+          document.getElementById('statTotal').textContent = stats.total_sent;
+          document.getElementById('statSignedUp').textContent = stats.signed_up;
+          document.getElementById('statPending').textContent = stats.pending;
+          document.getElementById('statRate').textContent = `${stats.signup_rate}%`;
+        }
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
+    }
+
+    // Load clubs
+    async function loadClubs() {
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/clubs`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          clubs = await response.json();
+          const selects = [
+            document.getElementById('candidateClubFilter'),
+            document.getElementById('trackingClubFilter')
+          ];
+          selects.forEach(select => {
+            clubs.forEach(club => {
+              const option = document.createElement('option');
+              option.value = club;
+              option.textContent = club;
+              select.appendChild(option);
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error loading clubs:', error);
+      }
+    }
+
+    // Load candidates
+    async function loadCandidates() {
+      try {
+        const club = document.getElementById('candidateClubFilter').value;
+        const search = document.getElementById('candidateSearch').value;
+        const excludeInvited = document.getElementById('excludeInvited').checked;
+
+        const params = new URLSearchParams();
+        if (club) params.append('club', club);
+        if (search) params.append('search', search);
+        if (excludeInvited) params.append('exclude_invited', 'true');
+
+        const response = await fetch(`${API_URL}/player-invitations/candidates?${params}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          candidates = await response.json();
+          renderCandidates();
+        }
+      } catch (error) {
+        console.error('Error loading candidates:', error);
+      }
+    }
+
+    function renderCandidates() {
+      const tbody = document.getElementById('candidatesTable');
+
+      if (candidates.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">
+          <h4>Aucun joueur disponible</h4>
+          <p>Tous les joueurs eligibles ont deja ete invites ou n'ont pas d'email.</p>
+        </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = candidates.map(c => {
+        const isSelected = selectedIds.has(c.id);
+        const statusHtml = c.invitation_id
+          ? (c.has_signed_up
+              ? '<span class="status-badge signed-up">Inscrit</span>'
+              : '<span class="status-badge invited">Deja invite</span>')
+          : '<span class="status-badge pending">Non invite</span>';
+
+        return `
+          <tr>
+            <td class="checkbox-col">
+              <input type="checkbox" data-id="${c.id}" ${isSelected ? 'checked' : ''} onchange="toggleSelection(${c.id})">
+            </td>
+            <td><strong>${c.first_name || ''} ${c.last_name || ''}</strong><br><small style="color:#666">${c.licence || ''}</small></td>
+            <td>${c.club || '-'}</td>
+            <td>${c.email}</td>
+            <td>${statusHtml}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function toggleSelection(id) {
+      if (selectedIds.has(id)) {
+        selectedIds.delete(id);
+      } else {
+        selectedIds.add(id);
+      }
+      updateSelectionCount();
+    }
+
+    function toggleSelectAll() {
+      const selectAll = document.getElementById('selectAll').checked;
+      candidates.forEach(c => {
+        if (selectAll) {
+          selectedIds.add(c.id);
+        } else {
+          selectedIds.delete(c.id);
+        }
+      });
+      renderCandidates();
+      updateSelectionCount();
+    }
+
+    function selectAllVisible() {
+      candidates.forEach(c => selectedIds.add(c.id));
+      document.getElementById('selectAll').checked = true;
+      renderCandidates();
+      updateSelectionCount();
+    }
+
+    function clearSelection() {
+      selectedIds.clear();
+      document.getElementById('selectAll').checked = false;
+      renderCandidates();
+      updateSelectionCount();
+    }
+
+    function updateSelectionCount() {
+      document.getElementById('selectionCount').textContent = selectedIds.size;
+      document.getElementById('sendBtn').disabled = selectedIds.size === 0;
+    }
+
+    // Load tracking data
+    async function loadTracking() {
+      try {
+        const club = document.getElementById('trackingClubFilter').value;
+        const status = document.getElementById('trackingStatusFilter').value;
+        const search = document.getElementById('trackingSearch').value;
+
+        const params = new URLSearchParams();
+        if (club) params.append('club', club);
+        if (status) params.append('status', status);
+        if (search) params.append('search', search);
+
+        const response = await fetch(`${API_URL}/player-invitations?${params}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          renderTracking(data.invitations);
+        }
+      } catch (error) {
+        console.error('Error loading tracking:', error);
+      }
+    }
+
+    function renderTracking(invitations) {
+      const tbody = document.getElementById('trackingTable');
+
+      if (invitations.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+          <h4>Aucune invitation</h4>
+          <p>Aucune invitation n'a encore ete envoyee.</p>
+        </td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = invitations.map(inv => {
+        const statusHtml = inv.has_signed_up
+          ? '<span class="status-badge signed-up">Inscrit</span>'
+          : '<span class="status-badge pending">En attente</span>';
+
+        const sentDate = inv.sent_at ? new Date(inv.sent_at).toLocaleDateString('fr-FR', {
+          day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        }) : '-';
+
+        const resendInfo = inv.resend_count > 0
+          ? `<br><small style="color:#666">Renvoye ${inv.resend_count}x</small>`
+          : '';
+
+        return `
+          <tr>
+            <td><strong>${inv.first_name || ''} ${inv.last_name || ''}</strong><br><small style="color:#666">${inv.licence || ''}</small></td>
+            <td>${inv.club || '-'}</td>
+            <td>${inv.email}</td>
+            <td>${sentDate}${resendInfo}</td>
+            <td>${inv.sent_by_username || '-'}</td>
+            <td>${statusHtml}</td>
+            <td>
+              ${!inv.has_signed_up ? `<button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="resendInvitation(${inv.id})">Renvoyer</button>` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Send modal
+    function openSendModal() {
+      document.getElementById('sendCount').textContent = selectedIds.size;
+      document.getElementById('testModeCheckbox').checked = false;
+      document.getElementById('testEmailInput').style.display = 'none';
+      document.getElementById('testEmailInput').value = '';
+      document.getElementById('sendModal').style.display = 'block';
+    }
+
+    function closeSendModal() {
+      document.getElementById('sendModal').style.display = 'none';
+    }
+
+    async function confirmSend() {
+      const testMode = document.getElementById('testModeCheckbox').checked;
+      const testEmail = document.getElementById('testEmailInput').value;
+
+      if (testMode && !testEmail) {
+        showError('Veuillez saisir un email de test');
+        return;
+      }
+
+      const body = {
+        player_contact_ids: Array.from(selectedIds)
+      };
+      if (testMode) {
+        body.test_email = testEmail;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          closeSendModal();
+          showSuccess(`${data.sent} invitation(s) envoyee(s)${data.test_mode ? ' (mode test)' : ''}`);
+          if (!testMode) {
+            clearSelection();
+            loadCandidates();
+            loadTracking();
+            loadStats();
+          }
+        } else {
+          showError(data.error || 'Erreur lors de l\'envoi');
+        }
+      } catch (error) {
+        console.error('Error sending:', error);
+        showError('Erreur de connexion');
+      }
+    }
+
+    async function resendInvitation(id) {
+      if (!confirm('Renvoyer cette invitation ?')) return;
+
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/resend/${id}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showSuccess('Invitation renvoyee');
+          loadTracking();
+        } else {
+          showError(data.error || 'Erreur lors du renvoi');
+        }
+      } catch (error) {
+        console.error('Error resending:', error);
+        showError('Erreur de connexion');
+      }
+    }
+
+    async function syncSignups() {
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/sync-signups`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showSuccess(data.message);
+          loadTracking();
+          loadStats();
+        } else {
+          showError(data.error || 'Erreur lors de la synchronisation');
+        }
+      } catch (error) {
+        console.error('Error syncing:', error);
+        showError('Erreur de connexion');
+      }
+    }
+
+    // Template management
+    async function loadTemplate() {
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/template`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          document.getElementById('templateSubject').value = data.subject || '';
+          document.getElementById('templateBody').value = data.body || '';
+        }
+      } catch (error) {
+        console.error('Error loading template:', error);
+      }
+    }
+
+    async function saveTemplate() {
+      const subject = document.getElementById('templateSubject').value;
+      const body = document.getElementById('templateBody').value;
+
+      if (!subject || !body) {
+        showError('Le sujet et le corps sont requis');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/template`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ subject, body })
+        });
+
+        if (response.ok) {
+          showSuccess('Template enregistre');
+        } else {
+          const data = await response.json();
+          showError(data.error || 'Erreur lors de la sauvegarde');
+        }
+      } catch (error) {
+        console.error('Error saving template:', error);
+        showError('Erreur de connexion');
+      }
+    }
+
+    function resetTemplate() {
+      if (confirm('Reinitialiser le template par defaut ?')) {
+        document.getElementById('templateSubject').value = "Invitation a l'application joueurs Comite Departemental";
+        document.getElementById('templateBody').value = `Cher {first_name}
+
+Merci d'avoir accepte d'utiliser l'application destinee aux joueurs du 92. Elle fait partie de la refonte totale que nous avons effectuee pour remplacer l'existant, c'est-a-dire le site web du {organisation_name}.
+
+Nous sommes en cours de diffusion progressive durant cette saison pour un usage generalise au debut de la saison prochaine.
+
+Tu trouveras ci-joint un document decrivant rapidement les fonctionnalites de cette application (qui fonctionne sur PC/Mac ou mobile iOS/Android) et la maniere de l'installer. Si tu rencontres la moindre difficulte, n'hesite pas a m'envoyer un email directement ou via l'application qui dispose d'une fonction << contact >>.
+
+Nous sommes bien sur preneurs de toute anomalie que tu pourrais decouvrir, mais aussi de suggestions qui contribueraient a une meilleure experience pour les utilisateurs.
+
+Bon usage de ce nouvel outil et nous restons a disposition pour toute demande de support.
+
+Bien cordialement
+Le comite sportif du {organisation_name}
+
+https://cdbhs-player-app-production.up.railway.app/`;
+      }
+    }
+
+    // PDF management
+    async function loadPdfInfo() {
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/pdf`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const container = document.getElementById('pdfInfo');
+
+          if (data.exists) {
+            const size = (data.size / 1024).toFixed(1);
+            const date = new Date(data.lastModified).toLocaleDateString('fr-FR');
+            container.innerHTML = `
+              <div class="pdf-info">
+                <span style="font-size: 24px;">📄</span>
+                <div>
+                  <strong>${data.filename}</strong><br>
+                  <small style="color: #666;">${size} KB - Modifie le ${date}</small>
+                </div>
+                <a href="${data.url}" target="_blank" class="btn btn-secondary" style="margin-left: auto;">Telecharger</a>
+              </div>
+            `;
+          } else {
+            container.innerHTML = `
+              <div style="padding: 10px; background: #fff3cd; border-radius: 6px; color: #856404;">
+                Aucun PDF n'est configure. Les invitations seront envoyees sans piece jointe.
+              </div>
+            `;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading PDF info:', error);
+      }
+    }
+
+    async function uploadPdf(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('pdf', file);
+
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/pdf`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showSuccess('PDF televerse avec succes');
+          loadPdfInfo();
+        } else {
+          showError(data.error || 'Erreur lors du telechargement');
+        }
+      } catch (error) {
+        console.error('Error uploading PDF:', error);
+        showError('Erreur de connexion');
+      }
+
+      input.value = '';
+    }
+
+    // Message helpers
+    function showError(message) {
+      const el = document.getElementById('errorMessage');
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
+
+    function showSuccess(message) {
+      const el = document.getElementById('successMessage');
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
+
+    // Filter event listeners
+    document.getElementById('candidateClubFilter').addEventListener('change', loadCandidates);
+    document.getElementById('candidateSearch').addEventListener('input', debounce(loadCandidates, 300));
+    document.getElementById('excludeInvited').addEventListener('change', loadCandidates);
+    document.getElementById('trackingClubFilter').addEventListener('change', loadTracking);
+    document.getElementById('trackingStatusFilter').addEventListener('change', loadTracking);
+    document.getElementById('trackingSearch').addEventListener('input', debounce(loadTracking, 300));
+
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    // Close modal on outside click
+    document.getElementById('sendModal').addEventListener('click', (e) => {
+      if (e.target.id === 'sendModal') closeSendModal();
+    });
+
+    // Initialize
+    loadStats();
+    loadClubs();
+    loadCandidates();
+    loadTracking();
+    loadTemplate();
+    loadPdfInfo();
+  </script>
+</body>
+</html>

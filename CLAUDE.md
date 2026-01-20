@@ -102,6 +102,7 @@ cdbhs-tournament-management/
 | `clubs.js` | Club management with aliases |
 | `player-accounts.js` | Player App account management |
 | `announcements.js` | Global announcements for Player App |
+| `player-invitations.js` | Invitation emails for Player App registration |
 
 ## Key Frontend Pages
 
@@ -112,6 +113,7 @@ cdbhs-tournament-management/
 | `rankings.html` | Season rankings by category |
 | `emailing.html` | Mass email campaigns |
 | `inscriptions-list.html` | Player registrations |
+| `player-invitations.html` | Player App invitation management |
 | `settings-admin.html` | System administration |
 
 ## Database
@@ -125,6 +127,7 @@ Key tables:
 - `tournoi_ext` / `inscriptions` - External tournaments and registrations
 - `convocation_poules` - Stored poule compositions (shared with Player App)
 - `player_accounts` - Player App authentication
+- `player_invitations` - Tracks invitations sent to players for Player App registration
 
 ## Environment Variables
 

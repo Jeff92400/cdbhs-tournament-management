@@ -687,6 +687,34 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_admin_logs_user ON admin_activity_logs(user_id)
     `);
 
+    // Player invitations table - tracks invitations sent to players to join the Player App
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS player_invitations (
+        id SERIAL PRIMARY KEY,
+        player_contact_id INTEGER NOT NULL REFERENCES player_contacts(id),
+        licence VARCHAR(50) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        first_name VARCHAR(100),
+        last_name VARCHAR(100),
+        club VARCHAR(255),
+        sent_at TIMESTAMP DEFAULT NOW(),
+        sent_by_user_id INTEGER,
+        sent_by_username VARCHAR(100),
+        has_signed_up BOOLEAN DEFAULT FALSE,
+        signed_up_at TIMESTAMP,
+        resend_count INTEGER DEFAULT 0,
+        last_resent_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    // Create indexes for faster lookups
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_player_invitations_licence ON player_invitations(REPLACE(licence, ' ', ''))
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_player_invitations_email ON player_invitations(email)
+    `);
+
     await client.query('COMMIT');
 
     // Initialize default admin (legacy)

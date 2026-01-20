@@ -49,6 +49,7 @@ npm run backup
 | `emailing.js` | Mass emailing campaigns, scheduled emails, contact sync |
 | `announcements.js` | Global announcements for Player App (CRUD + public `/active` endpoint) |
 | `player-accounts.js` | Player App (Espace Joueur) account management |
+| `player-invitations.js` | Invitation emails for Player App registration with PDF attachments |
 | `rankings.js` | Season rankings calculation across categories |
 | `clubs.js` | Club management with aliases for name normalization |
 | `statistics.js` | Player and tournament statistics |
@@ -66,6 +67,10 @@ npm run backup
   - Shared with Player App so players can view all poules for their tournament
   - Columns: `tournoi_id`, `poule_number`, `licence`, `player_name`, `club`, `location_name`, `location_address`, `start_time`, `player_order`
 - `player_accounts`: Separate auth for Player App with `player_app_role` (joueur/admin)
+- `player_invitations`: Tracks invitation emails sent to players for Player App registration
+  - Links to `player_contacts` table, stores sent_at, sent_by, has_signed_up status
+  - Supports resend tracking with `resend_count` and `last_resent_at`
+  - Syncs `has_signed_up` by comparing licences with `player_accounts` table
 - `announcements`: Global notifications displayed in Player App (title, message, type, expiry)
 - `email_campaigns` / `scheduled_emails`: Email tracking and scheduling
 
