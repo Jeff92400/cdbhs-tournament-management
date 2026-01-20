@@ -25,6 +25,8 @@ function logAdminAction({ req, action, details, targetType, targetId, targetName
     const ipAddress = req.ip || req.connection?.remoteAddress || null;
     const userAgent = req.headers?.['user-agent'] || null;
 
+    console.log(`[AdminLog] Logging action: ${action} by ${username} (${userRole})`);
+
     db.run(
       `INSERT INTO admin_activity_logs
        (user_id, username, user_role, action_type, action_details, target_type, target_id, target_name, ip_address, user_agent)
@@ -32,13 +34,15 @@ function logAdminAction({ req, action, details, targetType, targetId, targetName
       [userId, username, userRole, action, details, targetType, targetId?.toString(), targetName, ipAddress, userAgent],
       (err) => {
         if (err) {
-          console.error('Failed to log admin action:', err.message);
+          console.error('[AdminLog] Failed to insert log:', err.message);
+        } else {
+          console.log(`[AdminLog] Successfully logged: ${action}`);
         }
       }
     );
   } catch (error) {
     // Don't throw - logging should not break the main operation
-    console.error('Failed to log admin action:', error.message);
+    console.error('[AdminLog] Exception:', error.message);
   }
 }
 

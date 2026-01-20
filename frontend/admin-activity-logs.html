@@ -280,11 +280,48 @@
     const pageSize = 50;
     let totalLogs = 0;
 
+    // Restore saved filters from localStorage
+    function restoreFilters() {
+      const savedStartDate = localStorage.getItem('adminLogs_startDate');
+      const savedEndDate = localStorage.getItem('adminLogs_endDate');
+      const savedActionType = localStorage.getItem('adminLogs_actionType');
+      const savedUsername = localStorage.getItem('adminLogs_username');
+
+      if (savedStartDate) document.getElementById('filterStartDate').value = savedStartDate;
+      if (savedEndDate) document.getElementById('filterEndDate').value = savedEndDate;
+      if (savedActionType) document.getElementById('filterActionType').value = savedActionType;
+      if (savedUsername) document.getElementById('filterUsername').value = savedUsername;
+    }
+
+    // Save filters to localStorage
+    function saveFilters() {
+      const startDate = document.getElementById('filterStartDate').value;
+      const endDate = document.getElementById('filterEndDate').value;
+      const actionType = document.getElementById('filterActionType').value;
+      const username = document.getElementById('filterUsername').value;
+
+      if (startDate) localStorage.setItem('adminLogs_startDate', startDate);
+      else localStorage.removeItem('adminLogs_startDate');
+      if (endDate) localStorage.setItem('adminLogs_endDate', endDate);
+      else localStorage.removeItem('adminLogs_endDate');
+      if (actionType) localStorage.setItem('adminLogs_actionType', actionType);
+      else localStorage.removeItem('adminLogs_actionType');
+      if (username) localStorage.setItem('adminLogs_username', username);
+      else localStorage.removeItem('adminLogs_username');
+    }
+
     // Initialize page
     document.addEventListener('DOMContentLoaded', () => {
+      restoreFilters();
       loadStats();
       loadActionTypes();
       loadLogs();
+
+      // Save filters when they change
+      document.getElementById('filterStartDate').addEventListener('change', saveFilters);
+      document.getElementById('filterEndDate').addEventListener('change', saveFilters);
+      document.getElementById('filterActionType').addEventListener('change', saveFilters);
+      document.getElementById('filterUsername').addEventListener('input', saveFilters);
 
       document.getElementById('logoutBtn').addEventListener('click', (e) => {
         e.preventDefault();
@@ -432,6 +469,11 @@
       document.getElementById('filterEndDate').value = '';
       document.getElementById('filterActionType').value = '';
       document.getElementById('filterUsername').value = '';
+      // Clear localStorage
+      localStorage.removeItem('adminLogs_startDate');
+      localStorage.removeItem('adminLogs_endDate');
+      localStorage.removeItem('adminLogs_actionType');
+      localStorage.removeItem('adminLogs_username');
       currentPage = 0;
       loadLogs();
     }
