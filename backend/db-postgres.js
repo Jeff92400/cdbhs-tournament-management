@@ -385,6 +385,18 @@ async function initializeDatabase() {
       )
     `);
 
+    // Organization logo storage table (for emails)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS organization_logo (
+        id SERIAL PRIMARY KEY,
+        filename TEXT NOT NULL,
+        content_type TEXT NOT NULL,
+        file_data BYTEA NOT NULL,
+        uploaded_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Mode mapping table - maps IONOS mode names to internal game_type
     await client.query(`
       CREATE TABLE IF NOT EXISTS mode_mapping (

@@ -259,6 +259,18 @@ function initializeDatabase() {
       )
     `);
 
+    // Organization logo storage table (for emails)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS organization_logo (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT NOT NULL,
+        content_type TEXT NOT NULL,
+        file_data BLOB NOT NULL,
+        uploaded_by TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Initialize default admin password (admin123 - should be changed)
     db.get('SELECT COUNT(*) as count FROM admin', [], (err, row) => {
       if (!err && row.count === 0) {

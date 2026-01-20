@@ -513,6 +513,16 @@ router.post('/send', authenticateToken, async (req, res) => {
     const orgName = emailSettings.organization_name || 'Comité Départemental Billard Hauts-de-Seine';
     const orgShortName = emailSettings.organization_short_name || 'CDBHS';
     const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
+    const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
+
+    // Check if logo exists in database
+    const logoExists = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM organization_logo LIMIT 1', [], (err, row) => {
+        if (err) reject(err);
+        else resolve(!!row);
+      });
+    });
+    const logoUrl = logoExists ? `${baseUrl}/api/settings/organization-logo/download` : null;
 
     let sentCount = 0;
     let failedCount = 0;
@@ -535,10 +545,14 @@ router.post('/send', authenticateToken, async (req, res) => {
           .replace(/\{organization_name\}/g, orgName);
 
         // Build HTML email
+        const logoHtml = logoUrl
+          ? `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; margin-bottom: 10px;" onerror="this.style.display='none'">`
+          : '';
+
         const htmlBody = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-              <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              ${logoHtml}
               <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
             </div>
             <div style="padding: 20px; background: #f8f9fa;">
@@ -713,6 +727,19 @@ router.post('/resend/:id', authenticateToken, async (req, res) => {
     const senderEmail = emailSettings.email_communication || 'communication@cdbhs.net';
     const primaryColor = emailSettings.primary_color || '#1F4788';
     const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
+    const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
+
+    // Check if logo exists
+    const logoExists = await new Promise((resolve, reject) => {
+      db.get('SELECT id FROM organization_logo LIMIT 1', [], (err, row) => {
+        if (err) reject(err);
+        else resolve(!!row);
+      });
+    });
+    const logoUrl = logoExists ? `${baseUrl}/api/settings/organization-logo/download` : null;
+    const logoHtml = logoUrl
+      ? `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; margin-bottom: 10px;" onerror="this.style.display='none'">`
+      : '';
 
     const emailBody = templateBody
       .replace(/\{first_name\}/g, firstName)
@@ -727,7 +754,7 @@ router.post('/resend/:id', authenticateToken, async (req, res) => {
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-          <img src="https://cdbhs-tournament-management-production.up.railway.app/images/billiard-icon.png" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+          ${logoHtml}
           <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
         </div>
         <div style="padding: 20px; background: #f8f9fa;">

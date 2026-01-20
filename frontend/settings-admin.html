@@ -489,6 +489,19 @@
         </div>
       </div>
 
+      <!-- Logo Upload -->
+      <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Logo de l'organisation (pour les emails) :</label>
+        <div id="logoPreview" style="margin-bottom: 15px; display: none;">
+          <img id="logoPreviewImg" src="" alt="Logo" style="max-height: 80px; border: 1px solid #ddd; border-radius: 6px; padding: 10px; background: white;">
+          <button onclick="deleteLogo()" class="btn btn-danger" style="margin-left: 15px; padding: 8px 15px; font-size: 13px;">Supprimer</button>
+        </div>
+        <div id="logoUploadZone" style="border: 2px dashed #ddd; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.2s;" onclick="document.getElementById('logoFileInput').click()">
+          <input type="file" id="logoFileInput" accept="image/*" style="display: none;" onchange="uploadLogo(this.files[0])">
+          <p style="margin: 0; color: #666;">Cliquez pour telecharger un logo (PNG, JPG - max 2 MB)</p>
+        </div>
+      </div>
+
       <button onclick="saveOrganisationSettings()" class="btn" style="background: #28a745; padding: 12px 25px; margin-top: 20px;">
         Enregistrer
       </button>
@@ -2348,8 +2361,92 @@
           document.getElementById('organizationName').value = settings.organization_name || '';
           document.getElementById('organizationShortName').value = settings.organization_short_name || '';
         }
+
+        // Load logo info
+        await loadLogoInfo();
       } catch (error) {
         console.error('Error loading organisation settings:', error);
+      }
+    }
+
+    async function loadLogoInfo() {
+      try {
+        const response = await fetch(`${API_URL}/settings/organization-logo`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const info = await response.json();
+          if (info.exists) {
+            document.getElementById('logoPreviewImg').src = info.url + '?t=' + Date.now();
+            document.getElementById('logoPreview').style.display = 'block';
+          } else {
+            document.getElementById('logoPreview').style.display = 'none';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading logo info:', error);
+      }
+    }
+
+    async function uploadLogo(file) {
+      if (!file) return;
+
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Le fichier est trop volumineux (max 2 MB)');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('logo', file);
+
+      try {
+        const response = await fetch(`${API_URL}/settings/organization-logo`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+
+        if (response.ok) {
+          await loadLogoInfo();
+          const msgDiv = document.getElementById('organisationMessage');
+          msgDiv.textContent = 'Logo televerse avec succes';
+          msgDiv.style.background = '#d4edda';
+          msgDiv.style.color = '#155724';
+          msgDiv.style.display = 'block';
+          setTimeout(() => { msgDiv.style.display = 'none'; }, 3000);
+        } else {
+          const data = await response.json();
+          throw new Error(data.error || 'Erreur lors du telechargement');
+        }
+      } catch (error) {
+        console.error('Error uploading logo:', error);
+        alert('Erreur: ' + error.message);
+      }
+
+      // Clear file input
+      document.getElementById('logoFileInput').value = '';
+    }
+
+    async function deleteLogo() {
+      if (!confirm('Supprimer le logo ?')) return;
+
+      try {
+        const response = await fetch(`${API_URL}/settings/organization-logo`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          document.getElementById('logoPreview').style.display = 'none';
+          const msgDiv = document.getElementById('organisationMessage');
+          msgDiv.textContent = 'Logo supprime';
+          msgDiv.style.background = '#d4edda';
+          msgDiv.style.color = '#155724';
+          msgDiv.style.display = 'block';
+          setTimeout(() => { msgDiv.style.display = 'none'; }, 3000);
+        }
+      } catch (error) {
+        console.error('Error deleting logo:', error);
       }
     }
 

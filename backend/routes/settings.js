@@ -1,8 +1,21 @@
 const express = require('express');
+const multer = require('multer');
 const { authenticateToken, requireAdmin } = require('./auth');
 const appSettings = require('../utils/app-settings');
 
 const router = express.Router();
+
+// Configure multer for logo uploads (memory storage for database)
+const logoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
+  fileFilter: function (req, file, cb) {
+    if (file.mimetype.startsWith('image/')) {
+      return cb(null, true);
+    }
+    cb(new Error('Seuls les fichiers image sont acceptés'));
+  }
+});
 
 // Get database connection
 const getDb = () => require('../db-loader');
@@ -614,6 +627,108 @@ router.get('/category-mappings/lookup', authenticateToken, (req, res) => {
       res.json(row || null);
     }
   );
+});
+
+// ==================== Organization Logo ====================
+
+// Get logo info
+router.get('/organization-logo', authenticateToken, (req, res) => {
+  const db = getDb();
+
+  db.get('SELECT id, filename, content_type, LENGTH(file_data) as size, created_at FROM organization_logo ORDER BY created_at DESC LIMIT 1', [], (err, row) => {
+    if (err) {
+      console.error('Error checking logo:', err);
+      return res.status(500).json({ error: 'Erreur lors de la vérification du logo' });
+    }
+
+    if (row) {
+      res.json({
+        exists: true,
+        filename: row.filename,
+        size: row.size,
+        lastModified: row.created_at,
+        url: '/api/settings/organization-logo/download'
+      });
+    } else {
+      res.json({ exists: false });
+    }
+  });
+});
+
+// Download/view logo (public for email rendering)
+router.get('/organization-logo/download', (req, res) => {
+  const db = getDb();
+
+  db.get('SELECT * FROM organization_logo ORDER BY created_at DESC LIMIT 1', [], (err, row) => {
+    if (err) {
+      console.error('Error fetching logo:', err);
+      return res.status(500).json({ error: 'Erreur' });
+    }
+
+    if (!row) {
+      return res.status(404).json({ error: 'Logo non trouvé' });
+    }
+
+    res.setHeader('Content-Type', row.content_type);
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+
+    const fileData = Buffer.isBuffer(row.file_data) ? row.file_data : Buffer.from(row.file_data);
+    res.send(fileData);
+  });
+});
+
+// Upload logo (admin only)
+router.post('/organization-logo', authenticateToken, requireAdmin, logoUpload.single('logo'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Aucun fichier fourni' });
+  }
+
+  const db = getDb();
+  const { originalname, mimetype, buffer } = req.file;
+  const uploadedBy = req.user?.username || 'admin';
+
+  // Delete existing logo and insert new one
+  db.run('DELETE FROM organization_logo', [], (err) => {
+    if (err) {
+      console.error('Error deleting old logo:', err);
+    }
+
+    db.run(
+      'INSERT INTO organization_logo (filename, content_type, file_data, uploaded_by) VALUES ($1, $2, $3, $4)',
+      [originalname, mimetype, buffer, uploadedBy],
+      function(err) {
+        if (err) {
+          console.error('Error saving logo:', err);
+          return res.status(500).json({ error: 'Erreur lors de l\'enregistrement du logo' });
+        }
+
+        appSettings.clearCache();
+
+        res.json({
+          success: true,
+          message: 'Logo téléversé avec succès',
+          filename: originalname,
+          size: req.file.size
+        });
+      }
+    );
+  });
+});
+
+// Delete logo (admin only)
+router.delete('/organization-logo', authenticateToken, requireAdmin, (req, res) => {
+  const db = getDb();
+
+  db.run('DELETE FROM organization_logo', [], function(err) {
+    if (err) {
+      console.error('Error deleting logo:', err);
+      return res.status(500).json({ error: 'Erreur lors de la suppression du logo' });
+    }
+
+    appSettings.clearCache();
+
+    res.json({ success: true, message: 'Logo supprimé' });
+  });
 });
 
 module.exports = router;
