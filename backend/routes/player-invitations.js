@@ -30,7 +30,7 @@ const pdfUpload = multer({
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Default email template
-const DEFAULT_EMAIL_SUBJECT = "Invitation à l'application joueurs Comité Départemental";
+const DEFAULT_EMAIL_SUBJECT = "Invitation à l'application joueurs Comité Départemental {organisation_short_name}";
 const DEFAULT_EMAIL_BODY = `Cher {first_name}
 
 Merci d'avoir accepté d'utiliser l'application destinée aux joueurs du 92. Elle fait partie de la refonte totale que nous avons effectuée pour remplacer l'existant, c'est-à-dire le site web du {organisation_name}.
@@ -545,12 +545,16 @@ router.post('/send', authenticateToken, async (req, res) => {
         const emailBody = templateBody
           .replace(/\{first_name\}/g, firstName)
           .replace(/\{organisation_name\}/g, orgName)
-          .replace(/\{organization_name\}/g, orgName);
+          .replace(/\{organization_name\}/g, orgName)
+          .replace(/\{organisation_short_name\}/g, orgShortName)
+          .replace(/\{organization_short_name\}/g, orgShortName);
 
         const emailSubject = templateSubject
           .replace(/\{first_name\}/g, firstName)
           .replace(/\{organisation_name\}/g, orgName)
-          .replace(/\{organization_name\}/g, orgName);
+          .replace(/\{organization_name\}/g, orgName)
+          .replace(/\{organisation_short_name\}/g, orgShortName)
+          .replace(/\{organization_short_name\}/g, orgShortName);
 
         // Build HTML email
         const logoHtml = `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; margin-bottom: 10px;" onerror="this.style.display='none'">`;
@@ -754,12 +758,16 @@ router.post('/resend/:id', authenticateToken, async (req, res) => {
     const emailBody = templateBody
       .replace(/\{first_name\}/g, firstName)
       .replace(/\{organisation_name\}/g, orgName)
-      .replace(/\{organization_name\}/g, orgName);
+      .replace(/\{organization_name\}/g, orgName)
+      .replace(/\{organisation_short_name\}/g, orgShortName)
+      .replace(/\{organization_short_name\}/g, orgShortName);
 
     const emailSubject = templateSubject
       .replace(/\{first_name\}/g, firstName)
       .replace(/\{organisation_name\}/g, orgName)
-      .replace(/\{organization_name\}/g, orgName);
+      .replace(/\{organization_name\}/g, orgName)
+      .replace(/\{organisation_short_name\}/g, orgShortName)
+      .replace(/\{organization_short_name\}/g, orgShortName);
 
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
