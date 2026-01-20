@@ -269,33 +269,6 @@
       </div>
     </div>
 
-    <!-- Contact Email Settings - Admin Only -->
-    <div class="card admin-only" id="contactEmailSection">
-      <h3>Email de contact</h3>
-      <p style="margin-bottom: 20px; color: #666;">
-        Configurez l'adresse email qui apparaîtra dans tous les emails envoyés (contact, reply-to, pied de page).
-      </p>
-
-      <div style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 250px; max-width: 400px;">
-          <label style="display: block; margin-bottom: 8px; font-weight: 500;">Adresse email de contact :</label>
-          <input type="email" id="contactEmail" placeholder="ex: cdbhs92@gmail.com" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
-        </div>
-        <button onclick="saveContactEmail()" class="btn" style="background: #28a745; padding: 12px 25px;">
-          Enregistrer
-        </button>
-      </div>
-
-      <div id="contactEmailMessage" style="display: none; margin-top: 15px; padding: 10px; border-radius: 4px;"></div>
-
-      <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-left: 4px solid #1F4788; border-radius: 4px;">
-        <strong>Information :</strong>
-        <p style="margin: 10px 0 0 0; color: #666;">
-          Cette adresse sera utilisée dans la phrase de contact, le pied de page et comme adresse de réponse (reply-to) pour tous les emails.
-        </p>
-      </div>
-    </div>
-
     <!-- Email Scheduler Settings - Admin Only -->
     <div class="card admin-only" id="emailSchedulerSection">
       <h3>Planification des emails</h3>
@@ -486,6 +459,11 @@
         <div>
           <label style="display: block; margin-bottom: 8px; font-weight: 500;">Nom court / Sigle :</label>
           <input type="text" id="organizationShortName" placeholder="ex: CDBHS" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 8px; font-weight: 500;">Email de notification :</label>
+          <input type="email" id="organizationEmail" placeholder="ex: cdbhs92@gmail.com" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+          <small style="color: #666;">Reçoit les notifications (inscriptions joueurs, etc.) et utilisé comme adresse de réponse</small>
         </div>
       </div>
 
@@ -1509,73 +1487,6 @@
 
     // ============= END PLAYER APP ACCOUNTS =============
 
-    // ============= CONTACT EMAIL SETTINGS =============
-
-    // Load contact email setting
-    async function loadContactEmail() {
-      try {
-        const response = await fetch(`${API_URL}/settings/app/contact_email`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.value) {
-            document.getElementById('contactEmail').value = data.value;
-          }
-        }
-      } catch (error) {
-        console.error('Error loading contact email:', error);
-      }
-    }
-
-    // Save contact email setting
-    async function saveContactEmail() {
-      const email = document.getElementById('contactEmail').value.trim();
-      const msgDiv = document.getElementById('contactEmailMessage');
-
-      // Basic email validation
-      if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-        msgDiv.textContent = 'Format d\'email invalide';
-        msgDiv.style.background = '#f8d7da';
-        msgDiv.style.color = '#721c24';
-        msgDiv.style.display = 'block';
-        setTimeout(() => { msgDiv.style.display = 'none'; }, 3000);
-        return;
-      }
-
-      try {
-        const response = await fetch(`${API_URL}/settings/app/contact_email`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ value: email || null })
-        });
-
-        if (response.ok) {
-          msgDiv.textContent = email ? `Email de contact configuré : ${email}` : 'Email de contact supprimé (valeur par défaut utilisée)';
-          msgDiv.style.background = '#d4edda';
-          msgDiv.style.color = '#155724';
-        } else {
-          throw new Error('Erreur lors de la sauvegarde');
-        }
-      } catch (error) {
-        console.error('Error saving contact email:', error);
-        msgDiv.textContent = error.message;
-        msgDiv.style.background = '#f8d7da';
-        msgDiv.style.color = '#721c24';
-      }
-
-      msgDiv.style.display = 'block';
-      setTimeout(() => { msgDiv.style.display = 'none'; }, 3000);
-    }
-
-    // Load on page load
-    loadContactEmail();
-
-    // ============= END CONTACT EMAIL SETTINGS =============
-
     // ============= EMAIL SCHEDULER SETTINGS =============
 
     // Load scheduler hour setting
@@ -2360,6 +2271,7 @@
           const settings = await response.json();
           document.getElementById('organizationName').value = settings.organization_name || '';
           document.getElementById('organizationShortName').value = settings.organization_short_name || '';
+          document.getElementById('organizationEmail').value = settings.summary_email || '';
         }
 
         // Load logo info
@@ -2453,6 +2365,17 @@
     async function saveOrganisationSettings() {
       const msgDiv = document.getElementById('organisationMessage');
 
+      // Validate email
+      const email = document.getElementById('organizationEmail').value.trim();
+      if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        msgDiv.textContent = 'Adresse email invalide';
+        msgDiv.style.background = '#f8d7da';
+        msgDiv.style.color = '#721c24';
+        msgDiv.style.display = 'block';
+        setTimeout(() => { msgDiv.style.display = 'none'; }, 3000);
+        return;
+      }
+
       try {
         const response = await fetch(`${API_URL}/settings/app-bulk`, {
           method: 'PUT',
@@ -2462,7 +2385,8 @@
           },
           body: JSON.stringify({
             organization_name: document.getElementById('organizationName').value.trim(),
-            organization_short_name: document.getElementById('organizationShortName').value.trim()
+            organization_short_name: document.getElementById('organizationShortName').value.trim(),
+            summary_email: email
           })
         });
 
