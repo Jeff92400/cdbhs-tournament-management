@@ -66,24 +66,46 @@ https://cdbhs-player-app-production.up.railway.app/`;
 // Get invitation statistics
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    const stats = await new Promise((resolve, reject) => {
-      db.get(`
-        SELECT
-          COUNT(*) as total_sent,
-          SUM(CASE WHEN has_signed_up = TRUE OR has_signed_up = 1 THEN 1 ELSE 0 END) as signed_up,
-          SUM(CASE WHEN has_signed_up = FALSE OR has_signed_up = 0 OR has_signed_up IS NULL THEN 1 ELSE 0 END) as pending
-        FROM player_invitations
-      `, [], (err, row) => {
+    // Count invitations sent
+    const invitationStats = await new Promise((resolve, reject) => {
+      db.get(`SELECT COUNT(*) as total_sent FROM player_invitations`, [], (err, row) => {
         if (err) reject(err);
-        else resolve(row || { total_sent: 0, signed_up: 0, pending: 0 });
+        else resolve(row || { total_sent: 0 });
       });
     });
 
+    // Count actual Player App users (signed up)
+    const playerAccountStats = await new Promise((resolve, reject) => {
+      db.get(`SELECT COUNT(*) as signed_up FROM player_accounts`, [], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || { signed_up: 0 });
+      });
+    });
+
+    // Count pending invitations (sent but player hasn't signed up yet)
+    const pendingStats = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT COUNT(*) as pending
+        FROM player_invitations pi
+        WHERE NOT EXISTS (
+          SELECT 1 FROM player_accounts pa
+          WHERE REPLACE(pa.licence, ' ', '') = REPLACE(pi.licence, ' ', '')
+        )
+      `, [], (err, row) => {
+        if (err) reject(err);
+        else resolve(row || { pending: 0 });
+      });
+    });
+
+    const totalSent = invitationStats.total_sent || 0;
+    const signedUp = playerAccountStats.signed_up || 0;
+    const pending = pendingStats.pending || 0;
+
     res.json({
-      total_sent: stats.total_sent || 0,
-      signed_up: stats.signed_up || 0,
-      pending: stats.pending || 0,
-      signup_rate: stats.total_sent > 0 ? Math.round((stats.signed_up / stats.total_sent) * 100) : 0
+      total_sent: totalSent,
+      signed_up: signedUp,
+      pending: pending,
+      signup_rate: totalSent > 0 ? Math.round(((totalSent - pending) / totalSent) * 100) : 0
     });
   } catch (error) {
     console.error('Error fetching invitation stats:', error);
