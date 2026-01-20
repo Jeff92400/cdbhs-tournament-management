@@ -360,23 +360,9 @@
           </select>
           <select id="candidateModeFilter">
             <option value="">Tous les modes</option>
-            <option value="LIBRE">Libre</option>
-            <option value="CADRE">Cadre</option>
-            <option value="BANDE">Bande</option>
-            <option value="3BANDES">3 Bandes</option>
           </select>
           <select id="candidateRankFilter">
             <option value="">Tous les classements</option>
-            <option value="N1">Nationale 1</option>
-            <option value="N2">Nationale 2</option>
-            <option value="N3">Nationale 3</option>
-            <option value="R1">Regionale 1</option>
-            <option value="R2">Regionale 2</option>
-            <option value="R3">Regionale 3</option>
-            <option value="R4">Regionale 4</option>
-            <option value="D1">Departementale 1</option>
-            <option value="D2">Departementale 2</option>
-            <option value="D3">Departementale 3</option>
           </select>
           <input type="text" id="candidateSearch" placeholder="Rechercher un joueur...">
           <label style="display: flex; align-items: center; gap: 5px;">
@@ -605,6 +591,48 @@
         }
       } catch (error) {
         console.error('Error loading clubs:', error);
+      }
+    }
+
+    // Load game modes from reference data
+    async function loadGameModes() {
+      try {
+        const response = await fetch(`${API_URL}/reference-data/game-modes`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const modes = await response.json();
+          const select = document.getElementById('candidateModeFilter');
+          modes.forEach(mode => {
+            const option = document.createElement('option');
+            option.value = mode.code;
+            option.textContent = mode.display_name;
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading game modes:', error);
+      }
+    }
+
+    // Load FFB rankings from reference data
+    async function loadFFBRankings() {
+      try {
+        const response = await fetch(`${API_URL}/reference-data/ffb-rankings`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const rankings = await response.json();
+          const select = document.getElementById('candidateRankFilter');
+          rankings.forEach(rank => {
+            const option = document.createElement('option');
+            option.value = rank.code;
+            option.textContent = rank.display_name;
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading FFB rankings:', error);
       }
     }
 
@@ -1065,6 +1093,8 @@ https://cdbhs-player-app-production.up.railway.app/`;
     // Initialize
     loadStats();
     loadClubs();
+    loadGameModes();
+    loadFFBRankings();
     loadCandidates();
     loadTracking();
     loadTemplate();

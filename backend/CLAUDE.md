@@ -104,6 +104,7 @@ Optional:
 - Licence numbers are normalized by removing spaces for comparisons
 - CSV files use semicolon delimiter, imported via multer
 - **Test data exclusion:** ALWAYS exclude test accounts from counts, lists, and statistics. Test accounts have licences starting with "TEST" (case-insensitive). Use `WHERE UPPER(licence) NOT LIKE 'TEST%'` in queries.
+- **No hardcoding reference data:** NEVER hardcode values like game modes, FFB rankings, clubs, or categories. Always load them dynamically from the reference tables (`game_modes`, `ffb_rankings`, `clubs`, `categories`).
 
 ## Future Cleanup (2025-2026 Season)
 
