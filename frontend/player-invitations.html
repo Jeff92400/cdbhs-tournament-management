@@ -365,10 +365,6 @@
             <option value="">Tous les classements</option>
           </select>
           <input type="text" id="candidateSearch" placeholder="Rechercher un joueur...">
-          <label style="display: flex; align-items: center; gap: 5px;">
-            <input type="checkbox" id="excludeInvited" checked>
-            Exclure les deja invites
-          </label>
         </div>
 
         <div class="action-bar">
@@ -643,14 +639,13 @@
         const mode = document.getElementById('candidateModeFilter').value;
         const rank = document.getElementById('candidateRankFilter').value;
         const search = document.getElementById('candidateSearch').value;
-        const excludeInvited = document.getElementById('excludeInvited').checked;
 
         const params = new URLSearchParams();
         if (club) params.append('club', club);
         if (mode) params.append('mode', mode);
         if (rank) params.append('rank', rank);
         if (search) params.append('search', search);
-        if (excludeInvited) params.append('exclude_invited', 'true');
+        params.append('exclude_invited', 'true'); // Always exclude already invited
 
         const response = await fetch(`${API_URL}/player-invitations/candidates?${params}`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -1072,7 +1067,6 @@ https://cdbhs-player-app-production.up.railway.app/`;
     document.getElementById('candidateModeFilter').addEventListener('change', loadCandidates);
     document.getElementById('candidateRankFilter').addEventListener('change', loadCandidates);
     document.getElementById('candidateSearch').addEventListener('input', debounce(loadCandidates, 300));
-    document.getElementById('excludeInvited').addEventListener('change', loadCandidates);
     document.getElementById('trackingClubFilter').addEventListener('change', loadTracking);
     document.getElementById('trackingStatusFilter').addEventListener('change', loadTracking);
     document.getElementById('trackingSearch').addEventListener('input', debounce(loadTracking, 300));
