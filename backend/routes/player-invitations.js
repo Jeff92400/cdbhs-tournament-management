@@ -457,12 +457,16 @@ router.post('/send', authenticateToken, async (req, res) => {
     const pdfPath = path.join(__dirname, '../../frontend/documents/player-invitation-guide.pdf');
     let pdfAttachment = null;
 
+    console.log('[Player Invitations] Checking for PDF at:', pdfPath);
     if (fs.existsSync(pdfPath)) {
       const pdfContent = fs.readFileSync(pdfPath);
       pdfAttachment = {
         filename: 'Guide-Application-Joueur.pdf',
-        content: pdfContent.toString('base64')
+        content: pdfContent // Pass Buffer directly, Resend handles it
       };
+      console.log('[Player Invitations] PDF found, size:', pdfContent.length, 'bytes');
+    } else {
+      console.log('[Player Invitations] PDF not found at path');
     }
 
     const senderName = emailSettings.email_sender_name || 'CDBHS';
@@ -711,7 +715,7 @@ router.post('/resend/:id', authenticateToken, async (req, res) => {
       const pdfContent = fs.readFileSync(pdfPath);
       emailOptions.attachments = [{
         filename: 'Guide-Application-Joueur.pdf',
-        content: pdfContent.toString('base64')
+        content: pdfContent // Pass Buffer directly
       }];
     }
 
