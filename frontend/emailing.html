@@ -713,12 +713,12 @@
 
             <div style="margin-bottom: 15px;">
               <label style="display: block; font-weight: bold; margin-bottom: 5px;">Message d'introduction</label>
-              <textarea id="relanceIntro" rows="6" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+              <div id="relanceIntroEditor"></div>
             </div>
 
             <div style="margin-bottom: 15px;">
               <label style="display: block; font-weight: bold; margin-bottom: 5px;">Message de conclusion</label>
-              <textarea id="relanceOutro" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+              <div id="relanceOutroEditor"></div>
             </div>
 
             <div class="template-vars" style="margin-bottom: 15px;">
@@ -852,17 +852,12 @@
           <div>
             <div style="margin-bottom: 15px;">
               <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte d'introduction</label>
-              <textarea id="resultsIntroText" rows="4" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;">Bonjour {first_name},
-
-Voici les résultats du tournoi {tournament_name} qui s'est déroulé le {tournament_date} à {tournament_lieu}.
-
-Félicitations à tous les participants !</textarea>
+              <div id="resultsIntroTextEditor"></div>
             </div>
 
             <div style="margin-bottom: 15px;">
               <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte de conclusion</label>
-              <textarea id="resultsOutroText" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;">Sportivement,
-Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
+              <div id="resultsOutroTextEditor"></div>
             </div>
 
             <div style="margin-bottom: 15px;">
@@ -1076,7 +1071,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Corps du message</label>
-          <textarea id="convocationBody" rows="10" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+          <div id="convocationBodyEditor"></div>
         </div>
 
         <button class="btn" id="saveConvocationTemplateBtn" style="background: #28a745;">Enregistrer</button>
@@ -1102,7 +1097,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Corps du message</label>
-          <textarea id="finaleConvocationBody" rows="10" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+          <div id="finaleConvocationBodyEditor"></div>
         </div>
 
         <button class="btn" id="saveFinaleConvocationTemplateBtn" style="background: #28a745;">Enregistrer</button>
@@ -1122,12 +1117,12 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte d'introduction</label>
-          <textarea id="resultsIntroTemplate" rows="5" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+          <div id="resultsIntroTemplateEditor"></div>
         </div>
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte de conclusion</label>
-          <textarea id="resultsOutroTemplate" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+          <div id="resultsOutroTemplateEditor"></div>
         </div>
 
         <button class="btn" id="saveResultsTemplateBtn" style="background: #28a745;">Enregistrer</button>
@@ -1157,12 +1152,12 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
           <div style="margin-bottom: 15px;">
             <label style="display: block; font-weight: bold; margin-bottom: 5px;">Message d'introduction</label>
-            <textarea id="relanceTemplateIntro" rows="8" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+            <div id="relanceTemplateIntroEditor"></div>
           </div>
 
           <div style="margin-bottom: 15px;">
             <label style="display: block; font-weight: bold; margin-bottom: 5px;">Message de conclusion</label>
-            <textarea id="relanceTemplateOutro" rows="4" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+            <div id="relanceTemplateOutroEditor"></div>
           </div>
 
           <div class="template-vars" style="margin-bottom: 15px;">
@@ -1194,7 +1189,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Corps du message</label>
-          <textarea id="clubReminderBody" rows="15" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit;"></textarea>
+          <div id="clubReminderBodyEditor"></div>
         </div>
 
         <button class="btn" id="saveClubReminderTemplateBtn" style="background: #28a745;">Enregistrer</button>
@@ -1413,6 +1408,29 @@ Le Comité Départemental de Billard des Hauts-de-Seine</textarea>
         ]
       }
     });
+
+    // Shared Quill toolbar configuration
+    const quillToolbar = [
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'align': [] }],
+      ['link'],
+      ['clean']
+    ];
+
+    // Initialize all Quill editors for templates
+    const quillRelanceIntro = new Quill('#relanceIntroEditor', { theme: 'snow', placeholder: 'Message d\'introduction...', modules: { toolbar: quillToolbar } });
+    const quillRelanceOutro = new Quill('#relanceOutroEditor', { theme: 'snow', placeholder: 'Message de conclusion...', modules: { toolbar: quillToolbar } });
+    const quillResultsIntroText = new Quill('#resultsIntroTextEditor', { theme: 'snow', placeholder: 'Texte d\'introduction...', modules: { toolbar: quillToolbar } });
+    const quillResultsOutroText = new Quill('#resultsOutroTextEditor', { theme: 'snow', placeholder: 'Texte de conclusion...', modules: { toolbar: quillToolbar } });
+    const quillConvocationBody = new Quill('#convocationBodyEditor', { theme: 'snow', placeholder: 'Corps du message...', modules: { toolbar: quillToolbar } });
+    const quillFinaleConvocationBody = new Quill('#finaleConvocationBodyEditor', { theme: 'snow', placeholder: 'Corps du message...', modules: { toolbar: quillToolbar } });
+    const quillResultsIntroTemplate = new Quill('#resultsIntroTemplateEditor', { theme: 'snow', placeholder: 'Texte d\'introduction...', modules: { toolbar: quillToolbar } });
+    const quillResultsOutroTemplate = new Quill('#resultsOutroTemplateEditor', { theme: 'snow', placeholder: 'Texte de conclusion...', modules: { toolbar: quillToolbar } });
+    const quillRelanceTemplateIntro = new Quill('#relanceTemplateIntroEditor', { theme: 'snow', placeholder: 'Message d\'introduction...', modules: { toolbar: quillToolbar } });
+    const quillRelanceTemplateOutro = new Quill('#relanceTemplateOutroEditor', { theme: 'snow', placeholder: 'Message de conclusion...', modules: { toolbar: quillToolbar } });
+    const quillClubReminderBody = new Quill('#clubReminderBodyEditor', { theme: 'snow', placeholder: 'Corps du message...', modules: { toolbar: quillToolbar } });
 
     // Get user role
     let userRole = 'viewer';
@@ -2299,14 +2317,14 @@ Le CDBHS`
         if (response.ok) {
           const template = await response.json();
           document.getElementById('convocationSubject').value = template.subject_template || DEFAULT_CONVOCATION_TEMPLATE.subject;
-          document.getElementById('convocationBody').value = template.body_template || DEFAULT_CONVOCATION_TEMPLATE.body;
+          quillConvocationBody.clipboard.dangerouslyPasteHTML((template.body_template || DEFAULT_CONVOCATION_TEMPLATE.body).replace(/\n/g, '<br>'));
         } else {
           document.getElementById('convocationSubject').value = DEFAULT_CONVOCATION_TEMPLATE.subject;
-          document.getElementById('convocationBody').value = DEFAULT_CONVOCATION_TEMPLATE.body;
+          quillConvocationBody.clipboard.dangerouslyPasteHTML(DEFAULT_CONVOCATION_TEMPLATE.body.replace(/\n/g, '<br>'));
         }
       } catch (error) {
         document.getElementById('convocationSubject').value = DEFAULT_CONVOCATION_TEMPLATE.subject;
-        document.getElementById('convocationBody').value = DEFAULT_CONVOCATION_TEMPLATE.body;
+        quillConvocationBody.clipboard.dangerouslyPasteHTML(DEFAULT_CONVOCATION_TEMPLATE.body.replace(/\n/g, '<br>'));
       }
     }
 
@@ -2319,14 +2337,17 @@ Le CDBHS`
         if (response.ok) {
           const template = await response.json();
           document.getElementById('finaleConvocationSubject').value = template.subject_template || DEFAULT_FINALE_CONVOCATION_TEMPLATE.subject;
-          document.getElementById('finaleConvocationBody').value = template.body_template || DEFAULT_FINALE_CONVOCATION_TEMPLATE.body;
+          quillFinaleConvocationBody.setContents([]);
+          quillFinaleConvocationBody.clipboard.dangerouslyPasteHTML((template.body_template || DEFAULT_FINALE_CONVOCATION_TEMPLATE.body).replace(/\n/g, '<br>'));
         } else {
           document.getElementById('finaleConvocationSubject').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.subject;
-          document.getElementById('finaleConvocationBody').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.body;
+          quillFinaleConvocationBody.setContents([]);
+          quillFinaleConvocationBody.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_CONVOCATION_TEMPLATE.body.replace(/\n/g, '<br>'));
         }
       } catch (error) {
         document.getElementById('finaleConvocationSubject').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.subject;
-        document.getElementById('finaleConvocationBody').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.body;
+        quillFinaleConvocationBody.setContents([]);
+        quillFinaleConvocationBody.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_CONVOCATION_TEMPLATE.body.replace(/\n/g, '<br>'));
       }
     }
 
@@ -2348,24 +2369,33 @@ Le CDBHS`
         }
 
         // Update both the Templates tab fields AND the Results tab fields
-        document.getElementById('resultsIntroTemplate').value = intro;
-        document.getElementById('resultsOutroTemplate').value = outro;
-        document.getElementById('resultsIntroText').value = intro;
-        document.getElementById('resultsOutroText').value = outro;
+        quillResultsIntroTemplate.setContents([]);
+        quillResultsIntroTemplate.clipboard.dangerouslyPasteHTML(intro.replace(/\n/g, '<br>'));
+        quillResultsOutroTemplate.setContents([]);
+        quillResultsOutroTemplate.clipboard.dangerouslyPasteHTML(outro.replace(/\n/g, '<br>'));
+        quillResultsIntroText.setContents([]);
+        quillResultsIntroText.clipboard.dangerouslyPasteHTML(intro.replace(/\n/g, '<br>'));
+        quillResultsOutroText.setContents([]);
+        quillResultsOutroText.clipboard.dangerouslyPasteHTML(outro.replace(/\n/g, '<br>'));
 
       } catch (error) {
-        document.getElementById('resultsIntroTemplate').value = DEFAULT_RESULTS_TEMPLATE.intro;
-        document.getElementById('resultsOutroTemplate').value = DEFAULT_RESULTS_TEMPLATE.outro;
-        document.getElementById('resultsIntroText').value = DEFAULT_RESULTS_TEMPLATE.intro;
-        document.getElementById('resultsOutroText').value = DEFAULT_RESULTS_TEMPLATE.outro;
+        quillResultsIntroTemplate.setContents([]);
+        quillResultsIntroTemplate.clipboard.dangerouslyPasteHTML(DEFAULT_RESULTS_TEMPLATE.intro.replace(/\n/g, '<br>'));
+        quillResultsOutroTemplate.setContents([]);
+        quillResultsOutroTemplate.clipboard.dangerouslyPasteHTML(DEFAULT_RESULTS_TEMPLATE.outro.replace(/\n/g, '<br>'));
+        quillResultsIntroText.setContents([]);
+        quillResultsIntroText.clipboard.dangerouslyPasteHTML(DEFAULT_RESULTS_TEMPLATE.intro.replace(/\n/g, '<br>'));
+        quillResultsOutroText.setContents([]);
+        quillResultsOutroText.clipboard.dangerouslyPasteHTML(DEFAULT_RESULTS_TEMPLATE.outro.replace(/\n/g, '<br>'));
       }
     }
 
     document.getElementById('saveConvocationTemplateBtn').addEventListener('click', async () => {
       const subject = document.getElementById('convocationSubject').value.trim();
-      const body = document.getElementById('convocationBody').value.trim();
+      const body = quillConvocationBody.root.innerHTML;
+      const bodyText = quillConvocationBody.getText().trim();
 
-      if (!subject || !body) {
+      if (!subject || !bodyText) {
         showError('Tous les champs sont obligatoires.');
         return;
       }
@@ -2395,16 +2425,18 @@ Le CDBHS`
 
     document.getElementById('resetConvocationTemplateBtn').addEventListener('click', () => {
       document.getElementById('convocationSubject').value = DEFAULT_CONVOCATION_TEMPLATE.subject;
-      document.getElementById('convocationBody').value = DEFAULT_CONVOCATION_TEMPLATE.body;
+      quillConvocationBody.setContents([]);
+      quillConvocationBody.clipboard.dangerouslyPasteHTML(DEFAULT_CONVOCATION_TEMPLATE.body.replace(/\n/g, '<br>'));
       showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
     });
 
     // Finale Convocation Template handlers
     document.getElementById('saveFinaleConvocationTemplateBtn').addEventListener('click', async () => {
       const subject = document.getElementById('finaleConvocationSubject').value.trim();
-      const body = document.getElementById('finaleConvocationBody').value.trim();
+      const body = quillFinaleConvocationBody.root.innerHTML;
+      const bodyText = quillFinaleConvocationBody.getText().trim();
 
-      if (!subject || !body) {
+      if (!subject || !bodyText) {
         showError('Tous les champs sont obligatoires.');
         return;
       }
@@ -2434,15 +2466,18 @@ Le CDBHS`
 
     document.getElementById('resetFinaleConvocationTemplateBtn').addEventListener('click', () => {
       document.getElementById('finaleConvocationSubject').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.subject;
-      document.getElementById('finaleConvocationBody').value = DEFAULT_FINALE_CONVOCATION_TEMPLATE.body;
+      quillFinaleConvocationBody.setContents([]);
+      quillFinaleConvocationBody.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_CONVOCATION_TEMPLATE.body.replace(/\n/g, '<br>'));
       showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
     });
 
     document.getElementById('saveResultsTemplateBtn').addEventListener('click', async () => {
-      const intro = document.getElementById('resultsIntroTemplate').value.trim();
-      const outro = document.getElementById('resultsOutroTemplate').value.trim();
+      const intro = quillResultsIntroTemplate.root.innerHTML;
+      const introText = quillResultsIntroTemplate.getText().trim();
+      const outro = quillResultsOutroTemplate.root.innerHTML;
+      const outroText = quillResultsOutroTemplate.getText().trim();
 
-      if (!intro || !outro) {
+      if (!introText || !outroText) {
         showError('Tous les champs sont obligatoires.');
         return;
       }
@@ -2462,9 +2497,11 @@ Le CDBHS`
 
         if (response.ok) {
           showSuccess('Template résultats enregistré!');
-          // Also update the Results tab textareas
-          document.getElementById('resultsIntroText').value = intro;
-          document.getElementById('resultsOutroText').value = outro;
+          // Also update the Results tab Quill editors
+          quillResultsIntroText.setContents([]);
+          quillResultsIntroText.clipboard.dangerouslyPasteHTML(intro);
+          quillResultsOutroText.setContents([]);
+          quillResultsOutroText.clipboard.dangerouslyPasteHTML(outro);
         } else {
           showError('Erreur lors de la sauvegarde.');
         }
@@ -2474,8 +2511,10 @@ Le CDBHS`
     });
 
     document.getElementById('resetResultsTemplateBtn').addEventListener('click', () => {
-      document.getElementById('resultsIntroTemplate').value = DEFAULT_RESULTS_TEMPLATE.intro;
-      document.getElementById('resultsOutroTemplate').value = DEFAULT_RESULTS_TEMPLATE.outro;
+      quillResultsIntroTemplate.setContents([]);
+      quillResultsIntroTemplate.clipboard.dangerouslyPasteHTML(DEFAULT_RESULTS_TEMPLATE.intro.replace(/\n/g, '<br>'));
+      quillResultsOutroTemplate.setContents([]);
+      quillResultsOutroTemplate.clipboard.dangerouslyPasteHTML(DEFAULT_RESULTS_TEMPLATE.outro.replace(/\n/g, '<br>'));
       showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
     });
 
@@ -2490,22 +2529,26 @@ Le CDBHS`
         if (response.ok) {
           const template = await response.json();
           document.getElementById('clubReminderSubject').value = template.subject_template || DEFAULT_CLUB_REMINDER_TEMPLATE.subject;
-          document.getElementById('clubReminderBody').value = template.body_template || DEFAULT_CLUB_REMINDER_TEMPLATE.body;
+          quillClubReminderBody.setContents([]);
+          quillClubReminderBody.clipboard.dangerouslyPasteHTML((template.body_template || DEFAULT_CLUB_REMINDER_TEMPLATE.body).replace(/\n/g, '<br>'));
         } else {
           document.getElementById('clubReminderSubject').value = DEFAULT_CLUB_REMINDER_TEMPLATE.subject;
-          document.getElementById('clubReminderBody').value = DEFAULT_CLUB_REMINDER_TEMPLATE.body;
+          quillClubReminderBody.setContents([]);
+          quillClubReminderBody.clipboard.dangerouslyPasteHTML(DEFAULT_CLUB_REMINDER_TEMPLATE.body.replace(/\n/g, '<br>'));
         }
       } catch (error) {
         document.getElementById('clubReminderSubject').value = DEFAULT_CLUB_REMINDER_TEMPLATE.subject;
-        document.getElementById('clubReminderBody').value = DEFAULT_CLUB_REMINDER_TEMPLATE.body;
+        quillClubReminderBody.setContents([]);
+        quillClubReminderBody.clipboard.dangerouslyPasteHTML(DEFAULT_CLUB_REMINDER_TEMPLATE.body.replace(/\n/g, '<br>'));
       }
     }
 
     document.getElementById('saveClubReminderTemplateBtn').addEventListener('click', async () => {
       const subject = document.getElementById('clubReminderSubject').value.trim();
-      const body = document.getElementById('clubReminderBody').value.trim();
+      const body = quillClubReminderBody.root.innerHTML;
+      const bodyText = quillClubReminderBody.getText().trim();
 
-      if (!subject || !body) {
+      if (!subject || !bodyText) {
         showError('Tous les champs sont obligatoires.');
         return;
       }
@@ -2535,7 +2578,8 @@ Le CDBHS`
 
     document.getElementById('resetClubReminderTemplateBtn').addEventListener('click', () => {
       document.getElementById('clubReminderSubject').value = DEFAULT_CLUB_REMINDER_TEMPLATE.subject;
-      document.getElementById('clubReminderBody').value = DEFAULT_CLUB_REMINDER_TEMPLATE.body;
+      quillClubReminderBody.setContents([]);
+      quillClubReminderBody.clipboard.dangerouslyPasteHTML(DEFAULT_CLUB_REMINDER_TEMPLATE.body.replace(/\n/g, '<br>'));
       showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
     });
 
@@ -2649,18 +2693,21 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       // Load template from server or use default
       const template = relanceTemplates[key] || DEFAULT_RELANCE_TEMPLATES_CLIENT[key];
       document.getElementById('relanceTemplateSubject').value = template.subject || '';
-      document.getElementById('relanceTemplateIntro').value = template.intro || '';
-      document.getElementById('relanceTemplateOutro').value = template.outro || '';
+      quillRelanceTemplateIntro.setContents([]);
+      quillRelanceTemplateIntro.clipboard.dangerouslyPasteHTML((template.intro || '').replace(/\n/g, '<br>'));
+      quillRelanceTemplateOutro.setContents([]);
+      quillRelanceTemplateOutro.clipboard.dangerouslyPasteHTML((template.outro || '').replace(/\n/g, '<br>'));
     });
 
     document.getElementById('saveRelanceTemplateBtn').addEventListener('click', async () => {
       if (!currentRelanceTemplateKey) return;
 
       const subject = document.getElementById('relanceTemplateSubject').value.trim();
-      const intro = document.getElementById('relanceTemplateIntro').value.trim();
-      const outro = document.getElementById('relanceTemplateOutro').value.trim();
+      const intro = quillRelanceTemplateIntro.root.innerHTML;
+      const introText = quillRelanceTemplateIntro.getText().trim();
+      const outro = quillRelanceTemplateOutro.root.innerHTML;
 
-      if (!subject || !intro) {
+      if (!subject || !introText) {
         showError('Le sujet et le message d\'introduction sont obligatoires.');
         return;
       }
@@ -2692,8 +2739,10 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
       const defaultTemplate = DEFAULT_RELANCE_TEMPLATES_CLIENT[currentRelanceTemplateKey];
       document.getElementById('relanceTemplateSubject').value = defaultTemplate.subject;
-      document.getElementById('relanceTemplateIntro').value = defaultTemplate.intro;
-      document.getElementById('relanceTemplateOutro').value = defaultTemplate.outro;
+      quillRelanceTemplateIntro.setContents([]);
+      quillRelanceTemplateIntro.clipboard.dangerouslyPasteHTML(defaultTemplate.intro.replace(/\n/g, '<br>'));
+      quillRelanceTemplateOutro.setContents([]);
+      quillRelanceTemplateOutro.clipboard.dangerouslyPasteHTML(defaultTemplate.outro.replace(/\n/g, '<br>'));
       showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
     });
 
@@ -3067,8 +3116,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
       if (!relanceType) {
         document.getElementById('relanceSubject').value = '';
-        document.getElementById('relanceIntro').value = '';
-        document.getElementById('relanceOutro').value = '';
+        quillRelanceIntro.setContents([]);
+        quillRelanceOutro.setContents([]);
         extraVarsSpan.innerHTML = '';
         customFieldsDiv.style.display = 'none';
         return;
@@ -3078,8 +3127,10 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       const template = relanceTemplates[templateKey] || {};
 
       document.getElementById('relanceSubject').value = template.subject || '';
-      document.getElementById('relanceIntro').value = template.intro || '';
-      document.getElementById('relanceOutro').value = template.outro || '';
+      quillRelanceIntro.setContents([]);
+      quillRelanceIntro.clipboard.dangerouslyPasteHTML((template.intro || '').replace(/\n/g, '<br>'));
+      quillRelanceOutro.setContents([]);
+      quillRelanceOutro.clipboard.dangerouslyPasteHTML((template.outro || '').replace(/\n/g, '<br>'));
 
       // Club options for lieu dropdowns (dynamic from database)
       const clubOptions = getClubOptionsHtml();
@@ -3458,14 +3509,15 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       const category = document.getElementById('relanceCategoryFilter').value;
       const relanceType = document.getElementById('relanceTypeSelect').value;
       const subject = document.getElementById('relanceSubject').value.trim();
-      const intro = document.getElementById('relanceIntro').value.trim();
-      const outro = document.getElementById('relanceOutro').value.trim();
+      const intro = quillRelanceIntro.root.innerHTML;
+      const introText = quillRelanceIntro.getText().trim();
+      const outro = quillRelanceOutro.root.innerHTML;
       const imageUrl = document.getElementById('relanceImageUrl').value.trim();
       const testMode = document.getElementById('relanceTestModeCheck').checked;
       const testEmail = document.getElementById('relanceTestEmail').value.trim();
       const ccEmail = document.getElementById('relanceCcCheck').checked ? document.getElementById('relanceCcEmail').value.trim() : null;
 
-      if (!subject || !intro) {
+      if (!subject || !introText) {
         showError('Le sujet et le message sont obligatoires.');
         return;
       }
@@ -3690,14 +3742,15 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       const category = document.getElementById('relanceCategoryFilter').value;
       const relanceType = document.getElementById('relanceTypeSelect').value;
       const subject = document.getElementById('relanceSubject').value.trim();
-      const intro = document.getElementById('relanceIntro').value.trim();
-      const outro = document.getElementById('relanceOutro').value.trim();
+      const intro = quillRelanceIntro.root.innerHTML;
+      const introText = quillRelanceIntro.getText().trim();
+      const outro = quillRelanceOutro.root.innerHTML;
       const imageUrl = document.getElementById('relanceImageUrl').value.trim();
       const ccEmail = document.getElementById('relanceCcCheck').checked ? document.getElementById('relanceCcEmail').value.trim() : null;
       const testMode = document.getElementById('relanceTestModeCheck').checked;
       const testEmail = testMode ? document.getElementById('relanceTestEmail').value.trim() : null;
 
-      if (!subject || !intro) {
+      if (!subject || !introText) {
         showError('Le sujet et le message sont obligatoires.');
         return;
       }
@@ -4545,8 +4598,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
           },
           body: JSON.stringify({
             tournamentId: selectedTournamentData.id,
-            introText: document.getElementById('resultsIntroText').value,
-            outroText: document.getElementById('resultsOutroText').value,
+            introText: quillResultsIntroText.root.innerHTML,
+            outroText: quillResultsOutroText.root.innerHTML,
             imageUrl: document.getElementById('resultsImageUrl').value || null,
             testMode: isTestMode,
             testEmail: isTestMode ? testEmail : null,
@@ -4602,8 +4655,8 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
           },
           body: JSON.stringify({
             tournamentId: selectedTournamentData.id,
-            introText: document.getElementById('resultsIntroText').value,
-            outroText: document.getElementById('resultsOutroText').value,
+            introText: quillResultsIntroText.root.innerHTML,
+            outroText: quillResultsOutroText.root.innerHTML,
             imageUrl: document.getElementById('resultsImageUrl').value || null,
             scheduledAt,
             ccEmail: document.getElementById('ccCheck').checked ? document.getElementById('ccEmail').value.trim() : null,
