@@ -84,6 +84,7 @@ npm run backup
 - From addresses: `communication@cdbhs.net`, `convocations@cdbhs.net`
 - Templates support variables: `{player_name}`, `{first_name}`, `{club}`, `{category}`, etc.
 - Scheduled emails processed by `processScheduledEmails()` in server.js
+- **CRITICAL - Variable ordering in email routes:** When modifying email routes in `emailing.js` or `email.js`, always define `primaryColor`, `senderName`, `emailFrom` and other settings variables BEFORE using them in helper functions like `buildContactPhraseHtml(contactEmail, primaryColor)`. The async `appSettings.getSetting()` calls must complete before their values are used. This bug has caused email failures multiple times - always verify variable declaration order when touching email code.
 
 ## Environment Variables
 
