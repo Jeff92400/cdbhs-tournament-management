@@ -146,7 +146,7 @@ Optional:
 - All text is in **French**
 - Dates: Paris timezone, displayed as DD/MM/YYYY
 - Season format: `YYYY-YYYY+1` (e.g., "2024-2025"), September cutoff
-- CSS primary color: `#1F4788` (CDBHS blue)
+- **Dynamic branding colors:** Colors are loaded from `app_settings` table and applied via CSS variables. See "Branding System" section below.
 - Licence numbers normalized by removing spaces
 - CSV imports use semicolon delimiter
 - **Billiard icon:** Never use the American 8-ball emoji (🎱). Always use the French billiard icon image instead: `<img src="images/FrenchBillard-Icon-small.png" alt="" style="height: 24px; width: 24px; vertical-align: middle;">`
@@ -161,6 +161,36 @@ Optional:
 - `'manual'` - Admin added via dashboard
 
 **Note:** IONOS will be decommissioned next year; Player App will become the sole source.
+
+## Branding System
+
+The app supports dynamic branding for multi-organization deployment.
+
+### Color Settings (app_settings table)
+| Key | Default | Used For |
+|-----|---------|----------|
+| `primary_color` | #1F4788 | Headers, navbar, buttons, links |
+| `secondary_color` | #667eea | Gradients, hover states |
+| `accent_color` | #ffc107 | Alerts, warnings, badges |
+| `background_color` | #f8f9fa | Email body, page backgrounds |
+| `background_secondary_color` | #f5f5f5 | Alternating rows, cards |
+
+### How It Works
+1. **CSS Variables:** `frontend/css/styles.css` defines `:root` variables with defaults
+2. **branding.js:** Loaded on every page, fetches `/api/settings/branding/colors` and updates CSS variables
+3. **Email templates:** Backend routes fetch colors via `appSettings.getSetting('primary_color')`
+
+### Files
+- `frontend/js/branding.js` - Fetches colors, updates CSS variables (5-min cache)
+- `frontend/css/styles.css` - CSS variables in `:root` section
+- `backend/routes/settings.js` - Public `/branding/colors` endpoint
+
+### Adding to New Pages
+Include branding.js after styles.css:
+```html
+<link rel="stylesheet" href="css/styles.css">
+<script src="js/branding.js"></script>
+```
 
 ## See Also
 

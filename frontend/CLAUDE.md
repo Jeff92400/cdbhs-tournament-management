@@ -82,11 +82,13 @@ All authenticated pages include `auth-utils.js` and follow this pattern:
 - `normalizeClubName(name)` - Normalizes for matching
 
 ### CSS Conventions
-- Primary color: `#1F4788` (CDBHS blue)
-- Gradient: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`
+- **Colors are dynamic** - use CSS variables: `var(--color-primary)`, `var(--color-secondary)`, etc.
+- Default primary: `#1F4788`, secondary: `#667eea`, accent: `#ffc107`
+- Gradient: `linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%)`
 - Button variants: `.btn`, `.btn-success`, `.btn-danger`
 - Cards: `.card` class for content sections
 - Navigation: `.navbar`, `.nav-links`, `.nav-tooltip`
+- **branding.js** loads colors from API and updates CSS variables on page load
 
 ### Common Patterns
 
