@@ -965,16 +965,16 @@ router.post('/send', authenticateToken, async (req, res) => {
       ? [{ ...recipients[0], email: testEmail, first_name: 'TEST', last_name: 'MODE' }]
       : recipients;
 
-    // Get contact email for the contact phrase
-    const contactEmail = await getContactEmail();
-    const contactPhraseHtml = buildContactPhraseHtml(contactEmail, primaryColor);
-    const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
-
-    // Get dynamic sender info
+    // Get dynamic sender info and branding
     const senderName = await appSettings.getSetting('email_sender_name') || 'CDBHS';
     const senderEmail = await appSettings.getSetting('email_noreply') || 'noreply@cdbhs.net';
     const emailFrom = `${senderName} <${senderEmail}>`;
     const primaryColor = await appSettings.getSetting('primary_color') || '#1F4788';
+
+    // Get contact email for the contact phrase
+    const contactEmail = await getContactEmail();
+    const contactPhraseHtml = buildContactPhraseHtml(contactEmail, primaryColor);
+    const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
 
     // Send emails
     for (const recipient of recipientsToEmail) {
@@ -1448,15 +1448,15 @@ router.post('/process-scheduled', async (req, res) => {
     const processedCount = scheduledEmails.length;
     let blockedCount = 0;
 
-    // Get configurable contact email
-    const contactEmail = await getContactEmail();
-    const contactPhraseHtml = buildContactPhraseHtml(contactEmail, primaryColor);
-
-    // Get dynamic sender info
+    // Get dynamic sender info and branding
     const senderName = await appSettings.getSetting('email_sender_name') || 'CDBHS';
     const senderEmail = await appSettings.getSetting('email_noreply') || 'noreply@cdbhs.net';
     const emailFrom = `${senderName} <${senderEmail}>`;
     const primaryColor = await appSettings.getSetting('primary_color') || '#1F4788';
+
+    // Get configurable contact email
+    const contactEmail = await getContactEmail();
+    const contactPhraseHtml = buildContactPhraseHtml(contactEmail, primaryColor);
 
     for (const scheduled of scheduledEmails) {
       // Check if this type of email was already manually sent
