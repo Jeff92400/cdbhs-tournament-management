@@ -246,12 +246,10 @@
             <th>Role</th>
             <th>Action</th>
             <th>Details</th>
-            <th>Cible</th>
-            <th>IP</th>
           </tr>
         </thead>
         <tbody id="logsTableBody">
-          <tr><td colspan="7" class="empty-state">Chargement...</td></tr>
+          <tr><td colspan="5" class="empty-state">Chargement...</td></tr>
         </tbody>
       </table>
     </div>
@@ -428,8 +426,6 @@
           <td><span class="role-badge ${log.user_role}">${log.user_role}</span></td>
           <td><span class="action-badge ${log.action_type.toLowerCase()}">${formatActionType(log.action_type)}</span></td>
           <td>${log.action_details || '-'}</td>
-          <td>${log.target_name ? `${log.target_type}: ${log.target_name}` : '-'}</td>
-          <td>${log.ip_address || '-'}</td>
         </tr>
       `).join('');
     }
