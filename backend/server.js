@@ -66,7 +66,7 @@ app.use(helmet({
       scriptSrcAttr: ["'unsafe-inline'"], // Allow inline onclick handlers
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.quilljs.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      connectSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdn.quilljs.com"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
