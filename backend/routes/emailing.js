@@ -384,7 +384,7 @@ function textToHtml(content) {
     return content;
   }
   // Plain text - convert line breaks to <br>
-  return content);
+  return content.replace(/\n/g, '<br>');
 }
 
 // ==================== SYNC HELPER ====================
