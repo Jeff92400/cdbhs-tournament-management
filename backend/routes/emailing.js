@@ -1006,7 +1006,7 @@ router.post('/send', authenticateToken, async (req, res) => {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
                 <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
-                <h1 style="margin: 0; font-size: 24px;">${await appSettings.get('organization_name') || 'Comité Départemental de Billard'}</h1>
+                <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
               </div>
               <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
                 ${imageHtml}
@@ -1951,7 +1951,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
             <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
               <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
-              <h1 style="margin: 0; font-size: 24px;">${await appSettings.get('organization_name') || 'Comité Départemental de Billard'}</h1>
+              <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
               <p style="margin: 10px 0 0 0; opacity: 0.9;">Résultats - ${tournament.display_name}</p>
               <p style="margin: 5px 0 0 0; opacity: 0.8; font-size: 14px;">${tournamentDate}${tournament.location ? ' - ' + tournament.location : ''}</p>
             </div>
@@ -2056,7 +2056,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
             <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
               <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
-              <h1 style="margin: 0; font-size: 24px;">${await appSettings.get('organization_name') || 'Comité Départemental de Billard'}</h1>
+              <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
               <p style="margin: 10px 0 0 0; opacity: 0.9;">📋 Récapitulatif Envoi Résultats - ${tournament.display_name}</p>
             </div>
             <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
@@ -2611,7 +2611,7 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
             <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
               <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
-              <h1 style="margin: 0; font-size: 24px;">${await appSettings.get('organization_name') || 'Comité Départemental de Billard'}</h1>
+              <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
               <p style="margin: 10px 0 0 0; opacity: 0.9;">📋 Récapitulatif Convocations Finale - ${category.display_name}</p>
             </div>
             <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
@@ -3791,7 +3791,7 @@ router.post('/send-relance', authenticateToken, async (req, res) => {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #1F4788; color: white; padding: 20px; text-align: center;">
               <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
-              <h1 style="margin: 0; font-size: 24px;">${await appSettings.get('organization_name') || 'Comité Départemental de Billard'}</h1>
+              <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
             </div>
             <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
               ${imageHtml}
