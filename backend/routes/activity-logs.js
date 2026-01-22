@@ -177,7 +177,7 @@ router.get('/stats', authenticateToken, requireViewer, async (req, res) => {
       dateFilter = `created_at >= NOW() - INTERVAL '${parseInt(days)} days'`;
     }
 
-    // Actions per day
+    // Actions per day (excluding test accounts)
     const dailyStats = await db.query(`
       SELECT
         DATE(created_at) as date,
@@ -185,23 +185,26 @@ router.get('/stats', authenticateToken, requireViewer, async (req, res) => {
         COUNT(*) as count
       FROM activity_logs
       WHERE ${dateFilter}
+        AND (licence IS NULL OR UPPER(licence) NOT LIKE 'TEST%')
       GROUP BY DATE(created_at), action_type
       ORDER BY date DESC, action_type
     `);
 
-    // Total counts by action type
+    // Total counts by action type (excluding test accounts)
     const totals = await db.query(`
       SELECT
         action_type,
         COUNT(*) as count
       FROM activity_logs
       WHERE ${dateFilter}
+        AND (licence IS NULL OR UPPER(licence) NOT LIKE 'TEST%')
       GROUP BY action_type
       ORDER BY count DESC
     `);
 
     // Recent active users (join with players to get real names)
     // Group by normalized licence to avoid duplicates
+    // Exclude test accounts (licence starting with TEST)
     const activeUsers = await db.query(`
       SELECT
         REPLACE(a.licence, ' ', '') as licence,
@@ -212,6 +215,7 @@ router.get('/stats', authenticateToken, requireViewer, async (req, res) => {
       LEFT JOIN players p ON REPLACE(p.licence, ' ', '') = REPLACE(a.licence, ' ', '')
       WHERE ${dateFilter.replace('created_at', 'a.created_at')}
         AND a.licence IS NOT NULL
+        AND UPPER(a.licence) NOT LIKE 'TEST%'
       GROUP BY REPLACE(a.licence, ' ', ''), p.last_name, p.first_name
       ORDER BY action_count DESC
       LIMIT 10
@@ -223,6 +227,7 @@ router.get('/stats', authenticateToken, requireViewer, async (req, res) => {
       FROM players
       WHERE player_app_user = TRUE
         AND (player_app_role IS NULL OR player_app_role != 'test')
+        AND UPPER(licence) NOT LIKE 'TEST%'
     `);
 
     res.json({
