@@ -1053,7 +1053,7 @@ Le comite sportif du {organization_name}`;
                   <strong>${data.filename}</strong><br>
                   <small style="color: #666;">${size} KB - Modifie le ${date}</small>
                 </div>
-                <a href="${data.url}" target="_blank" class="btn btn-secondary" style="margin-left: auto;">Telecharger</a>
+                <button onclick="downloadPdf('${data.filename}')" class="btn btn-secondary" style="margin-left: auto;">Telecharger</button>
               </div>
             `;
           } else {
@@ -1066,6 +1066,34 @@ Le comite sportif du {organization_name}`;
         }
       } catch (error) {
         console.error('Error loading PDF info:', error);
+      }
+    }
+
+    async function downloadPdf(filename) {
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/pdf/download`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          showError(error.error || 'Erreur lors du telechargement');
+          return;
+        }
+
+        // Create blob and download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'Guide-Application-Joueur.pdf';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (error) {
+        console.error('Error downloading PDF:', error);
+        showError('Erreur de connexion');
       }
     }
 
