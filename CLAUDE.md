@@ -16,7 +16,25 @@ This file provides guidance to Claude Code when working with this repository.
 ### Process
 1. Work on `main` branch
 2. Commit changes with descriptive message
-3. Push to deploy: `git push origin main` (auto-deploys to Railway)
+3. **Update version number** in `frontend/login.html` (see Versioning below)
+4. Push to deploy: `git push origin main` (auto-deploys to Railway)
+
+## Versioning
+
+**Current Version:** V 2.0.0 01/26
+
+Version is displayed at the bottom of the login screen (`frontend/login.html`).
+
+### Format
+`V 2.0.xx mm/yy`
+- `2.0` = Major.Minor version (increment minor for significant features)
+- `xx` = Patch number (increment for each deployment)
+- `mm/yy` = Month/Year of deployment
+
+### Update Process
+**IMPORTANT:** Increment the patch number (xx) with each deployment.
+- Location: `frontend/login.html` - look for the version div near the bottom
+- Example: `V 2.0.0 01/26` → `V 2.0.1 01/26` → `V 2.0.2 02/26`
 
 ## Commands
 
