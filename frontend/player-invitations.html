@@ -7,7 +7,28 @@
   <link rel="icon" type="image/png" href="images/FrenchBillard-Icon-small.png">
   <link rel="stylesheet" href="css/styles.css">
   <script src="js/branding.js"></script>
+  <!-- Quill Rich Text Editor -->
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
   <style>
+    /* Quill editor styling */
+    .ql-container {
+      font-family: inherit;
+      font-size: 14px;
+      min-height: 300px;
+    }
+    .ql-editor {
+      min-height: 300px;
+    }
+    .ql-toolbar {
+      background: #f8f9fa;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+    }
+    .ql-container.ql-snow {
+      border-bottom-left-radius: 6px;
+      border-bottom-right-radius: 6px;
+    }
     .stats-cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -185,17 +206,6 @@
       transform: rotate(90deg);
     }
 
-    .template-editor textarea {
-      width: 100%;
-      min-height: 300px;
-      padding: 15px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-family: inherit;
-      font-size: 14px;
-      line-height: 1.5;
-      resize: vertical;
-    }
     .template-editor input {
       width: 100%;
       padding: 10px;
@@ -446,9 +456,9 @@
         <div class="template-variables">
           <strong>Variables disponibles :</strong>
           <code>{first_name}</code> - Prenom du joueur
-          <code>{organisation_name}</code> - Nom de l'organisation
-          <code>{organisation_short_name}</code> - Sigle (ex: CDBHS)
-          <code>{organisation_email}</code> - Email de l'organisation
+          <code>{organization_name}</code> - Nom de l'organisation
+          <code>{organization_short_name}</code> - Sigle (ex: CDBHS)
+          <code>{organization_email}</code> - Email de l'organisation
         </div>
 
         <div class="template-editor">
@@ -456,7 +466,7 @@
           <input type="text" id="templateSubject" placeholder="Sujet de l'email">
 
           <label style="margin-top: 15px; display: block;">Corps du message :</label>
-          <textarea id="templateBody" placeholder="Corps du message..."></textarea>
+          <div id="templateBodyEditor"></div>
 
           <div style="margin-top: 15px; display: flex; gap: 10px;">
             <button class="btn" onclick="saveTemplate()">Enregistrer le template</button>
@@ -516,6 +526,21 @@
     }
     const token = localStorage.getItem('token');
     const userRole = localStorage.getItem('userRole');
+
+    // Initialize Quill rich text editor for template body
+    const quillTemplateBody = new Quill('#templateBodyEditor', {
+      theme: 'snow',
+      placeholder: 'Corps du message...',
+      modules: {
+        toolbar: [
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ 'color': [] }, { 'background': [] }],
+          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+          ['link'],
+          ['clean']
+        ]
+      }
+    });
 
     // Show/hide admin elements
     document.querySelectorAll('.admin-only').forEach(el => {
@@ -943,7 +968,10 @@
         if (response.ok) {
           const data = await response.json();
           document.getElementById('templateSubject').value = data.subject || '';
-          document.getElementById('templateBody').value = data.body || '';
+          // Convert plain text line breaks to HTML for Quill
+          const htmlContent = (data.body || '').replace(/\n/g, '<br>');
+          quillTemplateBody.setContents([]);
+          quillTemplateBody.clipboard.dangerouslyPasteHTML(htmlContent);
         }
       } catch (error) {
         console.error('Error loading template:', error);
@@ -952,9 +980,10 @@
 
     async function saveTemplate() {
       const subject = document.getElementById('templateSubject').value;
-      const body = document.getElementById('templateBody').value;
+      const body = quillTemplateBody.root.innerHTML;
+      const bodyText = quillTemplateBody.getText().trim();
 
-      if (!subject || !body) {
+      if (!subject || !bodyText) {
         showError('Le sujet et le corps sont requis');
         return;
       }
@@ -983,23 +1012,24 @@
 
     function resetTemplate() {
       if (confirm('Reinitialiser le template par defaut ?')) {
-        document.getElementById('templateSubject').value = "Invitation a l'application joueurs Comite Departemental";
-        document.getElementById('templateBody').value = `Cher {first_name}
+        document.getElementById('templateSubject').value = "Invitation a l'application joueurs {organization_short_name}";
+        const defaultBody = `Cher {first_name},
 
-Merci d'avoir accepte d'utiliser l'application destinee aux joueurs du 92. Elle fait partie de la refonte totale que nous avons effectuee pour remplacer l'existant, c'est-a-dire le site web du {organisation_name}.
+Merci d'accepter d'utiliser l'application destinee aux joueurs de notre departement. Elle fait partie de la refonte totale que nous avons effectuee pour remplacer l'existant, c'est-a-dire le site web du {organization_name}.
 
 Nous sommes en cours de diffusion progressive durant cette saison pour un usage generalise au debut de la saison prochaine.
 
-Tu trouveras ci-joint un document decrivant rapidement les fonctionnalites de cette application (qui fonctionne sur PC/Mac ou mobile iOS/Android) et la maniere de l'installer. Si tu rencontres la moindre difficulte, n'hesite pas a m'envoyer un email directement ou via l'application qui dispose d'une fonction << contact >>.
+Tu trouveras ci-joint un document decrivant rapidement les fonctionnalites de cette application (qui fonctionne sur PC/Mac ou mobile iOS/Android) et la maniere de l'installer. Si tu rencontres la moindre difficulte, n'hesite pas a nous envoyer un email directement ou via l'application qui dispose d'une fonction « contact ».
 
 Nous sommes bien sur preneurs de toute anomalie que tu pourrais decouvrir, mais aussi de suggestions qui contribueraient a une meilleure experience pour les utilisateurs.
 
 Bon usage de ce nouvel outil et nous restons a disposition pour toute demande de support.
 
-Bien cordialement
-Le comite sportif du {organisation_name}
-
-https://cdbhs-player-app-production.up.railway.app/`;
+Bien cordialement,
+Le comite sportif du {organization_name}`;
+        quillTemplateBody.setContents([]);
+        quillTemplateBody.clipboard.dangerouslyPasteHTML(defaultBody.replace(/\n/g, '<br>'));
+        showSuccess('Template reinitialise. Cliquez sur Enregistrer pour sauvegarder.');
       }
     }
 
