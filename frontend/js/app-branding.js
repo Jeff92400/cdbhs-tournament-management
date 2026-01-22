@@ -101,8 +101,9 @@ function updateFavicon(url) {
 /**
  * Initialize branding for public pages (no auth required)
  * Uses /logo.png public endpoint for dynamic logo
+ * Also fetches organization name from public branding endpoint
  */
-function initPublicBranding() {
+async function initPublicBranding() {
   // Use the public /logo.png endpoint with cache-busting
   const logoUrl = '/logo.png?v=' + Date.now();
 
@@ -114,6 +115,20 @@ function initPublicBranding() {
     headerIcon.onerror = function() {
       this.src = DEFAULT_LOGO_PATH;
     };
+  }
+
+  // Fetch organization name from public branding endpoint
+  try {
+    const response = await fetch('/api/settings/branding/colors');
+    if (response.ok) {
+      const data = await response.json();
+      const orgNameEl = document.getElementById('app-org-name');
+      if (orgNameEl && data.organization_short_name) {
+        orgNameEl.textContent = data.organization_short_name;
+      }
+    }
+  } catch (error) {
+    console.log('[Branding] Could not fetch org name for public page:', error);
   }
 }
 

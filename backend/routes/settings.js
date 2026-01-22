@@ -31,7 +31,8 @@ router.get('/branding/colors', async (req, res) => {
     'secondary_color',
     'accent_color',
     'background_color',
-    'background_secondary_color'
+    'background_secondary_color',
+    'organization_short_name'
   ];
 
   const placeholders = colorKeys.map((_, i) => `$${i + 1}`).join(',');
@@ -51,7 +52,8 @@ router.get('/branding/colors', async (req, res) => {
         secondary_color: '#667eea',
         accent_color: '#ffc107',
         background_color: '#f8f9fa',
-        background_secondary_color: '#f5f5f5'
+        background_secondary_color: '#f5f5f5',
+        organization_short_name: null
       };
 
       for (const row of rows || []) {
