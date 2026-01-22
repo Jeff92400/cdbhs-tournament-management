@@ -1281,8 +1281,9 @@
             <option value="sent">Envoyé</option>
             <option value="failed">Échec</option>
           </select>
-          <input type="date" id="inscriptionDateFrom" title="Date début">
-          <input type="date" id="inscriptionDateTo" title="Date fin">
+          <input type="text" id="inscriptionPlayerFilter" placeholder="Rechercher joueur..." style="min-width: 180px;" title="Nom ou email du joueur">
+          <input type="date" id="inscriptionDateFrom" title="Date début" onchange="saveInscriptionDateFilters()">
+          <input type="date" id="inscriptionDateTo" title="Date fin" onchange="saveInscriptionDateFilters()">
           <button class="btn" onclick="loadInscriptionEmailLogs()" style="background: #1F4788;">Filtrer</button>
         </div>
 
@@ -1541,6 +1542,7 @@
         }
         if (tab.dataset.tab === 'history') {
           loadHistory();
+          restoreInscriptionDateFilters();
           loadInscriptionEmailLogs();
         }
         if (tab.dataset.tab === 'scheduled') loadScheduled();
@@ -4134,6 +4136,22 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
     // ==================== INSCRIPTION EMAIL LOGS ====================
 
+    // Save date filters to localStorage
+    function saveInscriptionDateFilters() {
+      const dateFrom = document.getElementById('inscriptionDateFrom').value;
+      const dateTo = document.getElementById('inscriptionDateTo').value;
+      if (dateFrom) localStorage.setItem('inscriptionDateFrom', dateFrom);
+      if (dateTo) localStorage.setItem('inscriptionDateTo', dateTo);
+    }
+
+    // Restore date filters from localStorage
+    function restoreInscriptionDateFilters() {
+      const savedFrom = localStorage.getItem('inscriptionDateFrom');
+      const savedTo = localStorage.getItem('inscriptionDateTo');
+      if (savedFrom) document.getElementById('inscriptionDateFrom').value = savedFrom;
+      if (savedTo) document.getElementById('inscriptionDateTo').value = savedTo;
+    }
+
     async function loadInscriptionEmailLogs() {
       const loadingEl = document.getElementById('loadingInscriptionLogs');
       const tbody = document.getElementById('inscriptionLogsBody');
@@ -4148,11 +4166,13 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         const params = new URLSearchParams();
         const typeFilter = document.getElementById('inscriptionTypeFilter').value;
         const statusFilter = document.getElementById('inscriptionStatusFilter').value;
+        const playerFilter = document.getElementById('inscriptionPlayerFilter').value;
         const dateFrom = document.getElementById('inscriptionDateFrom').value;
         const dateTo = document.getElementById('inscriptionDateTo').value;
 
         if (typeFilter) params.append('type', typeFilter);
         if (statusFilter) params.append('status', statusFilter);
+        if (playerFilter) params.append('player', playerFilter);
         if (dateFrom) params.append('from', dateFrom);
         if (dateTo) params.append('to', dateTo);
 

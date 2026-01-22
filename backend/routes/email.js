@@ -1941,7 +1941,7 @@ router.post('/generate-summary-pdf', authenticateToken, async (req, res) => {
 // Get inscription/desinscription email logs (for admin view)
 router.get('/inscription-logs', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
-  const { type, status, from, to } = req.query;
+  const { type, status, from, to, player } = req.query;
 
   let query = 'SELECT * FROM inscription_email_logs WHERE 1=1';
   const params = [];
@@ -1962,6 +1962,10 @@ router.get('/inscription-logs', authenticateToken, async (req, res) => {
   if (to) {
     query += ` AND created_at <= $${paramIndex++}`;
     params.push(to + ' 23:59:59');
+  }
+  if (player) {
+    query += ` AND (LOWER(player_name) LIKE LOWER($${paramIndex++}) OR LOWER(player_email) LIKE LOWER($${paramIndex++}))`;
+    params.push(`%${player}%`, `%${player}%`);
   }
 
   query += ' ORDER BY created_at DESC LIMIT 200';
