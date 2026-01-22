@@ -21,7 +21,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Versioning
 
-**Current Version:** V 2.0.14 01/26
+**Current Version:** V 2.0.15 01/26
 
 Version is displayed at the bottom of the login screen (`frontend/login.html`).
 
