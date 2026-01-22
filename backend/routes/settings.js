@@ -65,19 +65,17 @@ router.get('/branding/colors', async (req, res) => {
 
 // ==================== AUTHENTICATED ENDPOINTS ====================
 
-// Get all game parameters
+// Get all game parameters (with display_name from game_modes)
 router.get('/game-parameters', authenticateToken, (req, res) => {
   const db = getDb();
 
   db.all(
-    `SELECT * FROM game_parameters ORDER BY
-      CASE mode
-        WHEN 'LIBRE' THEN 1
-        WHEN 'CADRE' THEN 2
-        WHEN 'BANDE' THEN 3
-        WHEN '3BANDES' THEN 4
-      END,
-      CASE categorie
+    `SELECT gp.*, gm.display_name as mode_display_name
+     FROM game_parameters gp
+     LEFT JOIN game_modes gm ON UPPER(REPLACE(gm.code, ' ', '')) = UPPER(REPLACE(gp.mode, ' ', ''))
+     ORDER BY
+      COALESCE(gm.display_order, 999),
+      CASE gp.categorie
         WHEN 'N3' THEN 1
         WHEN 'R1' THEN 2
         WHEN 'R2' THEN 3

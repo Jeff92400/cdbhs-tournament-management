@@ -1802,23 +1802,18 @@
         return;
       }
 
-      const modeLabels = {
-        'LIBRE': 'LIBRE',
-        'CADRE': 'CADRE',
-        'BANDE': 'BANDE',
-        '3BANDES': '3 BANDES'
-      };
-
       let currentMode = '';
       tbody.innerHTML = gameParameters.map(param => {
         const showMode = param.mode !== currentMode;
         currentMode = param.mode;
         const rowStyle = showMode ? 'border-top: 2px solid #1F4788;' : '';
+        // Use mode_display_name from API (from game_modes table) or fallback to mode code
+        const modeDisplayName = param.mode_display_name || param.mode;
 
         return `
           <tr style="${rowStyle}" data-id="${param.id}">
             <td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: ${showMode ? 'bold' : 'normal'};">
-              ${showMode ? modeLabels[param.mode] || param.mode : ''}
+              ${showMode ? modeDisplayName : ''}
             </td>
             <td style="padding: 10px; border-bottom: 1px solid #ddd;">${param.categorie}</td>
             <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">
@@ -1848,11 +1843,12 @@
       const param = gameParameters.find(p => p.id === id);
       if (!param) return;
 
-      const modeLabels = { 'LIBRE': 'LIBRE', 'CADRE': 'CADRE', 'BANDE': 'BANDE', '3BANDES': '3 BANDES' };
+      // Use mode_display_name from API (from game_modes table) or fallback to mode code
+      const modeDisplayName = param.mode_display_name || param.mode;
 
       // Fill the modal form with current values
       document.getElementById('editParamId').value = id;
-      document.getElementById('editParamTitle').textContent = `${modeLabels[param.mode] || param.mode} - ${param.categorie}`;
+      document.getElementById('editParamTitle').textContent = `${modeDisplayName} - ${param.categorie}`;
       document.getElementById('editParamCoin').value = param.coin;
       document.getElementById('editParamDistNorm').value = param.distance_normale;
       document.getElementById('editParamDistRed').value = param.distance_reduite || '';
