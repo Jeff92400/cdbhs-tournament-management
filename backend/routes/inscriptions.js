@@ -1933,6 +1933,18 @@ router.put('/:id/desinscription', authenticateToken, async (req, res) => {
       const resend = getResend();
       if (resend) {
         try {
+          // Load email settings for dynamic branding
+          const emailSettings = await appSettings.getSettingsBatch([
+            'email_noreply',
+            'email_sender_name',
+            'organization_name',
+            'summary_email'
+          ]);
+          const senderName = emailSettings.email_sender_name || 'CDB';
+          const senderEmail = emailSettings.email_noreply || 'noreply@cdbhs.net';
+          const orgName = emailSettings.organization_name || 'Comité Départemental de Billard';
+          const contactEmail = emailSettings.summary_email || '';
+
           const dateStr = inscriptionDetails.debut
             ? new Date(inscriptionDetails.debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
             : 'Date à définir';
@@ -1953,14 +1965,14 @@ Catégorie : ${inscriptionDetails.categorie || ''}
 Date : ${dateStr}
 Lieu : ${inscriptionDetails.lieu || 'Non défini'}
 
-Si cette désinscription est une erreur, veuillez contacter le comité via "Contact" ou par email cdbhs92@gmail.com.
+Si cette désinscription est une erreur, veuillez contacter le comité via "Contact"${contactEmail ? ` ou par email ${contactEmail}` : ''}.
 
 Sportivement,
-Le Comité Départemental de Billard des Hauts-de-Seine`;
+${orgName}`;
 
           await resend.emails.send({
-            from: 'CDBHS <noreply@cdbhs.net>',
-            replyTo: 'cdbhs92@gmail.com',
+            from: `${senderName} <${senderEmail}>`,
+            replyTo: contactEmail || undefined,
             to: [inscriptionDetails.email],
             subject: `Confirmation de désinscription - ${inscriptionDetails.mode || ''} ${inscriptionDetails.categorie || ''}`,
             html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

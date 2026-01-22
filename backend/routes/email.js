@@ -354,10 +354,11 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      // Colors (from settings or defaults)
+      // Colors and branding (from settings or defaults)
       const primaryColor = brandingSettings.primary_color || '#1F4788';
       const secondaryColor = brandingSettings.secondary_color || '#667EEA';
       const accentColor = brandingSettings.accent_color || '#FFC107';
+      const orgName = brandingSettings.organization_name || 'Comite Departemental Billard';
       const redColor = '#DC3545';
       const greenColor = '#28A745';
       const lightGray = '#F8F9FA';
@@ -672,7 +673,7 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
 
       // Footer
       doc.fillColor('#999999').fontSize(9).font('Helvetica-Oblique')
-         .text(`Comite Departemental Billard Hauts-de-Seine - ${new Date().toLocaleDateString('fr-FR')}`,
+         .text(`${orgName} - ${new Date().toLocaleDateString('fr-FR')}`,
                 40, y, { width: pageWidth, align: 'center' });
 
       doc.end();
@@ -705,10 +706,11 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      // Colors (from settings or defaults)
+      // Colors and branding (from settings or defaults)
       const primaryColor = brandingSettings.primary_color || '#1F4788';
       const secondaryColor = brandingSettings.secondary_color || '#667EEA';
       const accentColor = brandingSettings.accent_color || '#FFC107';
+      const orgName = brandingSettings.organization_name || 'Comite Departemental Billard';
       const redColor = '#DC3545';
       const lightGray = '#F8F9FA';
 
@@ -998,7 +1000,7 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
 
       // Footer
       doc.fillColor('#999999').fontSize(9).font('Helvetica-Oblique')
-         .text(`Comite Departemental Billard Hauts-de-Seine - ${new Date().toLocaleDateString('fr-FR')}`,
+         .text(`${orgName} - ${new Date().toLocaleDateString('fr-FR')}`,
                 40, y, { width: pageWidth, align: 'center' });
 
       doc.end();
@@ -1013,7 +1015,7 @@ const DEFAULT_EMAIL_TEMPLATE = {
   subject: 'Convocation {category} - {tournament} - {date}',
   body: `Bonjour {player_name},
 
-Le CDBHS a le plaisir de vous convier au tournoi suivant.
+Le {organization_short_name} a le plaisir de vous convier au tournoi suivant.
 
 Veuillez trouver en attachement votre convocation detaillee avec la composition de toutes les poules du tournoi.
 
@@ -1024,7 +1026,7 @@ Vous aurez noté un changement significatif quant au processus d'invitation et s
 Nous vous souhaitons une excellente competition.
 
 Cordialement,
-Comite Departemental Billard Hauts-de-Seine`
+{organization_name}`
 };
 
 // Default finale convocation template (fallback)
@@ -1041,7 +1043,7 @@ En cas d'empêchement, merci de nous prévenir dès que possible à l'adresse ci
 Nous vous souhaitons une excellente finale !
 
 Sportivement,
-Comité Départemental Billard Hauts-de-Seine`
+{organization_name}`
 };
 
 // Fetch email template from database
@@ -1243,7 +1245,10 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
         date: dateStr,
         time: playerLocation?.startTime?.replace(':', 'H') || '14H00',
         location: playerLocation?.name || 'A definir',
-        poule: playerPoule.pouleNumber
+        poule: playerPoule.pouleNumber,
+        organization_name: emailSettings.organization_name || 'Comité Départemental de Billard',
+        organization_short_name: emailSettings.organization_short_name || 'CDB',
+        organization_email: emailSettings.summary_email || contactEmail
       };
 
       // Generate subject and body from template
@@ -1671,7 +1676,7 @@ router.post('/send-club-reminder', authenticateToken, async (req, res) => {
     startTime,       // Start time
     numPlayers,      // Number of participants
     numTables,       // Number of tables needed
-    ccEmail          // CC to CDBHS
+    ccEmail          // CC to organization
   } = req.body;
 
   const resend = getResend();
@@ -1770,7 +1775,7 @@ router.post('/send-club-reminder', authenticateToken, async (req, res) => {
     const defaultSubject = 'Rappel Organisation - {category} {tournament}';
     const defaultBody = `Bonjour,
 
-Votre club {club_name} accueille prochainement une compétition du CDBHS.
+Votre club {club_name} accueille prochainement une compétition du {organization_short_name}.
 
 DÉTAILS DE LA COMPÉTITION:
 - Compétition: {category} - {tournament}
@@ -1785,10 +1790,10 @@ RAPPELS IMPORTANTS:
 - Résultats FFB: Les résultats devront être saisis sur le site de la FFB à l'issue de la compétition
 - Rafraîchissements: Merci de prévoir des rafraîchissements pour les joueurs
 
-Pour toute question, contactez-nous à l'adresse : cdbhs92@gmail.com
+Pour toute question, contactez-nous à l'adresse : {organization_email}
 
 Sportivement,
-Le CDBHS`;
+Le {organization_short_name}`;
 
     // Get subject and body from template or defaults
     let subjectTemplate = template?.subject_template || defaultSubject;
@@ -1802,7 +1807,10 @@ Le CDBHS`;
       '{date}': dateStr,
       '{time}': startTime || '14H00',
       '{num_players}': numPlayers,
-      '{num_tables}': numTables
+      '{num_tables}': numTables,
+      '{organization_name}': orgName,
+      '{organization_short_name}': orgShortName,
+      '{organization_email}': emailSettings.summary_email || ccEmail || 'contact@' + (emailSettings.email_noreply?.split('@')[1] || 'cdbhs.net')
     };
 
     let subject = subjectTemplate;
@@ -1840,7 +1848,7 @@ Le CDBHS`;
     }
 
     await resend.emails.send({
-      from: 'CDBHS <convocations@cdbhs.net>',
+      from: buildFromAddress(emailSettings, 'convocations'),
       to: recipients,
       subject: subject,
       html: emailBody
@@ -2054,7 +2062,7 @@ Vous recevrez une convocation avec les détails (horaires, poules) quelques jour
 En cas d'empêchement, merci de vous désinscrire via l'application ou de nous prévenir par email.
 
 Sportivement,
-Le Comité Départemental de Billard des Hauts-de-Seine`
+{organization_name}`
 };
 
 const DEFAULT_INSCRIPTION_CANCELLATION_TEMPLATE = {
@@ -2069,10 +2077,10 @@ Catégorie : {category}
 Date : {tournament_date}
 Lieu : {location}
 
-Si cette désinscription est une erreur, veuillez contacter le comité via "Contact" ou par email cdbhs92@gmail.com.
+Si cette désinscription est une erreur, veuillez contacter le comité via "Contact" ou par email à {organization_email}.
 
 Sportivement,
-Le Comité Départemental de Billard des Hauts-de-Seine`
+{organization_name}`
 };
 
 // Send inscription confirmation email (called by Player App)
@@ -2094,6 +2102,8 @@ router.post('/inscription-confirmation', async (req, res) => {
   }
 
   try {
+    // Load email settings for dynamic branding
+    const emailSettings = await getEmailTemplateSettings();
     const contactEmail = await getContactEmail();
     const template = DEFAULT_INSCRIPTION_CONFIRMATION_TEMPLATE;
 
@@ -2111,7 +2121,10 @@ router.post('/inscription-confirmation', async (req, res) => {
       mode: mode || '',
       category: category || '',
       tournament_date: dateStr,
-      location: location || 'Lieu à définir'
+      location: location || 'Lieu à définir',
+      organization_name: emailSettings.organization_name || 'Comité Départemental de Billard',
+      organization_short_name: emailSettings.organization_short_name || 'CDB',
+      organization_email: emailSettings.summary_email || contactEmail
     };
 
     const subject = replaceTemplateVariables(template.subject, variables);
@@ -2119,7 +2132,7 @@ router.post('/inscription-confirmation', async (req, res) => {
     const bodyHtml = bodyText.replace(/\n/g, '<br>').replace(/🎯/g, FRENCH_BILLARD_ICON_IMG);
 
     await resend.emails.send({
-      from: 'CDBHS <noreply@cdbhs.net>',
+      from: buildFromAddress(emailSettings, 'noreply'),
       replyTo: contactEmail,
       to: [player_email],
       subject: subject,
@@ -2141,9 +2154,7 @@ router.post('/inscription-confirmation', async (req, res) => {
               ${bodyHtml}
             </div>
           </div>
-          <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
-            <p style="margin: 0;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
-          </div>
+          ${buildEmailFooter(emailSettings)}
         </div>
       `
     });
@@ -2196,6 +2207,8 @@ router.post('/inscription-cancellation', async (req, res) => {
   }
 
   try {
+    // Load email settings for dynamic branding
+    const emailSettings = await getEmailTemplateSettings();
     const contactEmail = await getContactEmail();
     const template = DEFAULT_INSCRIPTION_CANCELLATION_TEMPLATE;
 
@@ -2213,7 +2226,10 @@ router.post('/inscription-cancellation', async (req, res) => {
       mode: mode || '',
       category: category || '',
       tournament_date: dateStr,
-      location: location || 'Non défini'
+      location: location || 'Non défini',
+      organization_name: emailSettings.organization_name || 'Comité Départemental de Billard',
+      organization_short_name: emailSettings.organization_short_name || 'CDB',
+      organization_email: emailSettings.summary_email || contactEmail
     };
 
     const subject = replaceTemplateVariables(template.subject, variables);
@@ -2221,7 +2237,7 @@ router.post('/inscription-cancellation', async (req, res) => {
     const bodyHtml = bodyText.replace(/\n/g, '<br>').replace(/🎯/g, FRENCH_BILLARD_ICON_IMG);
 
     await resend.emails.send({
-      from: 'CDBHS <noreply@cdbhs.net>',
+      from: buildFromAddress(emailSettings, 'noreply'),
       replyTo: contactEmail,
       to: [player_email],
       subject: subject,
@@ -2243,9 +2259,7 @@ router.post('/inscription-cancellation', async (req, res) => {
               ${bodyHtml}
             </div>
           </div>
-          <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
-            <p style="margin: 0;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
-          </div>
+          ${buildEmailFooter(emailSettings)}
         </div>
       `
     });
@@ -2298,6 +2312,10 @@ router.post('/contact', async (req, res) => {
   }
 
   try {
+    // Load email settings for dynamic branding
+    const emailSettings = await getEmailTemplateSettings();
+    const primaryColor = emailSettings.primary_color || '#1F4788';
+    const shortName = emailSettings.organization_short_name || 'CDBHS';
     const contactEmail = await getContactEmail();
 
     // Prepare email attachments
@@ -2312,9 +2330,9 @@ router.post('/contact', async (req, res) => {
          </div>`
       : '';
 
-    // Send email to CDBHS
+    // Send email to organization
     await resend.emails.send({
-      from: 'CDBHS Espace Joueur <noreply@cdbhs.net>',
+      from: `${shortName} Espace Joueur <${emailSettings.email_noreply || 'noreply@cdbhs.net'}>`,
       replyTo: player_email,
       to: [contactEmail],
       subject: `[Espace Joueur] ${subject}`,
@@ -2338,16 +2356,14 @@ router.post('/contact', async (req, res) => {
               ${attachmentInfo}
             </div>
           </div>
-          <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
-            <p style="margin: 0;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
-          </div>
+          ${buildEmailFooter(emailSettings)}
         </div>
       `
     });
 
     // Send confirmation email to player
     await resend.emails.send({
-      from: 'CDBHS <noreply@cdbhs.net>',
+      from: buildFromAddress(emailSettings, 'noreply'),
       replyTo: contactEmail,
       to: [player_email],
       subject: `Confirmation - Votre message a bien été envoyé`,
@@ -2358,7 +2374,7 @@ router.post('/contact', async (req, res) => {
           </div>
           <div style="padding: 20px; background: #f8f9fa;">
             <p style="margin-bottom: 20px;">Bonjour ${player_name},</p>
-            <p style="margin-bottom: 20px;">Votre message a bien été transmis au CDBHS. Nous vous répondrons dans les meilleurs délais.</p>
+            <p style="margin-bottom: 20px;">Votre message a bien été transmis au ${shortName}. Nous vous répondrons dans les meilleurs délais.</p>
             <div style="margin-bottom: 20px; padding: 15px; background: white; border-radius: 4px; border-left: 4px solid #28a745;">
               <p style="margin: 5px 0;"><strong>Sujet :</strong> ${subject}</p>
               <p style="margin: 10px 0 5px 0;"><strong>Votre message :</strong></p>
@@ -2366,9 +2382,7 @@ router.post('/contact', async (req, res) => {
             </div>
             <p style="color: #666; font-size: 0.9rem;">Si vous avez besoin d'une réponse urgente, vous pouvez nous contacter directement à <a href="mailto:${contactEmail}">${contactEmail}</a></p>
           </div>
-          <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
-            <p style="margin: 0;">CDBHS - Comité Départemental de Billard des Hauts-de-Seine</p>
-          </div>
+          ${buildEmailFooter(emailSettings)}
         </div>
       `
     });

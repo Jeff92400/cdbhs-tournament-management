@@ -470,13 +470,13 @@ router.get('/email-template/:key', authenticateToken, (req, res) => {
         return res.status(500).json({ error: err.message });
       }
       if (!row) {
-        // Return default template if not found
+        // Return default template if not found (uses organization variables for customization)
         return res.json({
           template_key: key,
           subject_template: 'Convocation {category} - {tournament} - {date}',
           body_template: `Bonjour {player_name},
 
-Le CDBHS a le plaisir de vous convier au tournoi suivant.
+Le {organization_short_name} a le plaisir de vous convier au tournoi suivant.
 
 Veuillez trouver en attachement votre convocation detaillee avec la composition de toutes les poules du tournoi.
 
@@ -487,7 +487,7 @@ Vous aurez noté un changement significatif quant au processus d'invitation et s
 Nous vous souhaitons une excellente competition.
 
 Cordialement,
-Comite Departemental Billard Hauts-de-Seine`
+{organization_name}`
         });
       }
       res.json(row);

@@ -129,7 +129,8 @@ async function getSummaryEmail() {
       "SELECT value FROM app_settings WHERE key = 'summary_email'",
       [],
       (err, row) => {
-        resolve(row?.value || 'cdbhs92@gmail.com');
+        // No hardcoded fallback - return null if not set, let callers handle appropriately
+        resolve(row?.value || null);
       }
     );
   });
@@ -161,9 +162,9 @@ router.post('/upload-image', authenticateToken, imageUpload.single('image'), (re
 router.get('/summary-email', authenticateToken, async (req, res) => {
   try {
     const email = await getSummaryEmail();
-    res.json({ email });
+    res.json({ email: email || '' });
   } catch (error) {
-    res.json({ email: 'cdbhs92@gmail.com' });
+    res.json({ email: '' });
   }
 });
 
@@ -331,15 +332,15 @@ const getResend = () => {
 
 // Default email template for general communications
 const DEFAULT_GENERAL_TEMPLATE = {
-  subject: 'Information CDBHS',
+  subject: 'Information {organization_short_name}',
   body: `Bonjour {player_name},
 
 {message}
 
-Pour toute question ou information, écrivez à cdbhs92@gmail.com
+Pour toute question ou information, écrivez à {organization_email}
 
 Cordialement,
-Comite Departemental Billard Hauts-de-Seine`
+{organization_name}`
 };
 
 // Fetch email template from database
@@ -1589,7 +1590,7 @@ router.post('/process-scheduled', async (req, res) => {
                   ${contactPhraseHtml}
                 </div>
                 <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
-                  <p style="margin: 0;">Comite Departemental Billard Hauts-de-Seine - <a href="mailto:${contactEmail}" style="color: white;">${contactEmail}</a></p>
+                  <p style="margin: 0;">${organizationName} - <a href="mailto:${contactEmail}" style="color: white;">${contactEmail}</a></p>
                 </div>
               </div>
             `
@@ -2849,10 +2850,10 @@ Vous avez participé au premier tournoi {category} qui s'est déroulé le {t1_da
 Le deuxième tournoi de la saison aura lieu le {tournament_date} à {tournament_lieu}.
 
 Pour participer, merci de confirmer votre inscription en répondant à cet email avant le {deadline_date}.`,
-    outro: `Pour toute question ou information, écrivez à cdbhs92@gmail.com
+    outro: `Pour toute question ou information, écrivez à {organization_email}
 
 Sportivement,
-Le Comité Départemental de Billard des Hauts-de-Seine`
+{organization_name}`
   },
   relance_t3: {
     subject: 'Inscription T3 {category} - Confirmez votre participation',
@@ -2863,10 +2864,10 @@ Vous êtes actuellement classé(e) {rank_position}ème au classement général {
 Le troisième et dernier tournoi qualificatif aura lieu le {tournament_date} à {tournament_lieu}.
 
 Ce tournoi est déterminant pour la qualification à la finale départementale. Pour participer, merci de confirmer votre inscription en répondant à cet email avant le {deadline_date}.`,
-    outro: `Pour toute question ou information, écrivez à cdbhs92@gmail.com
+    outro: `Pour toute question ou information, écrivez à {organization_email}
 
 Sportivement,
-Le Comité Départemental de Billard des Hauts-de-Seine`
+{organization_name}`
   },
   relance_finale: {
     subject: 'Confirmation participation Finale {category}',
@@ -2881,10 +2882,10 @@ La finale aura lieu le {finale_date} à {finale_lieu}.
 Merci de confirmer votre participation en répondant à cet email avant le {deadline_date}.`,
     outro: `Nous comptons sur votre présence !
 
-Pour toute question ou information, écrivez à cdbhs92@gmail.com
+Pour toute question ou information, écrivez à {organization_email}
 
 Sportivement,
-Le Comité Départemental de Billard des Hauts-de-Seine`
+{organization_name}`
   }
 };
 
