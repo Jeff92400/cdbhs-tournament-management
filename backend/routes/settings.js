@@ -66,31 +66,68 @@ router.get('/branding/colors', async (req, res) => {
 // ==================== AUTHENTICATED ENDPOINTS ====================
 
 // Get all game parameters (with display_name from game_modes)
-router.get('/game-parameters', authenticateToken, (req, res) => {
+router.get('/game-parameters', authenticateToken, async (req, res) => {
   const db = getDb();
 
-  db.all(
-    `SELECT gp.*, gm.display_name as mode_display_name
-     FROM game_parameters gp
-     LEFT JOIN game_modes gm ON UPPER(REPLACE(gm.code, ' ', '')) = UPPER(REPLACE(gp.mode, ' ', ''))
-     ORDER BY
-      COALESCE(gm.display_order, 999),
-      CASE gp.categorie
-        WHEN 'N3' THEN 1
-        WHEN 'R1' THEN 2
-        WHEN 'R2' THEN 3
-        WHEN 'R3' THEN 4
-        WHEN 'R4' THEN 5
-      END`,
-    [],
-    (err, rows) => {
-      if (err) {
-        console.error('Error fetching game parameters:', err);
-        return res.status(500).json({ error: err.message });
-      }
-      res.json(rows || []);
-    }
-  );
+  try {
+    // First get game modes mapping
+    const gameModes = await new Promise((resolve, reject) => {
+      db.all('SELECT code, display_name, display_order FROM game_modes', [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    // Create a lookup map (normalize codes for matching)
+    const modeMap = {};
+    gameModes.forEach(gm => {
+      const normalizedCode = gm.code.toUpperCase().replace(/\s+/g, '');
+      modeMap[normalizedCode] = { display_name: gm.display_name, display_order: gm.display_order };
+      // Also map by display_name for flexibility
+      modeMap[gm.display_name.toUpperCase().replace(/\s+/g, '')] = { display_name: gm.display_name, display_order: gm.display_order };
+    });
+
+    // Get game parameters
+    const params = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM game_parameters ORDER BY
+          CASE mode
+            WHEN 'LIBRE' THEN 1
+            WHEN 'CADRE' THEN 2
+            WHEN 'BANDE' THEN 3
+            WHEN '3BANDES' THEN 4
+          END,
+          CASE categorie
+            WHEN 'N3' THEN 1
+            WHEN 'R1' THEN 2
+            WHEN 'R2' THEN 3
+            WHEN 'R3' THEN 4
+            WHEN 'R4' THEN 5
+          END`,
+        [],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    // Enrich params with mode display names
+    const enrichedParams = params.map(param => {
+      const normalizedMode = param.mode.toUpperCase().replace(/\s+/g, '');
+      const modeInfo = modeMap[normalizedMode] || {};
+      return {
+        ...param,
+        mode_display_name: modeInfo.display_name || param.mode,
+        display_order: modeInfo.display_order
+      };
+    });
+
+    res.json(enrichedParams);
+  } catch (error) {
+    console.error('Error fetching game parameters:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get game parameters for a specific mode/category
