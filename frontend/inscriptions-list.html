@@ -49,7 +49,7 @@
 <body>
   <div class="container">
     <div class="navbar">
-      <h2><img id="app-header-icon" src="images/FrenchBillard-Icon-small.png" alt="" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.src='images/FrenchBillard-Icon-small.png';">CDB Inscriptions</h2>
+      <h2><img id="app-header-icon" src="images/FrenchBillard-Icon-small.png" alt="" style="height: 28px; width: 28px; vertical-align: middle; margin-right: 8px;" onerror="this.src='images/FrenchBillard-Icon-small.png';"><span id="app-org-name">CDB</span> Inscriptions aux compétitions</h2>
       <div class="nav-links">
         <a href="dashboard.html">Accueil</a>
         <a href="rankings.html" class="nav-tooltip" data-tooltip="Classement par catégorie de jeu au fur et à mesure des tournois">Classements</a>
@@ -63,23 +63,7 @@
 
     <div id="errorMessage" class="error" style="display: none;"></div>
 
-    <!-- Total stats (all time) - smaller -->
-    <div class="stats-grid" style="margin-bottom: 10px;">
-      <div class="stat-card" style="padding: 12px 15px;">
-        <h4 style="font-size: 12px; margin-bottom: 5px;">Total Inscriptions (toutes saisons)</h4>
-        <div class="stat-value" id="totalCount" style="font-size: 28px;">-</div>
-      </div>
-      <div class="stat-card" style="padding: 12px 15px;">
-        <h4 style="font-size: 12px; margin-bottom: 5px;">Convoqués (toutes saisons)</h4>
-        <div class="stat-value" id="convoqueCount" style="font-size: 28px;">-</div>
-      </div>
-      <div class="stat-card" style="padding: 12px 15px;">
-        <h4 style="font-size: 12px; margin-bottom: 5px;">Forfaits (toutes saisons)</h4>
-        <div class="stat-value" id="forfaitCount" style="font-size: 28px;">-</div>
-      </div>
-    </div>
-
-    <!-- Current season stats - green theme -->
+    <!-- Season stats - green theme -->
     <div class="stats-grid" style="margin-bottom: 20px;">
       <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
         <h4 id="seasonTotalLabel">Inscriptions Saison en cours</h4>
@@ -559,15 +543,7 @@
         // Populate season filter
         populateSeasonFilter();
 
-        // Calculate total stats (all time)
-        const convoques = allInscriptions.filter(i => i.convoque === 1);
-        const forfaits = allInscriptions.filter(i => i.forfait === 1);
-
-        document.getElementById('totalCount').textContent = allInscriptions.length;
-        document.getElementById('convoqueCount').textContent = convoques.length;
-        document.getElementById('forfaitCount').textContent = forfaits.length;
-
-        // Calculate current season stats
+        // Calculate season stats (will use default/current season)
         updateSeasonStats();
 
         displayInscriptions(allInscriptions);
@@ -598,12 +574,7 @@
 
         allInscriptions = await response.json();
 
-        // Update stats
-        const convoques = allInscriptions.filter(i => i.convoque === 1);
-        const forfaits = allInscriptions.filter(i => i.forfait === 1);
-        document.getElementById('totalCount').textContent = allInscriptions.length;
-        document.getElementById('convoqueCount').textContent = convoques.length;
-        document.getElementById('forfaitCount').textContent = forfaits.length;
+        // Update season stats
         updateSeasonStats();
 
         // Restore filter values
@@ -642,26 +613,29 @@
       }
     }
 
-    // Update current season stats
+    // Update season stats based on selected season filter
     function updateSeasonStats() {
-      const currentSeason = getSeasonForDate(new Date());
+      const seasonFilter = document.getElementById('seasonFilter');
+      const selectedSeason = seasonFilter.value || getSeasonForDate(new Date());
 
-      // Filter inscriptions for current season
+      // Filter inscriptions for selected season
       const seasonInscriptions = allInscriptions.filter(i => {
+        if (!selectedSeason) return true; // If no season selected, show all
         const tournoi = getTournoiById(i.tournoi_id);
         if (!tournoi.debut) return false;
         const date = parseDate(tournoi.debut);
         if (!date || isNaN(date.getTime())) return false;
-        return getSeasonForDate(date) === currentSeason;
+        return getSeasonForDate(date) === selectedSeason;
       });
 
       const seasonConvoques = seasonInscriptions.filter(i => i.convoque === 1);
       const seasonForfaits = seasonInscriptions.filter(i => i.forfait === 1);
 
       // Update labels with season
-      document.getElementById('seasonTotalLabel').textContent = `Inscriptions Saison ${currentSeason}`;
-      document.getElementById('seasonConvoqueLabel').textContent = `Convoqués Saison ${currentSeason}`;
-      document.getElementById('seasonForfaitLabel').textContent = `Forfaits Saison ${currentSeason}`;
+      const seasonLabel = selectedSeason || 'Toutes saisons';
+      document.getElementById('seasonTotalLabel').textContent = `Inscriptions Saison ${seasonLabel}`;
+      document.getElementById('seasonConvoqueLabel').textContent = `Convoqués Saison ${seasonLabel}`;
+      document.getElementById('seasonForfaitLabel').textContent = `Forfaits Saison ${seasonLabel}`;
 
       // Update values
       document.getElementById('seasonTotalCount').textContent = seasonInscriptions.length;
@@ -1094,6 +1068,8 @@
       populateCategorieFilter();
       populateTournoiFilter();
       applyFilters();
+      // Update stats for selected season
+      updateSeasonStats();
     });
     document.getElementById('modeFilter').addEventListener('change', () => {
       // Reset downstream filters
