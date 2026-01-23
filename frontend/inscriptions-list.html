@@ -41,7 +41,7 @@
     .badge-cadre { background: #fff3e0; color: #e65100; }
     .badge-bande { background: #f3e5f5; color: #7b1fa2; }
     .badge-3bandes { background: #e8f5e9; color: #2e7d32; }
-    .badge-ionos { background: #e3f2fd; color: #0d47a1; }
+    .badge-csv { background: #e3f2fd; color: #0d47a1; }
     .badge-player-app { background: #e8f5e9; color: #2e7d32; }
     .badge-manual { background: #f5f5f5; color: #616161; }
   </style>
@@ -90,7 +90,7 @@
             ➕ Ajouter
           </button>
           <button class="btn btn-success admin-only" onclick="window.location.href='import-inscriptions.html'" style="background: #28a745;">
-            📤 Importer depuis IONOS
+            📤 Importer fichier CSV
           </button>
         </div>
       </div>
@@ -116,7 +116,7 @@
         </select>
         <select id="sourceFilter">
           <option value="">Toutes les sources</option>
-          <option value="ionos">IONOS</option>
+          <option value="ionos">Fichier CSV</option>
           <option value="player_app">Player App</option>
           <option value="manual">Manuel</option>
         </select>
@@ -269,7 +269,7 @@
           <div style="margin-bottom: 15px;">
             <label style="display: block; margin-bottom: 5px; font-weight: bold;">Source</label>
             <select id="edit_source" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-              <option value="ionos">IONOS</option>
+              <option value="ionos">Fichier CSV</option>
               <option value="player_app">Player App</option>
               <option value="manual">Manuel</option>
             </select>
@@ -727,7 +727,7 @@
         return '<span class="badge badge-player-app">📱 Player App</span>';
       }
       if (source === 'ionos') {
-        return '<span class="badge badge-ionos">📤 IONOS</span>';
+        return '<span class="badge badge-csv">📤 Fichier CSV</span>';
       }
       return '<span class="badge badge-manual">✏️ Manuel</span>';
     }
