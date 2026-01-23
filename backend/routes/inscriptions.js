@@ -8,6 +8,80 @@ const db = require('../db-loader');
 const { authenticateToken } = require('./auth');
 const appSettings = require('../utils/app-settings');
 const { logAdminAction, ACTION_TYPES } = require('../utils/admin-logger');
+const { getColumnMapping } = require('./import-config');
+
+/**
+ * Default column mapping for inscriptions imports (named columns)
+ * Used when no import profile is configured
+ */
+const DEFAULT_INSCRIPTIONS_MAPPING = {
+  inscription_id: { column: 'INSCRIPTION_ID', type: 'number' },
+  tournoi_id: { column: 'TOURNOI_ID', type: 'number' },
+  licence: { column: 'LICENCE', type: 'string' },
+  joueur_id: { column: 'JOUEUR_ID', type: 'number' },
+  email: { column: 'EMAIL', type: 'string' },
+  telephone: { column: 'TELEPHONE', type: 'string' },
+  timestamp: { column: 'TIMESTAMP', type: 'string' },
+  convoque: { column: 'CONVOQUE', type: 'number' },
+  forfait: { column: 'FORFAIT', type: 'number' },
+  commentaire: { column: 'COMMENTAIRE', type: 'string' }
+};
+
+/**
+ * Helper to get value from record using mapping configuration (for named columns)
+ * Supports both case-insensitive column name matching and index-based mapping
+ */
+function getMappedValue(record, mapping, fieldName, defaultValue = null) {
+  if (!mapping || !mapping[fieldName]) {
+    return defaultValue;
+  }
+
+  const fieldConfig = mapping[fieldName];
+  let value;
+
+  if (typeof fieldConfig.column === 'number') {
+    // Index-based mapping (for positional CSV)
+    const keys = Object.keys(record);
+    value = record[keys[fieldConfig.column]];
+  } else {
+    // Named column mapping - try exact match first, then case-insensitive
+    const colName = fieldConfig.column;
+    value = record[colName] || record[colName.toLowerCase()] || record[colName.toUpperCase()];
+
+    // If still not found, try case-insensitive search
+    if (value === undefined) {
+      const lowerColName = colName.toLowerCase();
+      for (const key of Object.keys(record)) {
+        if (key.toLowerCase() === lowerColName) {
+          value = record[key];
+          break;
+        }
+      }
+    }
+  }
+
+  if (value === undefined || value === null || value === '') {
+    return defaultValue;
+  }
+
+  // Clean string values
+  if (typeof value === 'string') {
+    value = value.trim();
+  }
+
+  // Apply type conversion
+  if (fieldConfig.type === 'number') {
+    const num = parseInt(value);
+    return isNaN(num) ? defaultValue : num;
+  } else if (fieldConfig.type === 'decimal') {
+    const num = parseFloat(String(value).replace(',', '.'));
+    return isNaN(num) ? defaultValue : num;
+  } else if (fieldConfig.type === 'boolean') {
+    return value === '1' || value === 1 || String(value).toLowerCase() === 'true';
+  }
+
+  return value || defaultValue;
+}
 
 // Initialize Resend for email notifications
 const getResend = () => {
@@ -185,6 +259,17 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
   }
 
   try {
+    // Load configurable column mapping, fall back to defaults
+    let columnMapping;
+    try {
+      const profileConfig = await getColumnMapping('inscriptions');
+      columnMapping = profileConfig?.mappings || DEFAULT_INSCRIPTIONS_MAPPING;
+      console.log(`Using ${profileConfig ? 'configured' : 'default'} column mapping for inscriptions import`);
+    } catch (err) {
+      console.log('Error loading inscriptions column mapping, using defaults:', err.message);
+      columnMapping = DEFAULT_INSCRIPTIONS_MAPPING;
+    }
+
     const fileContent = fs.readFileSync(req.file.path, 'utf-8');
     const records = [];
 
@@ -246,17 +331,19 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
 
     for (const record of records) {
       try {
-        // Map CSV columns to database fields
-        const inscriptionId = parseInt(record.INSCRIPTION_ID || record.inscription_id);
-        const joueurId = parseInt(record.JOUEUR_ID || record.joueur_id) || null;
-        const tournoiId = parseInt(record.TOURNOI_ID || record.tournoi_id);
-        const timestamp = parseDateTime(record.TIMESTAMP || record.timestamp);
-        const email = record.EMAIL || record.email || '';
-        const telephone = record.TELEPHONE || record.telephone || '';
-        const licence = (record.LICENCE || record.licence || '').replace(/\s+/g, '').trim();
-        const convoque = parseInt(record.CONVOQUE || record.convoque) || 0;
-        const forfait = parseInt(record.FORFAIT || record.forfait) || 0;
-        const commentaire = record.COMMENTAIRE || record.commentaire || '';
+        // Map CSV columns to database fields using configurable mapping
+        const inscriptionId = getMappedValue(record, columnMapping, 'inscription_id', null);
+        const joueurId = getMappedValue(record, columnMapping, 'joueur_id', null);
+        const tournoiId = getMappedValue(record, columnMapping, 'tournoi_id', null);
+        const timestampRaw = getMappedValue(record, columnMapping, 'timestamp', null);
+        const timestamp = parseDateTime(timestampRaw);
+        const email = getMappedValue(record, columnMapping, 'email', '');
+        const telephone = getMappedValue(record, columnMapping, 'telephone', '');
+        const licenceRaw = getMappedValue(record, columnMapping, 'licence', '');
+        const licence = licenceRaw ? licenceRaw.replace(/\s+/g, '').trim() : '';
+        const convoque = getMappedValue(record, columnMapping, 'convoque', 0);
+        const forfait = getMappedValue(record, columnMapping, 'forfait', 0);
+        const commentaire = getMappedValue(record, columnMapping, 'commentaire', '');
 
         if (!inscriptionId || !tournoiId) {
           errors.push({ inscriptionId, error: 'Missing required fields' });

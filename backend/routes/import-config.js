@@ -47,12 +47,16 @@ const IMPORT_FIELD_DEFINITIONS = {
     { field: 'points', label: 'Points', required: false, description: 'Points au jeu (caramboles)' }
   ],
   inscriptions: [
-    { field: 'licence', label: 'Licence', required: true, description: 'Numéro de licence' },
-    { field: 'nom', label: 'Nom', required: true, description: 'Nom du joueur' },
-    { field: 'prenom', label: 'Prénom', required: false, description: 'Prénom du joueur' },
-    { field: 'email', label: 'Email', required: false, description: 'Adresse email' },
+    { field: 'inscription_id', label: 'ID Inscription', required: true, description: 'Identifiant unique de l\'inscription' },
+    { field: 'tournoi_id', label: 'ID Tournoi', required: true, description: 'Identifiant du tournoi' },
+    { field: 'licence', label: 'Licence', required: true, description: 'Numéro de licence du joueur' },
+    { field: 'joueur_id', label: 'ID Joueur', required: false, description: 'Identifiant du joueur (optionnel)' },
+    { field: 'email', label: 'Email', required: false, description: 'Adresse email du joueur' },
     { field: 'telephone', label: 'Téléphone', required: false, description: 'Numéro de téléphone' },
-    { field: 'club', label: 'Club', required: false, description: 'Nom du club' }
+    { field: 'timestamp', label: 'Date inscription', required: false, description: 'Date et heure de l\'inscription' },
+    { field: 'convoque', label: 'Convoqué', required: false, description: '1 = convoqué, 0 = non convoqué' },
+    { field: 'forfait', label: 'Forfait', required: false, description: '1 = forfait, 0 = présent' },
+    { field: 'commentaire', label: 'Commentaire', required: false, description: 'Commentaire libre' }
   ]
 };
 

@@ -791,6 +791,25 @@ async function initializeDatabase() {
         ['tournaments', ';', true, JSON.stringify(tournamentsMapping)]
       );
 
+      // Inscriptions default mapping (named columns - IONOS format)
+      const inscriptionsMapping = {
+        inscription_id: { column: 'INSCRIPTION_ID', type: 'number' },
+        tournoi_id: { column: 'TOURNOI_ID', type: 'number' },
+        licence: { column: 'LICENCE', type: 'string' },
+        joueur_id: { column: 'JOUEUR_ID', type: 'number' },
+        email: { column: 'EMAIL', type: 'string' },
+        telephone: { column: 'TELEPHONE', type: 'string' },
+        timestamp: { column: 'TIMESTAMP', type: 'string' },
+        convoque: { column: 'CONVOQUE', type: 'number' },
+        forfait: { column: 'FORFAIT', type: 'number' },
+        commentaire: { column: 'COMMENTAIRE', type: 'string' }
+      };
+      await client.query(
+        `INSERT INTO import_profiles (import_type, delimiter, has_header, column_mappings)
+         VALUES ($1, $2, $3, $4)`,
+        ['inscriptions', ';', true, JSON.stringify(inscriptionsMapping)]
+      );
+
       console.log('Default import profiles initialized');
     }
 
