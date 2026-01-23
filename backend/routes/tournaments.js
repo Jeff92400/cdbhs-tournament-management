@@ -6,6 +6,59 @@ const fs = require('fs');
 const db = require('../db-loader');
 const { authenticateToken } = require('./auth');
 const { logAdminAction, ACTION_TYPES } = require('../utils/admin-logger');
+const { getColumnMapping } = require('./import-config');
+
+/**
+ * Default column mapping for tournament results imports
+ * Used when no import profile is configured
+ */
+const DEFAULT_TOURNAMENT_MAPPING = {
+  classement: { column: 0, type: 'number' },
+  licence: { column: 1, type: 'string' },
+  joueur: { column: 2, type: 'string' },
+  pts_match: { column: 4, type: 'number' },
+  moyenne: { column: 6, type: 'decimal' },
+  reprises: { column: 8, type: 'number' },
+  serie: { column: 9, type: 'number' },
+  points: { column: 12, type: 'number' }
+};
+
+/**
+ * Helper to get value from record using mapping configuration
+ */
+function getMappedValue(record, mapping, fieldName, defaultValue = null) {
+  if (!mapping || !mapping[fieldName]) {
+    return defaultValue;
+  }
+
+  const fieldConfig = mapping[fieldName];
+  const colIndex = typeof fieldConfig.column === 'number' ? fieldConfig.column : parseInt(fieldConfig.column);
+
+  if (isNaN(colIndex) || colIndex < 0 || colIndex >= record.length) {
+    return defaultValue;
+  }
+
+  let value = record[colIndex];
+  if (value === undefined || value === null) {
+    return defaultValue;
+  }
+
+  // Clean the value
+  value = value.replace(/"/g, '').trim();
+
+  // Apply type conversion
+  if (fieldConfig.type === 'number') {
+    const num = parseInt(value);
+    return isNaN(num) ? (defaultValue !== null ? defaultValue : 0) : num;
+  } else if (fieldConfig.type === 'decimal') {
+    const num = parseFloat(value.replace(',', '.'));
+    return isNaN(num) ? (defaultValue !== null ? defaultValue : 0) : num;
+  } else if (fieldConfig.type === 'boolean') {
+    return value === '1' || value.toLowerCase() === 'true';
+  }
+
+  return value || defaultValue;
+}
 
 const router = express.Router();
 
@@ -281,6 +334,17 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
   }
 
   try {
+    // Load configurable column mapping, fall back to defaults
+    let columnMapping;
+    try {
+      const profileConfig = await getColumnMapping('tournaments');
+      columnMapping = profileConfig?.mappings || DEFAULT_TOURNAMENT_MAPPING;
+      console.log(`Using ${profileConfig ? 'configured' : 'default'} column mapping for tournaments import`);
+    } catch (err) {
+      console.log('Error loading tournament column mapping, using defaults:', err.message);
+      columnMapping = DEFAULT_TOURNAMENT_MAPPING;
+    }
+
     let fileContent = fs.readFileSync(req.file.path, 'utf-8');
 
     // Fix CSV format: remove outer quotes and fix double quotes
@@ -433,7 +497,8 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
                       // Skip header row
                       if (record[0]?.includes('Classt') || record[0]?.includes('Licence')) continue;
 
-                      // Parse CSV format from the tournament results
+                      // Parse CSV format using configurable column mapping
+                      // Default column layout:
                       // Column A (index 0): Position/Classement
                       // Column B (index 1): Licence
                       // Column C (index 2): Joueur
@@ -442,15 +507,14 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
                       // Column I (index 8): Reprises
                       // Column J (index 9): Série
                       // Column M (index 12): Points (R) - game points
-                      const position = parseInt(record[0]?.replace(/"/g, '').trim()) || 0;
-                      const licence = record[1]?.replace(/"/g, '').replace(/ /g, '').trim(); // Remove spaces
-                      const playerName = record[2]?.replace(/"/g, '').trim();
-                      const matchPoints = parseInt(record[4]?.replace(/"/g, '').trim()) || 0;
-                      const moyenneStr = record[6]?.replace(/"/g, '').replace(',', '.').trim();
-                      const moyenne = parseFloat(moyenneStr) || 0;
-                      const reprises = parseInt(record[8]?.replace(/"/g, '').trim()) || 0;
-                      const serie = parseInt(record[9]?.replace(/"/g, '').trim()) || 0;
-                      const points = parseInt(record[12]?.replace(/"/g, '').trim()) || 0;
+                      const position = getMappedValue(record, columnMapping, 'classement', 0);
+                      const licence = getMappedValue(record, columnMapping, 'licence', '')?.replace(/ /g, ''); // Remove spaces
+                      const playerName = getMappedValue(record, columnMapping, 'joueur', '');
+                      const matchPoints = getMappedValue(record, columnMapping, 'pts_match', 0);
+                      const moyenne = getMappedValue(record, columnMapping, 'moyenne', 0);
+                      const reprises = getMappedValue(record, columnMapping, 'reprises', 0);
+                      const serie = getMappedValue(record, columnMapping, 'serie', 0);
+                      const points = getMappedValue(record, columnMapping, 'points', 0);
 
                       if (!licence || !playerName) continue;
 

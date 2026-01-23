@@ -4,6 +4,7 @@ const { parse } = require('csv-parse');
 const fs = require('fs');
 const db = require('../db-loader');
 const { authenticateToken } = require('./auth');
+const { getColumnMapping } = require('./import-config');
 
 const router = express.Router();
 
@@ -162,15 +163,69 @@ async function savePlayerRankings(licence, rankings) {
 }
 
 /**
- * CSV column mapping for FFB export format
+ * Default CSV column mapping for FFB export format
  * Maps CSV column index to game mode code
+ * This is used as fallback when no import profile is configured
  */
-const CSV_COLUMN_TO_MODE = {
+const DEFAULT_CSV_COLUMN_TO_MODE = {
   4: 'LIBRE',
   5: 'BANDE',
   6: '3BANDES',
   8: 'CADRE'
 };
+
+/**
+ * Default column mapping for player imports
+ * Used when no import profile is configured
+ */
+const DEFAULT_PLAYER_MAPPING = {
+  licence: { column: 0, type: 'string' },
+  club: { column: 1, type: 'string' },
+  prenom: { column: 2, type: 'string' },
+  nom: { column: 3, type: 'string' },
+  rank_libre: { column: 4, type: 'string' },
+  rank_bande: { column: 5, type: 'string' },
+  rank_3bandes: { column: 6, type: 'string' },
+  rank_cadre: { column: 8, type: 'string' },
+  is_active: { column: 10, type: 'boolean' }
+};
+
+/**
+ * Helper to get value from record using mapping configuration
+ */
+function getMappedValue(record, mapping, fieldName, defaultValue = null) {
+  if (!mapping || !mapping[fieldName]) {
+    return defaultValue;
+  }
+
+  const fieldConfig = mapping[fieldName];
+  const colIndex = typeof fieldConfig.column === 'number' ? fieldConfig.column : parseInt(fieldConfig.column);
+
+  if (isNaN(colIndex) || colIndex < 0 || colIndex >= record.length) {
+    return defaultValue;
+  }
+
+  let value = record[colIndex];
+  if (value === undefined || value === null) {
+    return defaultValue;
+  }
+
+  // Clean the value
+  value = value.replace(/"/g, '').trim();
+
+  // Apply type conversion
+  if (fieldConfig.type === 'number') {
+    const num = parseInt(value);
+    return isNaN(num) ? (defaultValue !== null ? defaultValue : 0) : num;
+  } else if (fieldConfig.type === 'decimal') {
+    const num = parseFloat(value.replace(',', '.'));
+    return isNaN(num) ? (defaultValue !== null ? defaultValue : 0) : num;
+  } else if (fieldConfig.type === 'boolean') {
+    return value === '1' || value.toLowerCase() === 'true';
+  }
+
+  return value || defaultValue;
+}
 
 // Configure multer for file uploads with security restrictions
 const upload = multer({
@@ -251,27 +306,42 @@ router.post('/import', authenticateToken, upload.single('file'), async (req, res
     // Load game mode rank column mappings dynamically
     const rankColumnMap = await loadGameModeRankColumns();
 
+    // Load configurable column mapping, fall back to defaults
+    let columnMapping;
+    try {
+      const profileConfig = await getColumnMapping('players');
+      columnMapping = profileConfig?.mappings || DEFAULT_PLAYER_MAPPING;
+      console.log(`Using ${profileConfig ? 'configured' : 'default'} column mapping for players import`);
+    } catch (err) {
+      console.log('Error loading column mapping, using defaults:', err.message);
+      columnMapping = DEFAULT_PLAYER_MAPPING;
+    }
+
+    // Build CSV column to mode mapping from the profile
+    const csvColumnToMode = {};
+    if (columnMapping.rank_libre) csvColumnToMode[columnMapping.rank_libre.column] = 'LIBRE';
+    if (columnMapping.rank_bande) csvColumnToMode[columnMapping.rank_bande.column] = 'BANDE';
+    if (columnMapping.rank_3bandes) csvColumnToMode[columnMapping.rank_3bandes.column] = '3BANDES';
+    if (columnMapping.rank_cadre) csvColumnToMode[columnMapping.rank_cadre.column] = 'CADRE';
+
     // Process records using PostgreSQL ON CONFLICT
     for (const record of records) {
       try {
-        // Parse CSV format: "licence","club","first_name","last_name","libre","cadre","bande","3bandes","?","?","active"
-        if (record.length < 11) continue;
-
-        const licence = record[0]?.replace(/"/g, '').replace(/\s+/g, '').trim();
+        // Use configurable column mapping
+        const licence = getMappedValue(record, columnMapping, 'licence', '')?.replace(/\s+/g, '');
 
         // Skip header row (detect by checking if first column looks like a header)
-        if (licence.toUpperCase() === 'LICENCE' || licence.toUpperCase() === 'LICENSE') continue;
-        const rawClub = record[1]?.replace(/"/g, '').trim();
-        const club = await normalizeClubName(rawClub); // Normalize to canonical name from clubs table
-        const firstName = record[2]?.replace(/"/g, '').trim();
-        const lastName = record[3]?.replace(/"/g, '').trim();
-        const isActive = record[10]?.replace(/"/g, '').trim() === '1' ? 1 : 0;
+        if (!licence || licence.toUpperCase() === 'LICENCE' || licence.toUpperCase() === 'LICENSE') continue;
 
-        // Extract rankings from CSV using dynamic column mapping
-        // CSV column order: LICENCE, CLUB, PRENOM, NOM, LIBRE, BANDE, 3 BANDES, BLACKBALL, CADRE, JOUEUR_ID, ACTIF
-        //                      0       1      2      3     4      5        6         7        8        9       10
+        const rawClub = getMappedValue(record, columnMapping, 'club', '');
+        const club = await normalizeClubName(rawClub); // Normalize to canonical name from clubs table
+        const firstName = getMappedValue(record, columnMapping, 'prenom', '');
+        const lastName = getMappedValue(record, columnMapping, 'nom', '');
+        const isActive = getMappedValue(record, columnMapping, 'is_active', true) ? 1 : 0;
+
+        // Extract rankings from CSV using configurable column mapping
         const csvRankings = {};
-        for (const [colIndex, modeCode] of Object.entries(CSV_COLUMN_TO_MODE)) {
+        for (const [colIndex, modeCode] of Object.entries(csvColumnToMode)) {
           const value = record[parseInt(colIndex)]?.replace(/"/g, '').trim() || 'NC';
           const rankColumn = rankColumnMap[modeCode];
           if (rankColumn) {

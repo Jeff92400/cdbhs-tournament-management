@@ -739,6 +739,61 @@ async function initializeDatabase() {
       CREATE INDEX IF NOT EXISTS idx_player_invitations_email ON player_invitations(email)
     `);
 
+    // Import profiles table - stores configurable CSV column mappings for each import type
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS import_profiles (
+        id SERIAL PRIMARY KEY,
+        import_type VARCHAR(50) NOT NULL UNIQUE,
+        delimiter VARCHAR(5) DEFAULT ';',
+        has_header BOOLEAN DEFAULT true,
+        column_mappings JSONB NOT NULL,
+        transformations JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Initialize default import profiles if table is empty
+    const importProfilesCount = await client.query('SELECT COUNT(*) as count FROM import_profiles');
+    if (importProfilesCount.rows[0].count == 0) {
+      // Players default mapping (current FFB format)
+      const playersMapping = {
+        licence: { column: 0, type: 'string' },
+        club: { column: 1, type: 'string' },
+        prenom: { column: 2, type: 'string' },
+        nom: { column: 3, type: 'string' },
+        rank_libre: { column: 4, type: 'string' },
+        rank_bande: { column: 5, type: 'string' },
+        rank_3bandes: { column: 6, type: 'string' },
+        rank_cadre: { column: 8, type: 'string' },
+        is_active: { column: 10, type: 'boolean' }
+      };
+      await client.query(
+        `INSERT INTO import_profiles (import_type, delimiter, has_header, column_mappings)
+         VALUES ($1, $2, $3, $4)`,
+        ['players', ';', true, JSON.stringify(playersMapping)]
+      );
+
+      // Tournaments default mapping (current format)
+      const tournamentsMapping = {
+        classement: { column: 0, type: 'number' },
+        licence: { column: 1, type: 'string' },
+        joueur: { column: 2, type: 'string' },
+        pts_match: { column: 4, type: 'number' },
+        moyenne: { column: 6, type: 'decimal' },
+        reprises: { column: 8, type: 'number' },
+        serie: { column: 9, type: 'number' },
+        points: { column: 12, type: 'number' }
+      };
+      await client.query(
+        `INSERT INTO import_profiles (import_type, delimiter, has_header, column_mappings)
+         VALUES ($1, $2, $3, $4)`,
+        ['tournaments', ';', true, JSON.stringify(tournamentsMapping)]
+      );
+
+      console.log('Default import profiles initialized');
+    }
+
     await client.query('COMMIT');
 
     // Initialize default admin (legacy)
