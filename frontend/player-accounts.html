@@ -152,12 +152,13 @@
     document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
 
     // Override navbar title for this page: "{orgName} Application Joueur"
-    (async function() {
+    // Use setTimeout to ensure this runs AFTER initAppBranding() completes
+    setTimeout(async function() {
       const orgName = await getOrganizationShortName();
       if (orgName) {
         document.getElementById('app-org-name').textContent = `${orgName} Application Joueur`;
       }
-    })();
+    }, 100);
 
     // Logout
     document.getElementById('logoutBtn').addEventListener('click', (e) => {
