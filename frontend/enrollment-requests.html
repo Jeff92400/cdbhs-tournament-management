@@ -298,14 +298,19 @@
       loadRequests();
     });
 
-    async function loadRequests() {
+    async function loadRequests(bustCache = false) {
       const container = document.getElementById('requestsContainer');
       const statusFilter = document.getElementById('statusFilter').value;
 
       try {
-        const url = statusFilter
+        let url = statusFilter
           ? `${API_URL}/enrollment-requests?status=${statusFilter}`
           : `${API_URL}/enrollment-requests`;
+
+        // Add cache-busting parameter
+        if (bustCache) {
+          url += (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+        }
 
         const response = await authFetch(url);
         if (!response.ok) throw new Error('Failed to load requests');
@@ -414,29 +419,32 @@
     async function approveRequest(id, playerName) {
       if (!confirm(`Approuver la demande de ${playerName} ?`)) return;
 
+      // Show loading state
+      const container = document.getElementById('requestsContainer');
+      container.innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>Traitement en cours...</p></div>';
+
       try {
-        console.log('Approving request:', id);
         const response = await authFetch(`${API_URL}/enrollment-requests/${id}/approve`, {
           method: 'PUT'
         });
 
-        console.log('Response status:', response.status);
         const result = await response.json();
-        console.log('Response result:', result);
 
         if (!response.ok) {
           throw new Error(result.error || 'Failed to approve');
         }
 
         showSuccess(`Demande approuvée${result.inscriptionCreated ? ' et inscription créée' : ''}`);
-        // Clear filter and reload
+
+        // Small delay to ensure DB is updated, then reload with cache-busting
+        await new Promise(resolve => setTimeout(resolve, 300));
         document.getElementById('statusFilter').value = '';
-        await loadRequests();
-        console.log('Reload complete');
+        await loadRequests(true);
 
       } catch (error) {
         console.error('Approval error:', error);
         showError('Erreur: ' + error.message);
+        await loadRequests(); // Reload to restore view
       }
     }
 
@@ -457,6 +465,11 @@
       if (!currentRejectId) return;
 
       const reason = document.getElementById('rejectReason').value.trim();
+      closeRejectModal();
+
+      // Show loading state
+      const container = document.getElementById('requestsContainer');
+      container.innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>Traitement en cours...</p></div>';
 
       try {
         const response = await authFetch(`${API_URL}/enrollment-requests/${currentRejectId}/reject`, {
@@ -471,19 +484,25 @@
           throw new Error(result.error || 'Failed to reject');
         }
 
-        closeRejectModal();
-        showSuccess('Demande refusée - Email envoyé au joueur');
-        // Clear filter to show the updated record
+        showSuccess('Demande refusée');
+
+        // Small delay then reload with cache-busting
+        await new Promise(resolve => setTimeout(resolve, 300));
         document.getElementById('statusFilter').value = '';
-        loadRequests();
+        await loadRequests(true);
 
       } catch (error) {
         showError(error.message);
+        await loadRequests();
       }
     }
 
     async function deleteRequest(id, playerName) {
       if (!confirm(`Supprimer définitivement la demande de ${playerName} ?\n\nCette action est irréversible.`)) return;
+
+      // Show loading state
+      const container = document.getElementById('requestsContainer');
+      container.innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>Traitement en cours...</p></div>';
 
       try {
         const response = await authFetch(`${API_URL}/enrollment-requests/${id}`, {
@@ -497,10 +516,14 @@
         }
 
         showSuccess('Demande supprimée');
-        loadRequests();
+
+        // Small delay then reload with cache-busting
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await loadRequests(true);
 
       } catch (error) {
         showError(error.message);
+        await loadRequests();
       }
     }
 
