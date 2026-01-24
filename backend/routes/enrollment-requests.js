@@ -3,9 +3,10 @@
  *
  * Admin endpoints for managing player enrollment requests
  *
- * GET  /api/enrollment-requests        - List all requests (filterable by status)
- * PUT  /api/enrollment-requests/:id/approve - Approve a request
- * PUT  /api/enrollment-requests/:id/reject  - Reject a request
+ * GET    /api/enrollment-requests             - List all requests (filterable by status)
+ * PUT    /api/enrollment-requests/:id/approve - Approve a request
+ * PUT    /api/enrollment-requests/:id/reject  - Reject a request
+ * DELETE /api/enrollment-requests/:id         - Delete a request
  */
 
 const express = require('express');
@@ -319,6 +320,53 @@ router.put('/:id/reject', async (req, res) => {
   } catch (error) {
     console.error('Error rejecting enrollment request:', error);
     res.status(500).json({ error: 'Failed to reject request' });
+  }
+});
+
+/**
+ * DELETE /api/enrollment-requests/:id
+ * Delete an enrollment request
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get the request for logging
+    const requestResult = await db.query(
+      'SELECT * FROM enrollment_requests WHERE id = $1',
+      [id]
+    );
+
+    if (requestResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    const request = requestResult.rows[0];
+
+    // Delete the request
+    await db.query('DELETE FROM enrollment_requests WHERE id = $1', [id]);
+
+    // Log admin action
+    logAdminAction(
+      req.user.id,
+      req.user.username,
+      req.user.role,
+      'enrollment_request_deleted',
+      `Deleted enrollment request for ${request.player_name}: ${request.game_mode_name} ${request.requested_ranking} T${request.tournament_number} (status was: ${request.status})`,
+      'enrollment_request',
+      id.toString(),
+      `${request.player_name} - ${request.game_mode_name} ${request.requested_ranking}`,
+      req
+    );
+
+    res.json({
+      success: true,
+      message: 'Demande supprimée'
+    });
+
+  } catch (error) {
+    console.error('Error deleting enrollment request:', error);
+    res.status(500).json({ error: 'Failed to delete request' });
   }
 });
 

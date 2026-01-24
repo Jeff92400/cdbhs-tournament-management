@@ -124,6 +124,13 @@
     .action-btn.reject:hover {
       background: #c82333;
     }
+    .action-btn.delete {
+      background: #6c757d;
+      color: white;
+    }
+    .action-btn.delete:hover {
+      background: #5a6268;
+    }
 
     .empty-state {
       text-align: center;
@@ -350,14 +357,23 @@
         'convoked': 'Convoquee'
       }[request.status] || request.status;
 
-      const actions = request.status === 'pending' ? `
-        <button class="action-btn approve" onclick="approveRequest(${request.id}, '${escapeHtml(request.player_name)}')">
-          Approuver
+      let actions = '';
+      if (request.status === 'pending') {
+        actions = `
+          <button class="action-btn approve" onclick="approveRequest(${request.id}, '${escapeHtml(request.player_name)}')">
+            Approuver
+          </button>
+          <button class="action-btn reject" onclick="showRejectModal(${request.id}, '${escapeHtml(request.player_name)}', '${escapeHtml(request.game_mode_name)} ${request.requested_ranking} T${request.tournament_number}')">
+            Refuser
+          </button>
+        `;
+      }
+      // Delete button available for all statuses
+      actions += `
+        <button class="action-btn delete" onclick="deleteRequest(${request.id}, '${escapeHtml(request.player_name)}')" title="Supprimer">
+          Supprimer
         </button>
-        <button class="action-btn reject" onclick="showRejectModal(${request.id}, '${escapeHtml(request.player_name)}', '${escapeHtml(request.game_mode_name)} ${request.requested_ranking} T${request.tournament_number}')">
-          Refuser
-        </button>
-      ` : '';
+      `;
 
       return `
         <tr>
@@ -440,6 +456,28 @@
         showSuccess('Demande refusée - Email envoyé au joueur');
         // Clear filter to show the updated record
         document.getElementById('statusFilter').value = '';
+        loadRequests();
+
+      } catch (error) {
+        showError(error.message);
+      }
+    }
+
+    async function deleteRequest(id, playerName) {
+      if (!confirm(`Supprimer définitivement la demande de ${playerName} ?\n\nCette action est irréversible.`)) return;
+
+      try {
+        const response = await authFetch(`${API_URL}/enrollment-requests/${id}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to delete');
+        }
+
+        showSuccess('Demande supprimée');
         loadRequests();
 
       } catch (error) {
