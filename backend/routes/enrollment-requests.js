@@ -621,7 +621,8 @@ router.put('/:id/approve', async (req, res) => {
     });
 
     // Create in-app notification for the player
-    const normalizedLicence = request.licence.replace(/\s+/g, '');
+    // IMPORTANT: Must match Player App normalization: remove spaces AND uppercase
+    const normalizedLicence = request.licence.replace(/\s+/g, '').toUpperCase();
     console.log(`[APPROVAL] Creating announcement for licence: ${normalizedLicence}`);
 
     let announcementCreated = false;
