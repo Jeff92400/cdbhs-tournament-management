@@ -36,6 +36,7 @@
     .stat-card.pending .stat-value { color: #ffc107; }
     .stat-card.approved .stat-value { color: #28a745; }
     .stat-card.rejected .stat-value { color: #dc3545; }
+    .stat-card.deleted .stat-value { color: #6c757d; }
 
     .filter-bar {
       display: flex;
@@ -100,6 +101,10 @@
     .status-badge.convoked {
       background: #cce5ff;
       color: #004085;
+    }
+    .status-badge.deleted {
+      background: #e2e3e5;
+      color: #383d41;
     }
 
     .action-btn {
@@ -217,6 +222,10 @@
         <div class="stat-value" id="rejectedCount">-</div>
         <div class="stat-label">Refusees</div>
       </div>
+      <div class="stat-card deleted">
+        <div class="stat-value" id="deletedCount">-</div>
+        <div class="stat-label">Supprimees</div>
+      </div>
     </div>
 
     <!-- Filter Bar -->
@@ -227,6 +236,7 @@
         <option value="approved">Approuvees</option>
         <option value="rejected">Refusees</option>
         <option value="convoked">Convoquees</option>
+        <option value="deleted">Supprimees</option>
       </select>
       <button onclick="loadRequests()" class="btn btn-primary" style="padding: 10px 20px;">
         Actualiser
@@ -306,6 +316,7 @@
         document.getElementById('pendingCount').textContent = data.counts?.pending || 0;
         document.getElementById('approvedCount').textContent = data.counts?.approved || 0;
         document.getElementById('rejectedCount').textContent = data.counts?.rejected || 0;
+        document.getElementById('deletedCount').textContent = data.counts?.deleted || 0;
 
         if (!data.requests || data.requests.length === 0) {
           container.innerHTML = `
@@ -354,7 +365,8 @@
         'pending': 'En attente',
         'approved': 'Approuvee',
         'rejected': 'Refusee',
-        'convoked': 'Convoquee'
+        'convoked': 'Convoquee',
+        'deleted': 'Supprimee'
       }[request.status] || request.status;
 
       let actions = '';
@@ -368,12 +380,14 @@
           </button>
         `;
       }
-      // Delete button available for all statuses
-      actions += `
-        <button class="action-btn delete" onclick="deleteRequest(${request.id}, '${escapeHtml(request.player_name)}')" title="Supprimer">
-          Supprimer
-        </button>
-      `;
+      // Delete button available for all statuses except already deleted
+      if (request.status !== 'deleted') {
+        actions += `
+          <button class="action-btn delete" onclick="deleteRequest(${request.id}, '${escapeHtml(request.player_name)}')" title="Supprimer">
+            Supprimer
+          </button>
+        `;
+      }
 
       return `
         <tr>

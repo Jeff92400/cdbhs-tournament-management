@@ -104,6 +104,7 @@ router.get('/', async (req, res) => {
         WHEN 'approved' THEN 2
         WHEN 'rejected' THEN 3
         WHEN 'convoked' THEN 4
+        WHEN 'deleted' THEN 5
       END,
       er.created_at DESC
       LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
@@ -325,7 +326,7 @@ router.put('/:id/reject', async (req, res) => {
 
 /**
  * DELETE /api/enrollment-requests/:id
- * Delete an enrollment request
+ * Soft delete an enrollment request (marks as 'deleted')
  */
 router.delete('/:id', async (req, res) => {
   try {
@@ -343,8 +344,14 @@ router.delete('/:id', async (req, res) => {
 
     const request = requestResult.rows[0];
 
-    // Delete the request
-    await db.query('DELETE FROM enrollment_requests WHERE id = $1', [id]);
+    // Soft delete - mark as deleted instead of removing
+    await db.query(`
+      UPDATE enrollment_requests
+      SET status = 'deleted',
+          processed_at = NOW(),
+          processed_by = $1
+      WHERE id = $2
+    `, [req.user.username || req.user.email || 'admin', id]);
 
     // Log admin action
     logAdminAction(
