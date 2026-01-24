@@ -591,28 +591,26 @@ router.put('/:id/approve', async (req, res) => {
       req
     );
 
-    // Create in-app notification for the player using simple db.run (like announcements.js does)
+    // Create in-app notification for the player
     const normalizedLicence = request.licence.replace(/\s+/g, '');
     console.log(`[APPROVAL] Creating announcement for licence: ${normalizedLicence}`);
 
-    db.run(
-      `INSERT INTO announcements (title, message, type, is_active, created_by, target_licence)
-       VALUES ($1, $2, $3, TRUE, $4, $5)`,
-      [
-        'Demande acceptée',
-        `Votre demande d'inscription en ${request.game_mode_name} ${request.requested_ranking} (Tournoi ${request.tournament_number}) a été acceptée.`,
-        'info',
-        req.user.username || 'admin',
-        normalizedLicence
-      ],
-      function(err) {
-        if (err) {
-          console.error('[APPROVAL] Failed to create announcement:', err);
-        } else {
-          console.log(`[APPROVAL] Announcement created for ${normalizedLicence}`);
-        }
-      }
-    );
+    try {
+      await db.query(
+        `INSERT INTO announcements (title, message, type, is_active, created_by, target_licence)
+         VALUES ($1, $2, $3, TRUE, $4, $5)`,
+        [
+          'Demande acceptée',
+          `Votre demande d'inscription en ${request.game_mode_name} ${request.requested_ranking} (Tournoi ${request.tournament_number}) a été acceptée.`,
+          'info',
+          req.user.username || 'admin',
+          normalizedLicence
+        ]
+      );
+      console.log(`[APPROVAL] Announcement created successfully for ${normalizedLicence}`);
+    } catch (annErr) {
+      console.error('[APPROVAL] Failed to create announcement:', annErr.message);
+    }
 
     // Send approval email to player (non-blocking)
     sendApprovalEmail(request).catch(err => {
@@ -680,7 +678,7 @@ router.put('/:id/reject', async (req, res) => {
       req
     );
 
-    // Create in-app notification for the player using simple db.run
+    // Create in-app notification for the player
     const normalizedLicence = request.licence.replace(/\s+/g, '');
     console.log(`[REJECTION] Creating announcement for licence: ${normalizedLicence}`);
 
@@ -688,24 +686,22 @@ router.put('/:id/reject', async (req, res) => {
       ? `Votre demande d'inscription en ${request.game_mode_name} ${request.requested_ranking} (Tournoi ${request.tournament_number}) a été refusée. Raison : ${reason}`
       : `Votre demande d'inscription en ${request.game_mode_name} ${request.requested_ranking} (Tournoi ${request.tournament_number}) a été refusée.`;
 
-    db.run(
-      `INSERT INTO announcements (title, message, type, is_active, created_by, target_licence)
-       VALUES ($1, $2, $3, TRUE, $4, $5)`,
-      [
-        'Demande refusée',
-        rejectionMessage,
-        'warning',
-        req.user.username || 'admin',
-        normalizedLicence
-      ],
-      function(err) {
-        if (err) {
-          console.error('[REJECTION] Failed to create announcement:', err);
-        } else {
-          console.log(`[REJECTION] Announcement created for ${normalizedLicence}`);
-        }
-      }
-    );
+    try {
+      await db.query(
+        `INSERT INTO announcements (title, message, type, is_active, created_by, target_licence)
+         VALUES ($1, $2, $3, TRUE, $4, $5)`,
+        [
+          'Demande refusée',
+          rejectionMessage,
+          'warning',
+          req.user.username || 'admin',
+          normalizedLicence
+        ]
+      );
+      console.log(`[REJECTION] Announcement created successfully for ${normalizedLicence}`);
+    } catch (annErr) {
+      console.error('[REJECTION] Failed to create announcement:', annErr.message);
+    }
 
     // Send rejection email to player (non-blocking)
     sendRejectionEmail(request, reason).catch(err => {
