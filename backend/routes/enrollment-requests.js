@@ -284,6 +284,20 @@ router.put('/:id/approve', async (req, res) => {
       req
     );
 
+    // Create in-app notification for the player
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30); // Expires in 30 days
+    await db.query(`
+      INSERT INTO announcements (title, message, type, is_active, expires_at, created_by, target_licence)
+      VALUES ($1, $2, 'success', TRUE, $3, $4, $5)
+    `, [
+      'Demande acceptée',
+      `Votre demande d'inscription en ${request.game_mode_name} ${request.requested_ranking} (Tournoi ${request.tournament_number}) a été acceptée. Vous recevrez une convocation avant la compétition.`,
+      expiresAt,
+      req.user.username || 'admin',
+      request.licence
+    ]);
+
     // Send approval email to player (non-blocking)
     sendApprovalEmail(req, request).catch(err => {
       console.error('Failed to send approval email:', err);
@@ -349,6 +363,23 @@ router.put('/:id/reject', async (req, res) => {
       `${request.player_name} - ${request.game_mode_name} ${request.requested_ranking}`,
       req
     );
+
+    // Create in-app notification for the player
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30); // Expires in 30 days
+    const rejectionMessage = reason
+      ? `Votre demande d'inscription en ${request.game_mode_name} ${request.requested_ranking} (Tournoi ${request.tournament_number}) a été refusée. Raison : ${reason}`
+      : `Votre demande d'inscription en ${request.game_mode_name} ${request.requested_ranking} (Tournoi ${request.tournament_number}) a été refusée.`;
+    await db.query(`
+      INSERT INTO announcements (title, message, type, is_active, expires_at, created_by, target_licence)
+      VALUES ($1, $2, 'warning', TRUE, $3, $4, $5)
+    `, [
+      'Demande refusée',
+      rejectionMessage,
+      expiresAt,
+      req.user.username || 'admin',
+      request.licence
+    ]);
 
     // Send rejection email to player (non-blocking)
     sendRejectionEmail(req, request, reason).catch(err => {
