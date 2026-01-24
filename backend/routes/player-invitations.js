@@ -917,15 +917,20 @@ router.post('/sync-signups', authenticateToken, async (req, res) => {
     // Get all pending invitations
     const pendingInvitations = await new Promise((resolve, reject) => {
       db.all(
-        `SELECT id, licence FROM player_invitations
-         WHERE has_signed_up = FALSE OR has_signed_up IS NULL OR has_signed_up = 0`,
+        `SELECT id, licence FROM player_invitations WHERE has_signed_up IS NOT TRUE`,
         [],
         (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows || []);
+          if (err) {
+            console.error('Error fetching pending invitations:', err);
+            reject(err);
+          } else {
+            resolve(rows || []);
+          }
         }
       );
     });
+
+    console.log(`Found ${pendingInvitations.length} pending invitations`);
 
     // Get all player accounts
     const playerAccounts = await new Promise((resolve, reject) => {
@@ -933,33 +938,48 @@ router.post('/sync-signups', authenticateToken, async (req, res) => {
         `SELECT licence, created_at FROM player_accounts`,
         [],
         (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows || []);
+          if (err) {
+            console.error('Error fetching player accounts:', err);
+            reject(err);
+          } else {
+            resolve(rows || []);
+          }
         }
       );
     });
 
+    console.log(`Found ${playerAccounts.length} player accounts`);
+
     // Create a map of normalized licences to created_at
     const accountMap = new Map();
     for (const pa of playerAccounts) {
-      const normalizedLicence = pa.licence.replace(/\s+/g, '').toUpperCase();
-      accountMap.set(normalizedLicence, pa.created_at);
+      if (pa.licence) {
+        const normalizedLicence = pa.licence.replace(/\s+/g, '').toUpperCase();
+        accountMap.set(normalizedLicence, pa.created_at || new Date().toISOString());
+      }
     }
 
     // Update invitations where player has signed up
     let updatedCount = 0;
     for (const inv of pendingInvitations) {
+      if (!inv.licence) continue;
+
       const normalizedLicence = inv.licence.replace(/\s+/g, '').toUpperCase();
       const signedUpAt = accountMap.get(normalizedLicence);
 
       if (signedUpAt) {
+        console.log(`Updating invitation ${inv.id} for licence ${inv.licence}`);
         await new Promise((resolve, reject) => {
           db.run(
             `UPDATE player_invitations SET has_signed_up = TRUE, signed_up_at = $1 WHERE id = $2`,
             [signedUpAt, inv.id],
             function(err) {
-              if (err) reject(err);
-              else resolve();
+              if (err) {
+                console.error(`Error updating invitation ${inv.id}:`, err);
+                reject(err);
+              } else {
+                resolve();
+              }
             }
           );
         });
@@ -974,7 +994,7 @@ router.post('/sync-signups', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error syncing signups:', error);
-    res.status(500).json({ error: 'Erreur lors de la synchronisation' });
+    res.status(500).json({ error: 'Erreur lors de la synchronisation: ' + error.message });
   }
 });
 
