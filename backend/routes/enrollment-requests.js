@@ -306,20 +306,29 @@ router.put('/:id/approve', async (req, res) => {
     }
 
     // Find the tournament matching mode, category, and tournament number
+    const tournamentNum = request.tournament_number;
     const tournamentResult = await db.query(`
       SELECT tournoi_id, nom, mode, categorie, debut, lieu
       FROM tournoi_ext
       WHERE UPPER(mode) LIKE UPPER($1)
         AND UPPER(categorie) = UPPER($2)
         AND debut >= $3 AND debut <= $4
-        AND (UPPER(nom) LIKE '%T${request.tournament_number}%'
-             OR UPPER(nom) LIKE '%TOURNOI ${request.tournament_number}%'
-             OR UPPER(nom) LIKE '%TOUR ${request.tournament_number}%')
+        AND (UPPER(nom) LIKE $5
+             OR UPPER(nom) LIKE $6
+             OR UPPER(nom) LIKE $7)
         AND UPPER(nom) NOT LIKE '%FINALE%'
         AND (status IS NULL OR status != 'cancelled')
       ORDER BY debut ASC
       LIMIT 1
-    `, ['%' + request.game_mode_name + '%', request.requested_ranking, seasonStart, seasonEnd]);
+    `, [
+      '%' + request.game_mode_name + '%',
+      request.requested_ranking,
+      seasonStart,
+      seasonEnd,
+      '%T' + tournamentNum + '%',
+      '%TOURNOI ' + tournamentNum + '%',
+      '%TOUR ' + tournamentNum + '%'
+    ]);
 
     let tournamentId = null;
     let tournamentInfo = null;
@@ -607,6 +616,7 @@ router.put('/:id/reject', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`[DELETE] Starting delete for enrollment request ${id}`);
 
     // Get the request for logging
     const requestResult = await db.query(
@@ -619,9 +629,12 @@ router.delete('/:id', async (req, res) => {
     }
 
     const request = requestResult.rows[0];
+    console.log(`[DELETE] Found request:`, JSON.stringify(request, null, 2));
 
     // If the request was approved, we need to also delete the inscription and ranking
     if (request.status === 'approved') {
+      console.log(`[DELETE] Request was approved, cleaning up inscriptions and rankings...`);
+
       // Find and delete the inscription that was created
       const now = new Date();
       const year = now.getFullYear();
@@ -636,23 +649,36 @@ router.delete('/:id', async (req, res) => {
       }
 
       // Find the tournament that matches (same logic as approve)
+      // Use parameterized query for tournament_number
+      const tournamentNum = request.tournament_number;
+      console.log(`[DELETE] Looking for tournament: mode=${request.game_mode_name}, ranking=${request.requested_ranking}, T${tournamentNum}`);
+
       const tournamentResult = await db.query(`
         SELECT tournoi_id
         FROM tournoi_ext
         WHERE UPPER(mode) LIKE UPPER($1)
           AND UPPER(categorie) = UPPER($2)
           AND debut >= $3 AND debut <= $4
-          AND (UPPER(nom) LIKE '%T${request.tournament_number}%'
-               OR UPPER(nom) LIKE '%TOURNOI ${request.tournament_number}%'
-               OR UPPER(nom) LIKE '%TOUR ${request.tournament_number}%')
+          AND (UPPER(nom) LIKE $5
+               OR UPPER(nom) LIKE $6
+               OR UPPER(nom) LIKE $7)
           AND UPPER(nom) NOT LIKE '%FINALE%'
           AND (status IS NULL OR status != 'cancelled')
         ORDER BY debut ASC
         LIMIT 1
-      `, ['%' + request.game_mode_name + '%', request.requested_ranking, seasonStart, seasonEnd]);
+      `, [
+        '%' + request.game_mode_name + '%',
+        request.requested_ranking,
+        seasonStart,
+        seasonEnd,
+        '%T' + tournamentNum + '%',
+        '%TOURNOI ' + tournamentNum + '%',
+        '%TOUR ' + tournamentNum + '%'
+      ]);
 
       if (tournamentResult.rows.length > 0) {
         const tournamentId = tournamentResult.rows[0].tournoi_id;
+        console.log(`[DELETE] Found tournament ${tournamentId}, deleting inscription...`);
 
         // Delete the inscription
         await db.query(`
@@ -662,10 +688,13 @@ router.delete('/:id', async (req, res) => {
             AND source = 'player_app'
         `, [request.licence, tournamentId]);
 
-        console.log(`Deleted inscription for ${request.player_name} from tournament ${tournamentId}`);
+        console.log(`[DELETE] Deleted inscription for ${request.player_name} from tournament ${tournamentId}`);
+      } else {
+        console.log(`[DELETE] No matching tournament found`);
       }
 
       // Delete the ranking record if it exists
+      console.log(`[DELETE] Looking for category: game_type=${request.game_mode_name}, level=${request.requested_ranking}`);
       const categoryResult = await db.query(`
         SELECT id FROM categories
         WHERE UPPER(game_type) = UPPER($1)
@@ -677,6 +706,7 @@ router.delete('/:id', async (req, res) => {
         const seasonYear = month >= 8 ? year : year - 1;
         const currentSeason = `${seasonYear}-${seasonYear + 1}`;
 
+        console.log(`[DELETE] Found category ${categoryId}, deleting ranking for season ${currentSeason}...`);
         await db.query(`
           DELETE FROM rankings
           WHERE REPLACE(UPPER(licence), ' ', '') = REPLACE(UPPER($1), ' ', '')
@@ -685,20 +715,24 @@ router.delete('/:id', async (req, res) => {
             AND total_match_points = 0
         `, [request.licence, categoryId, currentSeason]);
 
-        console.log(`Deleted ranking for ${request.player_name} in category ${categoryId}`);
+        console.log(`[DELETE] Deleted ranking for ${request.player_name} in category ${categoryId}`);
+      } else {
+        console.log(`[DELETE] No matching category found`);
       }
 
       // Also delete the player_ranking record
+      console.log(`[DELETE] Deleting player_ranking for game_mode_id=${request.game_mode_id}...`);
       await db.query(`
         DELETE FROM player_rankings
         WHERE REPLACE(licence, ' ', '') = REPLACE($1, ' ', '')
         AND game_mode_id = $2
       `, [request.licence, request.game_mode_id]);
 
-      console.log(`Deleted player_ranking for ${request.player_name} in game mode ${request.game_mode_id}`);
+      console.log(`[DELETE] Deleted player_ranking for ${request.player_name} in game mode ${request.game_mode_id}`);
     }
 
     // Soft delete - mark as deleted instead of removing
+    console.log(`[DELETE] Marking request as deleted...`);
     await db.query(`
       UPDATE enrollment_requests
       SET status = 'deleted',
@@ -720,14 +754,16 @@ router.delete('/:id', async (req, res) => {
       req
     );
 
+    console.log(`[DELETE] Successfully deleted enrollment request ${id}`);
     res.json({
       success: true,
       message: 'Demande supprimée'
     });
 
   } catch (error) {
-    console.error('Error deleting enrollment request:', error);
-    res.status(500).json({ error: 'Failed to delete request' });
+    console.error('[DELETE] Error deleting enrollment request:', error.message);
+    console.error('[DELETE] Stack:', error.stack);
+    res.status(500).json({ error: 'Failed to delete request', details: error.message });
   }
 });
 
