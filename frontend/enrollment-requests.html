@@ -309,16 +309,9 @@
       // Determine current season (September start)
       const currentSeasonStart = currentMonth >= 8 ? currentYear : currentYear - 1;
 
-      // Generate seasons (current + 2 previous)
-      const seasons = [];
-      for (let i = 0; i < 3; i++) {
-        const startYear = currentSeasonStart - i;
-        seasons.push(`${startYear}-${startYear + 1}`);
-      }
-
-      select.innerHTML = seasons.map((s, idx) =>
-        `<option value="${s}" ${idx === 0 ? 'selected' : ''}>${s}</option>`
-      ).join('');
+      // Only show current season (no historical data before 2025-2026)
+      const currentSeason = `${currentSeasonStart}-${currentSeasonStart + 1}`;
+      select.innerHTML = `<option value="${currentSeason}" selected>${currentSeason}</option>`;
     }
 
     // Load requests on page load
