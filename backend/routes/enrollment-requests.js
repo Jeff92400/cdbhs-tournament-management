@@ -15,7 +15,34 @@ const db = require('../db-loader');
 const { authenticateToken, requireAdmin } = require('./auth');
 const { logAdminAction, ACTION_TYPES } = require('../utils/admin-logger');
 
-// All routes require authentication and admin role
+/**
+ * GET /api/enrollment-requests/debug-announcements/:licence
+ * Debug endpoint to check announcements for a player (PUBLIC - no auth)
+ */
+router.get('/debug-announcements/:licence', async (req, res) => {
+  try {
+    const { licence } = req.params;
+    const normalizedLicence = licence.replace(/\s+/g, '').toUpperCase();
+
+    const result = await db.query(`
+      SELECT id, title, message, type, is_active, expires_at, target_licence, created_at
+      FROM announcements
+      WHERE UPPER(REPLACE(COALESCE(target_licence, ''), ' ', '')) = $1
+      ORDER BY created_at DESC
+      LIMIT 10
+    `, [normalizedLicence]);
+
+    res.json({
+      licence: normalizedLicence,
+      count: result.rows.length,
+      announcements: result.rows
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// All routes below require authentication and admin role
 router.use(authenticateToken);
 router.use(requireAdmin);
 
@@ -540,33 +567,6 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting enrollment request:', error);
     res.status(500).json({ error: 'Failed to delete request' });
-  }
-});
-
-/**
- * GET /api/enrollment-requests/debug-announcements/:licence
- * Debug endpoint to check announcements for a player
- */
-router.get('/debug-announcements/:licence', async (req, res) => {
-  try {
-    const { licence } = req.params;
-    const normalizedLicence = licence.replace(/\s+/g, '').toUpperCase();
-
-    const result = await db.query(`
-      SELECT id, title, message, type, is_active, expires_at, target_licence, created_at
-      FROM announcements
-      WHERE UPPER(REPLACE(COALESCE(target_licence, ''), ' ', '')) = $1
-      ORDER BY created_at DESC
-      LIMIT 10
-    `, [normalizedLicence]);
-
-    res.json({
-      licence: normalizedLicence,
-      count: result.rows.length,
-      announcements: result.rows
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 });
 
