@@ -3158,13 +3158,15 @@ router.post('/enrollment-notification', async (req, res) => {
 /**
  * POST /api/email/enrollment-approved
  * Send email to player when their enrollment request is approved
+ * Accepts either api_key (for internal calls) or Authorization header
  */
 router.post('/enrollment-approved', async (req, res) => {
-  const { player_email, player_name, game_mode, requested_ranking, tournament_number, tournament_name, tournament_date } = req.body;
+  const { player_email, player_name, game_mode, requested_ranking, tournament_number, tournament_name, tournament_date, api_key } = req.body;
 
-  // This endpoint is called internally, verify auth token
+  // Verify auth - accept either API key or Authorization header
   const authHeader = req.headers['authorization'];
-  if (!authHeader) {
+  const validApiKey = api_key && api_key === process.env.PLAYER_APP_API_KEY;
+  if (!authHeader && !validApiKey) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -3268,13 +3270,15 @@ router.post('/enrollment-approved', async (req, res) => {
 /**
  * POST /api/email/enrollment-rejected
  * Send email to player when their enrollment request is rejected
+ * Accepts either api_key (for internal calls) or Authorization header
  */
 router.post('/enrollment-rejected', async (req, res) => {
-  const { player_email, player_name, game_mode, requested_ranking, tournament_number, rejection_reason } = req.body;
+  const { player_email, player_name, game_mode, requested_ranking, tournament_number, rejection_reason, api_key } = req.body;
 
-  // This endpoint is called internally, verify auth token
+  // Verify auth - accept either API key or Authorization header
   const authHeader = req.headers['authorization'];
-  if (!authHeader) {
+  const validApiKey = api_key && api_key === process.env.PLAYER_APP_API_KEY;
+  if (!authHeader && !validApiKey) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
