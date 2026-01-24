@@ -918,16 +918,17 @@ router.post('/sync-signups', authenticateToken, async (req, res) => {
     // Use UPPER() to ensure case-insensitive licence comparison
     const result = await new Promise((resolve, reject) => {
       db.run(
-        `UPDATE player_invitations pi
+        `UPDATE player_invitations
          SET has_signed_up = TRUE,
-             signed_up_at = COALESCE(pi.signed_up_at, (
+             signed_up_at = COALESCE(signed_up_at, (
                SELECT pa.created_at FROM player_accounts pa
-               WHERE UPPER(REPLACE(pa.licence, ' ', '')) = UPPER(REPLACE(pi.licence, ' ', ''))
+               WHERE UPPER(REPLACE(pa.licence, ' ', '')) = UPPER(REPLACE(player_invitations.licence, ' ', ''))
+               LIMIT 1
              ))
-         WHERE (pi.has_signed_up = FALSE OR pi.has_signed_up IS NULL OR pi.has_signed_up = 0)
+         WHERE (has_signed_up = FALSE OR has_signed_up IS NULL OR has_signed_up = 0)
            AND EXISTS (
              SELECT 1 FROM player_accounts pa
-             WHERE UPPER(REPLACE(pa.licence, ' ', '')) = UPPER(REPLACE(pi.licence, ' ', ''))
+             WHERE UPPER(REPLACE(pa.licence, ' ', '')) = UPPER(REPLACE(player_invitations.licence, ' ', ''))
            )`,
         [],
         function(err) {
