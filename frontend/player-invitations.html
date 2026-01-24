@@ -829,8 +829,9 @@
             <td>${sentDate}${resendInfo}</td>
             <td>${inv.sent_by_username || '-'}</td>
             <td>${statusHtml}</td>
-            <td>
+            <td style="white-space: nowrap;">
               ${!inv.has_signed_up ? `<button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="resendInvitation(${inv.id})">Renvoyer</button>` : ''}
+              <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;" onclick="deleteInvitation(${inv.id})">Supprimer</button>
             </td>
           </tr>
         `;
@@ -933,6 +934,30 @@
         }
       } catch (error) {
         console.error('Error resending:', error);
+        showError('Erreur de connexion');
+      }
+    }
+
+    async function deleteInvitation(id) {
+      if (!confirm('Supprimer cette invitation ?')) return;
+
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showSuccess('Invitation supprimee');
+          loadTracking();
+          loadStats();
+        } else {
+          showError(data.error || 'Erreur lors de la suppression');
+        }
+      } catch (error) {
+        console.error('Error deleting:', error);
         showError('Erreur de connexion');
       }
     }

@@ -915,18 +915,19 @@ router.post('/resend/:id', authenticateToken, async (req, res) => {
 router.post('/sync-signups', authenticateToken, async (req, res) => {
   try {
     // Update has_signed_up for invitations where player has created an account
+    // Use UPPER() to ensure case-insensitive licence comparison
     const result = await new Promise((resolve, reject) => {
       db.run(
         `UPDATE player_invitations pi
          SET has_signed_up = TRUE,
              signed_up_at = COALESCE(pi.signed_up_at, (
                SELECT pa.created_at FROM player_accounts pa
-               WHERE REPLACE(pa.licence, ' ', '') = REPLACE(pi.licence, ' ', '')
+               WHERE UPPER(REPLACE(pa.licence, ' ', '')) = UPPER(REPLACE(pi.licence, ' ', ''))
              ))
          WHERE (pi.has_signed_up = FALSE OR pi.has_signed_up IS NULL OR pi.has_signed_up = 0)
            AND EXISTS (
              SELECT 1 FROM player_accounts pa
-             WHERE REPLACE(pa.licence, ' ', '') = REPLACE(pi.licence, ' ', '')
+             WHERE UPPER(REPLACE(pa.licence, ' ', '')) = UPPER(REPLACE(pi.licence, ' ', ''))
            )`,
         [],
         function(err) {
@@ -944,6 +945,33 @@ router.post('/sync-signups', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error syncing signups:', error);
     res.status(500).json({ error: 'Erreur lors de la synchronisation' });
+  }
+});
+
+// Delete an invitation
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await new Promise((resolve, reject) => {
+      db.run(
+        'DELETE FROM player_invitations WHERE id = $1',
+        [id],
+        function(err) {
+          if (err) reject(err);
+          else resolve({ changes: this.changes });
+        }
+      );
+    });
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Invitation non trouvée' });
+    }
+
+    res.json({ success: true, message: 'Invitation supprimée' });
+  } catch (error) {
+    console.error('Error deleting invitation:', error);
+    res.status(500).json({ error: 'Erreur lors de la suppression' });
   }
 });
 
