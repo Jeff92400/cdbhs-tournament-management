@@ -52,33 +52,48 @@ router.use(requireAdmin);
 
 // Helper function to send approval email via email route (same pattern as acknowledgment)
 async function sendApprovalEmail(request) {
+  console.log(`[APPROVAL EMAIL] Starting email send to ${request.player_email}`);
+  console.log(`[APPROVAL EMAIL] API_KEY configured: ${!!API_KEY}`);
+
   if (!API_KEY) {
-    console.log('[APPROVAL] API_KEY not configured, skipping email');
-    return;
+    console.log('[APPROVAL EMAIL] API_KEY not configured, skipping email');
+    return { success: false, reason: 'no_api_key' };
   }
 
   try {
-    const response = await fetch(`http://localhost:${process.env.PORT || 3000}/api/email/enrollment-approved`, {
+    const url = `http://localhost:${process.env.PORT || 3000}/api/email/enrollment-approved`;
+    console.log(`[APPROVAL EMAIL] Calling ${url}`);
+
+    const payload = {
+      player_email: request.player_email,
+      player_name: request.player_name,
+      game_mode: request.game_mode_name,
+      requested_ranking: request.requested_ranking,
+      tournament_number: request.tournament_number,
+      api_key: API_KEY
+    };
+    console.log(`[APPROVAL EMAIL] Payload:`, JSON.stringify(payload, null, 2));
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        player_email: request.player_email,
-        player_name: request.player_name,
-        game_mode: request.game_mode_name,
-        requested_ranking: request.requested_ranking,
-        tournament_number: request.tournament_number,
-        api_key: API_KEY
-      })
+      body: JSON.stringify(payload)
     });
 
+    const responseText = await response.text();
+    console.log(`[APPROVAL EMAIL] Response status: ${response.status}`);
+    console.log(`[APPROVAL EMAIL] Response body: ${responseText}`);
+
     if (!response.ok) {
-      const error = await response.json();
-      console.error('[APPROVAL] Failed to send email:', error);
+      console.error('[APPROVAL EMAIL] Failed to send email:', responseText);
+      return { success: false, reason: 'api_error', status: response.status, body: responseText };
     } else {
-      console.log(`[APPROVAL] Email sent to ${request.player_email}`);
+      console.log(`[APPROVAL EMAIL] Email sent successfully to ${request.player_email}`);
+      return { success: true };
     }
   } catch (error) {
-    console.error('[APPROVAL] Error sending email:', error.message);
+    console.error('[APPROVAL EMAIL] Error sending email:', error.message);
+    return { success: false, reason: 'exception', error: error.message };
   }
 }
 
@@ -499,10 +514,14 @@ router.put('/:id/approve', async (req, res) => {
       console.error('[APPROVAL] Failed to create announcement:', annErr.message, annErr.stack);
     }
 
-    // Send approval email to player (non-blocking)
-    sendApprovalEmail(request).catch(err => {
+    // Send approval email to player
+    let emailResult = null;
+    try {
+      emailResult = await sendApprovalEmail(request);
+    } catch (err) {
       console.error('[APPROVAL] Failed to send approval email:', err);
-    });
+      emailResult = { success: false, reason: 'exception', error: err.message };
+    }
 
     res.json({
       success: true,
@@ -511,7 +530,8 @@ router.put('/:id/approve', async (req, res) => {
       tournament: tournamentInfo,
       announcementCreated,
       announcementError,
-      targetLicence: normalizedLicence
+      targetLicence: normalizedLicence,
+      emailResult
     });
 
   } catch (error) {
