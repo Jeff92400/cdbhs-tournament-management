@@ -262,17 +262,14 @@ router.delete('/purge', async (req, res) => {
 
     // Log admin action (non-blocking)
     try {
-      logAdminAction(
-        req.user.id,
-        req.user.username,
-        req.user.role,
-        'enrollment_requests_purged',
-        `Purged ${countToPurge} deleted enrollment requests for season ${season}`,
-        'enrollment_request',
-        'bulk',
-        `Season ${season}`,
-        req
-      );
+      logAdminAction({
+        req,
+        action: 'enrollment_requests_purged',
+        details: `Purged ${countToPurge} deleted enrollment requests for season ${season}`,
+        targetType: 'enrollment_request',
+        targetId: 'bulk',
+        targetName: `Season ${season}`
+      });
     } catch (logErr) {
       console.error('[PURGE] Failed to log admin action:', logErr.message);
     }
@@ -490,17 +487,14 @@ router.put('/:id/approve', async (req, res) => {
     `, [req.user.username || req.user.email || 'admin', id]);
 
     // Log admin action
-    logAdminAction(
-      req.user.id,
-      req.user.username,
-      req.user.role,
-      'enrollment_request_approved',
-      `Approved enrollment request for ${request.player_name}: ${request.game_mode_name} ${request.requested_ranking} T${request.tournament_number}`,
-      'enrollment_request',
-      id.toString(),
-      `${request.player_name} - ${request.game_mode_name} ${request.requested_ranking}`,
-      req
-    );
+    logAdminAction({
+      req,
+      action: 'enrollment_request_approved',
+      details: `Approved enrollment request for ${request.player_name}: ${request.game_mode_name} ${request.requested_ranking} T${request.tournament_number}`,
+      targetType: 'enrollment_request',
+      targetId: id.toString(),
+      targetName: `${request.player_name} - ${request.game_mode_name} ${request.requested_ranking}`
+    });
 
     // Create in-app notification for the player
     const normalizedLicence = request.licence.replace(/\s+/g, '');
@@ -590,17 +584,14 @@ router.put('/:id/reject', async (req, res) => {
     `, [reason || null, req.user.username || req.user.email || 'admin', id]);
 
     // Log admin action
-    logAdminAction(
-      req.user.id,
-      req.user.username,
-      req.user.role,
-      'enrollment_request_rejected',
-      `Rejected enrollment request for ${request.player_name}: ${request.game_mode_name} ${request.requested_ranking} T${request.tournament_number}${reason ? ' - Reason: ' + reason : ''}`,
-      'enrollment_request',
-      id.toString(),
-      `${request.player_name} - ${request.game_mode_name} ${request.requested_ranking}`,
-      req
-    );
+    logAdminAction({
+      req,
+      action: 'enrollment_request_rejected',
+      details: `Rejected enrollment request for ${request.player_name}: ${request.game_mode_name} ${request.requested_ranking} T${request.tournament_number}${reason ? ' - Reason: ' + reason : ''}`,
+      targetType: 'enrollment_request',
+      targetId: id.toString(),
+      targetName: `${request.player_name} - ${request.game_mode_name} ${request.requested_ranking}`
+    });
 
     // Create in-app notification for the player
     const normalizedLicence = request.licence.replace(/\s+/g, '');
@@ -776,17 +767,14 @@ router.delete('/:id', async (req, res) => {
     `, [req.user.username || req.user.email || 'admin', id]);
 
     // Log admin action
-    logAdminAction(
-      req.user.id,
-      req.user.username,
-      req.user.role,
-      'enrollment_request_deleted',
-      `Deleted enrollment request for ${request.player_name}: ${request.game_mode_name} ${request.requested_ranking} T${request.tournament_number} (status was: ${request.status})`,
-      'enrollment_request',
-      id.toString(),
-      `${request.player_name} - ${request.game_mode_name} ${request.requested_ranking}`,
-      req
-    );
+    logAdminAction({
+      req,
+      action: 'enrollment_request_deleted',
+      details: `Deleted enrollment request for ${request.player_name}: ${request.game_mode_name} ${request.requested_ranking} T${request.tournament_number} (status was: ${request.status})`,
+      targetType: 'enrollment_request',
+      targetId: id.toString(),
+      targetName: `${request.player_name} - ${request.game_mode_name} ${request.requested_ranking}`
+    });
 
     console.log(`[DELETE] Successfully deleted enrollment request ${id}`);
     res.json({
