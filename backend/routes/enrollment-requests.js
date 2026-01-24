@@ -14,6 +14,7 @@ const router = express.Router();
 const db = require('../db-loader');
 const { authenticateToken, requireAdmin } = require('./auth');
 const { logAdminAction, ACTION_TYPES } = require('../utils/admin-logger');
+const fetch = require('node-fetch');
 
 // API key for internal email calls
 const API_KEY = process.env.PLAYER_APP_API_KEY;
