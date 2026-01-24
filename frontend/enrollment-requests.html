@@ -469,7 +469,13 @@
           throw new Error(result.error || 'Failed to approve');
         }
 
-        showSuccess(`Demande approuvée${result.inscriptionCreated ? ' et inscription créée' : ''}`);
+        let msg = `Demande approuvée${result.inscriptionCreated ? ' et inscription créée' : ''}`;
+        if (result.announcementCreated) {
+          msg += ' | Message envoyé';
+        } else if (result.announcementError) {
+          msg += ` | ERREUR message: ${result.announcementError}`;
+        }
+        showSuccess(msg);
 
         // Small delay to ensure DB is updated, then reload with cache-busting
         await new Promise(resolve => setTimeout(resolve, 300));

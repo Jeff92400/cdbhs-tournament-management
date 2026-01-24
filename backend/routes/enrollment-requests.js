@@ -467,10 +467,13 @@ router.put('/:id/approve', async (req, res) => {
     const normalizedLicence = request.licence.replace(/\s+/g, '');
     console.log(`[APPROVAL] Creating announcement for licence: ${normalizedLicence}`);
 
+    let announcementCreated = false;
+    let announcementError = null;
     try {
-      await db.query(
+      const annResult = await db.query(
         `INSERT INTO announcements (title, message, type, is_active, created_by, target_licence)
-         VALUES ($1, $2, $3, TRUE, $4, $5)`,
+         VALUES ($1, $2, $3, TRUE, $4, $5)
+         RETURNING id`,
         [
           'Demande acceptée',
           `Votre demande d'inscription en ${request.game_mode_name} ${request.requested_ranking} (Tournoi ${request.tournament_number}) a été acceptée.`,
@@ -479,9 +482,11 @@ router.put('/:id/approve', async (req, res) => {
           normalizedLicence
         ]
       );
-      console.log(`[APPROVAL] Announcement created successfully for ${normalizedLicence}`);
+      announcementCreated = true;
+      console.log(`[APPROVAL] Announcement created with id=${annResult.rows[0]?.id} for ${normalizedLicence}`);
     } catch (annErr) {
-      console.error('[APPROVAL] Failed to create announcement:', annErr.message);
+      announcementError = annErr.message;
+      console.error('[APPROVAL] Failed to create announcement:', annErr.message, annErr.stack);
     }
 
     // Send approval email to player (non-blocking)
@@ -493,7 +498,10 @@ router.put('/:id/approve', async (req, res) => {
       success: true,
       message: 'Demande approuvée',
       inscriptionCreated: tournamentId !== null,
-      tournament: tournamentInfo
+      tournament: tournamentInfo,
+      announcementCreated,
+      announcementError,
+      targetLicence: normalizedLicence
     });
 
   } catch (error) {
