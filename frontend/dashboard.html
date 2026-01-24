@@ -44,7 +44,7 @@
         <button class="btn" style="background: #dc3545;" onclick="window.location.href='generate-poules.html'">
           Competitions a jouer
         </button>
-        <button class="btn admin-only" style="background: #ffc107; color: #333;" onclick="window.location.href='enrollment-requests.html'">
+        <button id="enrollmentRequestsBtn" class="btn admin-only" style="background: #ffc107; color: #333;" onclick="window.location.href='enrollment-requests.html'">
           Inscriptions Hors Classement
         </button>
         <button class="btn btn-success admin-only" onclick="window.location.href='import-tournament.html'">
@@ -343,6 +343,35 @@
       await loadSeasons();
       await loadDashboardStats();
       await loadUnsentResults();
+      await loadPendingEnrollmentRequests();
+    }
+
+    // Load pending enrollment requests count (admin only)
+    async function loadPendingEnrollmentRequests() {
+      const userRole = localStorage.getItem('userRole');
+      if (userRole !== 'admin') return;
+
+      try {
+        const response = await fetch(`${API_URL}/enrollment-requests?status=pending&limit=1`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const pendingCount = data.counts?.pending || 0;
+          const btn = document.getElementById('enrollmentRequestsBtn');
+
+          if (btn) {
+            if (pendingCount > 0) {
+              btn.innerHTML = `Inscriptions Hors Classement <span style="background: #dc3545; color: white; border-radius: 50%; padding: 2px 8px; font-size: 12px; margin-left: 5px;">${pendingCount}</span>`;
+            } else {
+              btn.textContent = 'Inscriptions Hors Classement';
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading pending enrollment requests:', error);
+      }
     }
 
     // Load tournaments with unsent results (admin only)
