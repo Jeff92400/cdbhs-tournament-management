@@ -233,6 +233,7 @@
         <div class="filter-group">
           <button class="btn" onclick="loadLogs()">Filtrer</button>
           <button class="btn btn-secondary" onclick="resetFilters()" style="margin-left: 5px;">Reset</button>
+          <button class="btn btn-danger" onclick="purgeLogs()" style="margin-left: 5px;">Purger</button>
         </div>
       </div>
     </div>
@@ -474,6 +475,43 @@
       localStorage.removeItem('adminLogs_username');
       currentPage = 0;
       loadLogs();
+    }
+
+    async function purgeLogs() {
+      const startDate = document.getElementById('filterStartDate').value;
+      const endDate = document.getElementById('filterEndDate').value;
+
+      if (!startDate || !endDate) {
+        alert('Veuillez sélectionner une date de début et une date de fin pour purger les logs.');
+        return;
+      }
+
+      const confirmMsg = `Êtes-vous sûr de vouloir supprimer tous les logs entre le ${formatDate(startDate)} et le ${formatDate(endDate)} ?\n\nCette action est irréversible.`;
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        const response = await fetch(`${API_URL}/admin-logs`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ startDate, endDate })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          alert(`${data.deleted} log(s) supprimé(s)`);
+          loadLogs();
+          loadStats();
+        } else {
+          alert(data.error || 'Erreur lors de la suppression');
+        }
+      } catch (error) {
+        console.error('Error purging logs:', error);
+        alert('Erreur de connexion');
+      }
     }
 
     function formatDate(dateStr) {

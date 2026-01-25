@@ -168,18 +168,18 @@ router.get('/action-types', authenticateToken, requireAdmin, (req, res) => {
 
 /**
  * DELETE /api/admin-logs
- * Clear old logs (admin only, with date range)
+ * Clear logs between two dates (admin only)
  */
 router.delete('/', authenticateToken, requireAdmin, (req, res) => {
-  const { beforeDate } = req.body;
+  const { startDate, endDate } = req.body;
 
-  if (!beforeDate) {
-    return res.status(400).json({ error: 'Date requise' });
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'Dates de début et de fin requises' });
   }
 
   db.run(
-    'DELETE FROM admin_activity_logs WHERE created_at < $1',
-    [beforeDate],
+    'DELETE FROM admin_activity_logs WHERE created_at >= $1 AND created_at <= $2',
+    [startDate, endDate + ' 23:59:59'],
     function(err) {
       if (err) {
         console.error('Error deleting admin logs:', err);
