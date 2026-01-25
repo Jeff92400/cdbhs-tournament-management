@@ -1586,10 +1586,9 @@ router.post('/send-finale-results', authenticateToken, async (req, res) => {
       console.log('Using default subject template');
     }
 
-    // Helper function to replace template variables (handles both plain and HTML-encoded)
+    // Helper function to replace template variables (handles HTML tags from Quill)
     function replaceFinaleTemplateVars(text) {
       if (!text) return text;
-      // Replace both plain {{var}} and HTML-encoded versions
       const replacements = {
         'tournament_label': tournamentLabel,
         'category': tournament.display_name,
@@ -1602,13 +1601,13 @@ router.post('/send-finale-results', authenticateToken, async (req, res) => {
 
       let result = text;
       for (const [key, value] of Object.entries(replacements)) {
-        // Plain format: {{var}}
-        result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
-        // HTML-encoded: &#123;&#123;var&#125;&#125;
-        result = result.replace(new RegExp(`&#123;&#123;${key}&#125;&#125;`, 'g'), value);
-        // Partial HTML-encoded: {{var}} with encoded braces
-        result = result.replace(new RegExp(`\\{\\{${key}&#125;&#125;`, 'g'), value);
-        result = result.replace(new RegExp(`&#123;&#123;${key}\\}\\}`, 'g'), value);
+        // Pattern that matches {{key}} with any HTML tags mixed in
+        // Matches: {{category}}, {{<strong>category</strong>}}, <strong>{{category}}</strong>, etc.
+        const flexiblePattern = new RegExp(
+          `(<[^>]*>)?\\{\\{(<[^>]*>)?${key}(<\\/[^>]*>)?\\}\\}(<\\/[^>]*>)?`,
+          'gi'
+        );
+        result = result.replace(flexiblePattern, value);
       }
       return result;
     }
