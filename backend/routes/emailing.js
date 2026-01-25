@@ -1703,46 +1703,51 @@ function buildPodiumHtml(topThree, primaryColor) {
   if (topThree.length < 3) return '';
 
   const medals = ['🥇', '🥈', '🥉'];
-  const colors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+  const borderColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
   const bgColors = ['#FFFBEB', '#F9FAFB', '#FEF3E7'];
+  const stepColors = ['linear-gradient(to bottom, #FFD700, #D4A800)', 'linear-gradient(to bottom, #C0C0C0, #A0A0A0)', 'linear-gradient(to bottom, #CD7F32, #A0522D)'];
+  const stepHeights = ['70px', '50px', '35px'];
 
-  let html = `
-    <div style="padding: 25px; background: #f8f9fa;">
-      <h3 style="text-align: center; color: ${primaryColor}; margin: 0 0 20px 0;">🏆 Podium de la Finale</h3>
-      <table style="width: 100%; border-collapse: separate; border-spacing: 10px;">
-        <tr>
-  `;
-
-  // Display in order: 2nd, 1st, 3rd
-  const order = [1, 0, 2];
-  for (const idx of order) {
-    const player = topThree[idx];
-    const position = idx + 1;
+  // Build player card HTML
+  function buildPlayerCard(player, position) {
     const moyenne = player.reprises > 0 ? (player.points / player.reprises).toFixed(3) : '0.000';
+    const idx = position - 1;
 
-    html += `
-      <td style="width: 33%; vertical-align: bottom; text-align: center;">
-        <div style="font-size: 40px; margin-bottom: 10px;">${medals[idx]}</div>
-        <div style="background: ${bgColors[idx]}; border: 2px solid ${colors[idx]}; border-radius: 8px; padding: 15px;">
-          <div style="font-weight: bold; color: #666; margin-bottom: 5px;">${position === 1 ? '1er' : position + 'ème'}</div>
-          <div style="font-weight: 600; color: ${primaryColor}; font-size: 14px; margin-bottom: 8px;">
+    return `
+      <td style="width: 33%; vertical-align: top; text-align: center; padding: 0 5px;">
+        <!-- Medal -->
+        <div style="font-size: 36px; margin-bottom: 8px;">${medals[idx]}</div>
+
+        <!-- Player Card -->
+        <div style="background: ${bgColors[idx]}; border: 2px solid ${borderColors[idx]}; border-radius: 8px; padding: 12px 8px; min-height: 140px;">
+          <div style="font-weight: bold; color: #666; font-size: 14px; margin-bottom: 4px;">${position === 1 ? '1er' : position + 'ème'}</div>
+          <div style="font-weight: 700; color: ${primaryColor}; font-size: 13px; margin-bottom: 8px; line-height: 1.2;">
             ${player.display_name || player.player_name}
           </div>
-          <div style="font-size: 12px; color: #666; line-height: 1.6;">
+          <div style="font-size: 11px; color: #555; line-height: 1.5;">
             ${player.match_points} pts match<br>
             Moy: <strong>${moyenne}</strong><br>
             Meilleure Série: <strong>${player.serie || 0}</strong>
           </div>
-          ${player.club ? `<div style="font-size: 11px; color: #888; margin-top: 8px;">${player.club}</div>` : ''}
+          ${player.club ? `<div style="font-size: 10px; color: #777; margin-top: 6px; line-height: 1.2;">${player.club}</div>` : ''}
         </div>
-        <div style="background: linear-gradient(to bottom, #E8E8E8, #D0D0D0); height: ${position === 1 ? '60px' : position === 2 ? '45px' : '30px'}; border-radius: 4px 4px 0 0; margin-top: 10px; display: flex; align-items: center; justify-content: center;">
-          <span style="font-weight: bold; font-size: 24px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">${position}</span>
+
+        <!-- Podium Step -->
+        <div style="background: ${stepColors[idx]}; height: ${stepHeights[idx]}; border-radius: 4px 4px 0 0; margin-top: 8px; display: flex; align-items: center; justify-content: center;">
+          <span style="font-weight: bold; font-size: 22px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.4);">${position}</span>
         </div>
       </td>
     `;
   }
 
-  html += `
+  let html = `
+    <div style="padding: 20px; background: #f8f9fa;">
+      <h3 style="text-align: center; color: ${primaryColor}; margin: 0 0 15px 0;">🏆 Podium de la Finale</h3>
+      <table style="width: 100%; max-width: 500px; margin: 0 auto; border-collapse: separate; border-spacing: 5px;">
+        <tr>
+          ${buildPlayerCard(topThree[1], 2)}
+          ${buildPlayerCard(topThree[0], 1)}
+          ${buildPlayerCard(topThree[2], 3)}
         </tr>
       </table>
     </div>
