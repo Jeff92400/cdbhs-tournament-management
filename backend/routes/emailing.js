@@ -1566,7 +1566,43 @@ router.post('/send-finale-results', authenticateToken, async (req, res) => {
       ? new Date(tournament.tournament_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
       : '';
 
-    const subject = `Résultats ${tournamentLabel} - ${tournament.display_name}`;
+    // Load template from DB for subject
+    let subjectTemplate = 'Résultats {{tournament_label}} - {{category}}';
+    try {
+      const templateRow = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT subject_template FROM email_templates WHERE template_key = 'finale_results'`,
+          [],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+      if (templateRow && templateRow.subject_template) {
+        subjectTemplate = templateRow.subject_template;
+      }
+    } catch (e) {
+      console.log('Using default subject template');
+    }
+
+    // Helper function to replace template variables
+    function replaceFinaleTemplateVars(text) {
+      if (!text) return text;
+      return text
+        .replace(/\{\{tournament_label\}\}/g, tournamentLabel)
+        .replace(/\{\{category\}\}/g, tournament.display_name)
+        .replace(/\{\{tournament_date\}\}/g, tournamentDate)
+        .replace(/\{\{location\}\}/g, tournament.location || '')
+        .replace(/\{\{organization_name\}\}/g, orgName)
+        .replace(/\{\{organization_short_name\}\}/g, orgShortName)
+        .replace(/\{\{organization_email\}\}/g, replyToEmail);
+    }
+
+    // Replace template variables in subject, intro, and outro
+    const subject = replaceFinaleTemplateVars(subjectTemplate);
+    const finalIntroText = replaceFinaleTemplateVars(introText);
+    const finalOutroText = replaceFinaleTemplateVars(outroText);
 
     // Build full email HTML
     const emailHtml = `
@@ -1587,7 +1623,7 @@ router.post('/send-finale-results', authenticateToken, async (req, res) => {
         </div>
 
         <!-- Intro Text -->
-        ${introText ? `<div style="padding: 20px 25px; background: #fff;">${introText.replace(/\n/g, '<br>')}</div>` : ''}
+        ${finalIntroText ? `<div style="padding: 20px 25px; background: #fff;">${finalIntroText.replace(/\n/g, '<br>')}</div>` : ''}
 
         <!-- Podium -->
         ${podiumHtml}
@@ -1596,7 +1632,7 @@ router.post('/send-finale-results', authenticateToken, async (req, res) => {
         ${tableHtml}
 
         <!-- Outro Text -->
-        ${outroText ? `<div style="padding: 20px 25px; background: #fff;">${outroText.replace(/\n/g, '<br>')}</div>` : ''}
+        ${finalOutroText ? `<div style="padding: 20px 25px; background: #fff;">${finalOutroText.replace(/\n/g, '<br>')}</div>` : ''}
 
         <!-- Footer -->
         <div style="background: ${primaryColor}; color: white; padding: 15px; text-align: center; font-size: 12px;">
@@ -3293,6 +3329,108 @@ router.put('/relance-templates/:key', authenticateToken, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving relance template:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== FINALE RESULTS TEMPLATE ====================
+
+// Default template for finale results email
+const DEFAULT_FINALE_RESULTS_TEMPLATE = {
+  subject: 'Résultats {{tournament_label}} - {{category}}',
+  intro: `Bonjour,
+
+La finale {{category}} s'est déroulée le {{tournament_date}} à {{location}}.
+
+Voici les résultats complets de cette compétition.`,
+  outro: `Félicitations à tous les participants pour cette belle saison !
+
+Pour toute question ou information, écrivez à {{organization_email}}
+
+Sportivement,
+{{organization_name}}`
+};
+
+// Get finale results template
+router.get('/finale-results-template', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+
+  try {
+    const template = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM email_templates WHERE template_key = 'finale_results'`,
+        [],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (template) {
+      res.json({
+        subject: template.subject_template,
+        intro: template.body_template,
+        outro: template.outro_template || DEFAULT_FINALE_RESULTS_TEMPLATE.outro
+      });
+    } else {
+      res.json(DEFAULT_FINALE_RESULTS_TEMPLATE);
+    }
+  } catch (error) {
+    console.error('Error fetching finale results template:', error);
+    res.json(DEFAULT_FINALE_RESULTS_TEMPLATE);
+  }
+});
+
+// Save finale results template
+router.put('/finale-results-template', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { subject, intro, outro } = req.body;
+
+  try {
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO email_templates (template_key, subject_template, body_template, outro_template)
+         VALUES ('finale_results', $1, $2, $3)
+         ON CONFLICT (template_key) DO UPDATE SET
+           subject_template = EXCLUDED.subject_template,
+           body_template = EXCLUDED.body_template,
+           outro_template = EXCLUDED.outro_template,
+           updated_at = CURRENT_TIMESTAMP`,
+        [subject, intro, outro],
+        function(err) {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving finale results template:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reset finale results template to defaults
+router.post('/finale-results-template/reset', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+
+  try {
+    await new Promise((resolve, reject) => {
+      db.run(
+        `DELETE FROM email_templates WHERE template_key = 'finale_results'`,
+        [],
+        function(err) {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
+    res.json({ success: true, template: DEFAULT_FINALE_RESULTS_TEMPLATE });
+  } catch (error) {
+    console.error('Error resetting finale results template:', error);
     res.status(500).json({ error: error.message });
   }
 });

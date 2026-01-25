@@ -1248,6 +1248,36 @@
         <button class="btn" id="resetResultsTemplateBtn" style="background: #6c757d; margin-left: 10px;">Réinitialiser par défaut</button>
       </div>
 
+      <!-- Finale Results Template -->
+      <div class="card" style="margin-top: 20px;">
+        <h3>🏆 Template Résultats Finale</h3>
+        <p style="color: #666; margin-bottom: 15px;">Template utilisé pour les emails de résultats après une finale départementale (onglet "Résultats Finale").</p>
+
+        <div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; font-size: 13px;">
+          <strong>Variables disponibles :</strong>
+          <code>{{tournament_label}}</code> <code>{{category}}</code> <code>{{tournament_date}}</code> <code>{{location}}</code>
+          <code>{{organization_name}}</code> <code>{{organization_short_name}}</code> <code>{{organization_email}}</code>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Objet</label>
+          <input type="text" id="finaleResultsSubject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte d'introduction</label>
+          <div id="finaleResultsIntroTemplateEditor"></div>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 5px;">Texte de conclusion</label>
+          <div id="finaleResultsOutroTemplateEditor"></div>
+        </div>
+
+        <button class="btn" id="saveFinaleResultsTemplateBtn" style="background: #28a745;">Enregistrer</button>
+        <button class="btn" id="resetFinaleResultsTemplateBtn" style="background: #6c757d; margin-left: 10px;">Réinitialiser par défaut</button>
+      </div>
+
       <!-- Relance Templates -->
       <div class="card" style="margin-top: 20px;">
         <h3>Templates Relances Inscriptions</h3>
@@ -1599,6 +1629,8 @@
     const quillFinaleConvocationBody = new Quill('#finaleConvocationBodyEditor', { theme: 'snow', placeholder: 'Corps du message...', modules: { toolbar: quillToolbar } });
     const quillResultsIntroTemplate = new Quill('#resultsIntroTemplateEditor', { theme: 'snow', placeholder: 'Texte d\'introduction...', modules: { toolbar: quillToolbar } });
     const quillResultsOutroTemplate = new Quill('#resultsOutroTemplateEditor', { theme: 'snow', placeholder: 'Texte de conclusion...', modules: { toolbar: quillToolbar } });
+    const quillFinaleResultsIntroTemplate = new Quill('#finaleResultsIntroTemplateEditor', { theme: 'snow', placeholder: 'Texte d\'introduction...', modules: { toolbar: quillToolbar } });
+    const quillFinaleResultsOutroTemplate = new Quill('#finaleResultsOutroTemplateEditor', { theme: 'snow', placeholder: 'Texte de conclusion...', modules: { toolbar: quillToolbar } });
     const quillRelanceTemplateIntro = new Quill('#relanceTemplateIntroEditor', { theme: 'snow', placeholder: 'Message d\'introduction...', modules: { toolbar: quillToolbar } });
     const quillRelanceTemplateOutro = new Quill('#relanceTemplateOutroEditor', { theme: 'snow', placeholder: 'Message de conclusion...', modules: { toolbar: quillToolbar } });
     const quillClubReminderBody = new Quill('#clubReminderBodyEditor', { theme: 'snow', placeholder: 'Corps du message...', modules: { toolbar: quillToolbar } });
@@ -1649,6 +1681,7 @@
           loadConvocationTemplate();
           loadFinaleConvocationTemplate();
           loadResultsTemplate();
+          loadFinaleResultsTemplate();
           loadRelanceTemplates();
           loadClubReminderTemplate();
         }
@@ -2458,6 +2491,21 @@ Félicitations à tous les participants !`,
 Le Comité Départemental de Billard des Hauts-de-Seine`
     };
 
+    const DEFAULT_FINALE_RESULTS_TEMPLATE = {
+      subject: 'Résultats {{tournament_label}} - {{category}}',
+      intro: `Bonjour,
+
+La finale {{category}} s'est déroulée le {{tournament_date}} à {{location}}.
+
+Voici les résultats complets de cette compétition.`,
+      outro: `Félicitations à tous les participants pour cette belle saison !
+
+Pour toute question ou information, écrivez à {{organization_email}}
+
+Sportivement,
+{{organization_name}}`
+    };
+
     const DEFAULT_CLUB_REMINDER_TEMPLATE = {
       subject: 'Rappel Organisation - {category} {tournament}',
       body: `Bonjour,
@@ -2691,6 +2739,98 @@ Le CDBHS`
       quillResultsOutroTemplate.setContents([]);
       quillResultsOutroTemplate.clipboard.dangerouslyPasteHTML(DEFAULT_RESULTS_TEMPLATE.outro.replace(/\n/g, '<br>'));
       showSuccess('Template réinitialisé. Cliquez sur Enregistrer pour sauvegarder.');
+    });
+
+    // ==================== FINALE RESULTS TEMPLATE ====================
+
+    async function loadFinaleResultsTemplate() {
+      try {
+        const response = await fetch(`${API_URL}/emailing/finale-results-template`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const template = await response.json();
+          document.getElementById('finaleResultsSubject').value = template.subject || DEFAULT_FINALE_RESULTS_TEMPLATE.subject;
+          quillFinaleResultsIntroTemplate.setContents([]);
+          quillFinaleResultsIntroTemplate.clipboard.dangerouslyPasteHTML((template.intro || DEFAULT_FINALE_RESULTS_TEMPLATE.intro).replace(/\n/g, '<br>'));
+          quillFinaleResultsOutroTemplate.setContents([]);
+          quillFinaleResultsOutroTemplate.clipboard.dangerouslyPasteHTML((template.outro || DEFAULT_FINALE_RESULTS_TEMPLATE.outro).replace(/\n/g, '<br>'));
+        } else {
+          document.getElementById('finaleResultsSubject').value = DEFAULT_FINALE_RESULTS_TEMPLATE.subject;
+          quillFinaleResultsIntroTemplate.setContents([]);
+          quillFinaleResultsIntroTemplate.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_RESULTS_TEMPLATE.intro.replace(/\n/g, '<br>'));
+          quillFinaleResultsOutroTemplate.setContents([]);
+          quillFinaleResultsOutroTemplate.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_RESULTS_TEMPLATE.outro.replace(/\n/g, '<br>'));
+        }
+      } catch (error) {
+        document.getElementById('finaleResultsSubject').value = DEFAULT_FINALE_RESULTS_TEMPLATE.subject;
+        quillFinaleResultsIntroTemplate.setContents([]);
+        quillFinaleResultsIntroTemplate.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_RESULTS_TEMPLATE.intro.replace(/\n/g, '<br>'));
+        quillFinaleResultsOutroTemplate.setContents([]);
+        quillFinaleResultsOutroTemplate.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_RESULTS_TEMPLATE.outro.replace(/\n/g, '<br>'));
+      }
+    }
+
+    document.getElementById('saveFinaleResultsTemplateBtn').addEventListener('click', async () => {
+      const subject = document.getElementById('finaleResultsSubject').value.trim();
+      const intro = quillFinaleResultsIntroTemplate.root.innerHTML;
+      const introText = quillFinaleResultsIntroTemplate.getText().trim();
+      const outro = quillFinaleResultsOutroTemplate.root.innerHTML;
+      const outroText = quillFinaleResultsOutroTemplate.getText().trim();
+
+      if (!subject || !introText || !outroText) {
+        showError('Tous les champs sont obligatoires.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/finale-results-template`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ subject, intro, outro })
+        });
+
+        if (response.ok) {
+          showSuccess('Template résultats finale enregistré!');
+          // Also update the Résultats Finale tab Quill editors with the new values
+          quillFinaleResultsIntroText.setContents([]);
+          quillFinaleResultsIntroText.clipboard.dangerouslyPasteHTML(intro);
+          quillFinaleResultsOutroText.setContents([]);
+          quillFinaleResultsOutroText.clipboard.dangerouslyPasteHTML(outro);
+        } else {
+          showError('Erreur lors de la sauvegarde.');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
+    });
+
+    document.getElementById('resetFinaleResultsTemplateBtn').addEventListener('click', async () => {
+      try {
+        const response = await fetch(`${API_URL}/emailing/finale-results-template/reset`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const template = result.template;
+          document.getElementById('finaleResultsSubject').value = template.subject;
+          quillFinaleResultsIntroTemplate.setContents([]);
+          quillFinaleResultsIntroTemplate.clipboard.dangerouslyPasteHTML(template.intro.replace(/\n/g, '<br>'));
+          quillFinaleResultsOutroTemplate.setContents([]);
+          quillFinaleResultsOutroTemplate.clipboard.dangerouslyPasteHTML(template.outro.replace(/\n/g, '<br>'));
+          showSuccess('Template réinitialisé aux valeurs par défaut.');
+        } else {
+          showError('Erreur lors de la réinitialisation.');
+        }
+      } catch (error) {
+        showError('Erreur: ' + error.message);
+      }
     });
 
     // ==================== CLUB REMINDER TEMPLATE ====================
@@ -4998,6 +5138,30 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
             document.getElementById('finaleCcEmail').value = data.value || 'cdbhs92@gmail.com';
           }
         } catch (e) { /* ignore */ }
+
+        // Load template into intro/outro editors
+        try {
+          const templateResponse = await fetch(`${API_URL}/emailing/finale-results-template`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (templateResponse.ok) {
+            const template = await templateResponse.json();
+            quillFinaleResultsIntroText.setContents([]);
+            quillFinaleResultsIntroText.clipboard.dangerouslyPasteHTML((template.intro || DEFAULT_FINALE_RESULTS_TEMPLATE.intro).replace(/\n/g, '<br>'));
+            quillFinaleResultsOutroText.setContents([]);
+            quillFinaleResultsOutroText.clipboard.dangerouslyPasteHTML((template.outro || DEFAULT_FINALE_RESULTS_TEMPLATE.outro).replace(/\n/g, '<br>'));
+          } else {
+            quillFinaleResultsIntroText.setContents([]);
+            quillFinaleResultsIntroText.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_RESULTS_TEMPLATE.intro.replace(/\n/g, '<br>'));
+            quillFinaleResultsOutroText.setContents([]);
+            quillFinaleResultsOutroText.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_RESULTS_TEMPLATE.outro.replace(/\n/g, '<br>'));
+          }
+        } catch (e) {
+          quillFinaleResultsIntroText.setContents([]);
+          quillFinaleResultsIntroText.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_RESULTS_TEMPLATE.intro.replace(/\n/g, '<br>'));
+          quillFinaleResultsOutroText.setContents([]);
+          quillFinaleResultsOutroText.clipboard.dangerouslyPasteHTML(DEFAULT_FINALE_RESULTS_TEMPLATE.outro.replace(/\n/g, '<br>'));
+        }
 
       } catch (error) {
         console.error('Error loading finales:', error);
