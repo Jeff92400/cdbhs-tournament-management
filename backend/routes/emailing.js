@@ -1586,17 +1586,31 @@ router.post('/send-finale-results', authenticateToken, async (req, res) => {
       console.log('Using default subject template');
     }
 
-    // Helper function to replace template variables
+    // Helper function to replace template variables (handles both plain and HTML-encoded)
     function replaceFinaleTemplateVars(text) {
       if (!text) return text;
-      return text
-        .replace(/\{\{tournament_label\}\}/g, tournamentLabel)
-        .replace(/\{\{category\}\}/g, tournament.display_name)
-        .replace(/\{\{tournament_date\}\}/g, tournamentDate)
-        .replace(/\{\{location\}\}/g, tournament.location || '')
-        .replace(/\{\{organization_name\}\}/g, orgName)
-        .replace(/\{\{organization_short_name\}\}/g, orgShortName)
-        .replace(/\{\{organization_email\}\}/g, replyToEmail);
+      // Replace both plain {{var}} and HTML-encoded versions
+      const replacements = {
+        'tournament_label': tournamentLabel,
+        'category': tournament.display_name,
+        'tournament_date': tournamentDate,
+        'location': tournament.location || '',
+        'organization_name': orgName,
+        'organization_short_name': orgShortName,
+        'organization_email': replyToEmail
+      };
+
+      let result = text;
+      for (const [key, value] of Object.entries(replacements)) {
+        // Plain format: {{var}}
+        result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+        // HTML-encoded: &#123;&#123;var&#125;&#125;
+        result = result.replace(new RegExp(`&#123;&#123;${key}&#125;&#125;`, 'g'), value);
+        // Partial HTML-encoded: {{var}} with encoded braces
+        result = result.replace(new RegExp(`\\{\\{${key}&#125;&#125;`, 'g'), value);
+        result = result.replace(new RegExp(`&#123;&#123;${key}\\}\\}`, 'g'), value);
+      }
+      return result;
     }
 
     // Replace template variables in subject, intro, and outro
@@ -1706,7 +1720,9 @@ function buildPodiumHtml(topThree, primaryColor) {
   const borderColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
   const bgColors = ['#FFFBEB', '#F9FAFB', '#FEF3E7'];
   const stepColors = ['linear-gradient(to bottom, #FFD700, #D4A800)', 'linear-gradient(to bottom, #C0C0C0, #A0A0A0)', 'linear-gradient(to bottom, #CD7F32, #A0522D)'];
-  const stepHeights = ['70px', '50px', '35px'];
+  const stepHeights = ['80px', '55px', '35px'];
+  // Top padding to create elevation effect: 1st=0, 2nd=25px, 3rd=45px
+  const topPaddings = ['0', '25px', '45px'];
 
   // Build player card HTML
   function buildPlayerCard(player, position) {
@@ -1714,7 +1730,7 @@ function buildPodiumHtml(topThree, primaryColor) {
     const idx = position - 1;
 
     return `
-      <td style="width: 33%; vertical-align: top; text-align: center; padding: 0 5px;">
+      <td style="width: 33%; vertical-align: bottom; text-align: center; padding: 0 5px; padding-top: ${topPaddings[idx]};">
         <!-- Medal -->
         <div style="font-size: 36px; margin-bottom: 8px;">${medals[idx]}</div>
 
