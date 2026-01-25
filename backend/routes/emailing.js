@@ -1463,6 +1463,313 @@ router.post('/schedule-finale-convocation', authenticateToken, async (req, res) 
   }
 });
 
+// Send finale results email immediately
+router.post('/send-finale-results', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { Resend } = require('resend');
+  const { tournamentId, introText, outroText, ccEmail, testMode, testEmail } = req.body;
+
+  if (!tournamentId) {
+    return res.status(400).json({ error: 'tournamentId requis' });
+  }
+
+  if (testMode && !testEmail) {
+    return res.status(400).json({ error: 'Email de test requis en mode test' });
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    return res.status(500).json({ error: 'Configuration email manquante (RESEND_API_KEY)' });
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  try {
+    // Get email branding settings
+    const emailSettings = await appSettings.getSettingsBatch([
+      'primary_color', 'email_communication', 'email_sender_name',
+      'organization_name', 'organization_short_name', 'summary_email'
+    ]);
+
+    const primaryColor = emailSettings.primary_color || '#1F4788';
+    const senderName = emailSettings.email_sender_name || 'CDBHS';
+    const senderEmail = emailSettings.email_communication || 'communication@cdbhs.net';
+    const orgName = emailSettings.organization_name || 'Comité Départemental Billard Hauts-de-Seine';
+    const orgShortName = emailSettings.organization_short_name || 'CDBHS';
+    const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
+    const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
+
+    // Get tournament info
+    const tournament = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT t.*, c.display_name, c.game_type, c.level
+         FROM tournaments t
+         JOIN categories c ON t.category_id = c.id
+         WHERE t.id = $1`,
+        [tournamentId],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournoi non trouvé' });
+    }
+
+    // Get results with player contacts
+    const results = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT tr.*,
+                pc.email, pc.first_name, pc.last_name, pc.club,
+                COALESCE(pc.first_name || ' ' || pc.last_name, tr.player_name) as display_name
+         FROM tournament_results tr
+         LEFT JOIN player_contacts pc ON REPLACE(tr.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+         WHERE tr.tournament_id = $1
+         ORDER BY tr.match_points DESC, tr.points DESC`,
+        [tournamentId],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    if (results.length === 0) {
+      return res.status(400).json({ error: 'Aucun résultat trouvé pour ce tournoi' });
+    }
+
+    // Filter recipients with valid emails
+    let recipients = results.filter(r => r.email && r.email.includes('@'));
+
+    // Test mode
+    if (testMode && testEmail) {
+      recipients = [{ email: testEmail, first_name: 'Test', last_name: 'User' }];
+    }
+
+    if (recipients.length === 0) {
+      return res.status(400).json({ error: 'Aucun destinataire avec email valide' });
+    }
+
+    // Build podium HTML (top 3)
+    const topThree = results.slice(0, 3);
+    const podiumHtml = buildPodiumHtml(topThree, primaryColor);
+
+    // Build results table HTML
+    const tableHtml = buildResultsTableHtml(results, primaryColor);
+
+    // Tournament info
+    const isFinale = tournament.tournament_number === 4;
+    const tournamentLabel = isFinale ? 'Finale Départementale' : `Tournoi ${tournament.tournament_number}`;
+    const tournamentDate = tournament.tournament_date
+      ? new Date(tournament.tournament_date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      : '';
+
+    const subject = `Résultats ${tournamentLabel} - ${tournament.display_name}`;
+
+    // Build full email HTML
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; background: #ffffff;">
+        <!-- Header -->
+        <div style="background: ${primaryColor}; color: white; padding: 25px; text-align: center;">
+          <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 60px; margin-bottom: 15px;" onerror="this.style.display='none'">
+          <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
+        </div>
+
+        <!-- Title Section -->
+        <div style="background: #f8f9fa; padding: 25px; text-align: center; border-bottom: 3px solid ${primaryColor};">
+          <h2 style="margin: 0 0 10px 0; color: ${primaryColor}; font-size: 22px;">
+            🏆 ${tournamentLabel}
+          </h2>
+          <p style="margin: 0; font-size: 18px; color: #333; font-weight: 600;">${tournament.display_name}</p>
+          ${tournamentDate ? `<p style="margin: 10px 0 0 0; color: #666;">${tournamentDate}${tournament.location ? ` - ${tournament.location}` : ''}</p>` : ''}
+        </div>
+
+        <!-- Intro Text -->
+        ${introText ? `<div style="padding: 20px 25px; background: #fff;">${introText.replace(/\n/g, '<br>')}</div>` : ''}
+
+        <!-- Podium -->
+        ${podiumHtml}
+
+        <!-- Results Table -->
+        ${tableHtml}
+
+        <!-- Outro Text -->
+        ${outroText ? `<div style="padding: 20px 25px; background: #fff;">${outroText.replace(/\n/g, '<br>')}</div>` : ''}
+
+        <!-- Footer -->
+        <div style="background: ${primaryColor}; color: white; padding: 15px; text-align: center; font-size: 12px;">
+          ${orgShortName} - ${replyToEmail}
+        </div>
+      </div>
+    `;
+
+    // Send emails
+    const sentResults = { sent: [], failed: [], skipped: [] };
+
+    for (const recipient of recipients) {
+      try {
+        await resend.emails.send({
+          from: `${senderName} <${senderEmail}>`,
+          replyTo: replyToEmail,
+          to: [recipient.email],
+          cc: ccEmail ? [ccEmail] : undefined,
+          subject: subject,
+          html: emailHtml
+        });
+
+        sentResults.sent.push({ email: recipient.email, name: `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim() });
+        await delay(1500);
+      } catch (error) {
+        console.error(`Error sending finale results to ${recipient.email}:`, error);
+        sentResults.failed.push({ email: recipient.email, error: error.message });
+      }
+    }
+
+    // Log the campaign
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO email_campaigns (subject, body, template_key, recipients_count, sent_count, failed_count, status, sent_at, campaign_type, mode, category, tournament_id, sent_by, test_mode)
+         VALUES ($1, $2, 'finale_results', $3, $4, $5, 'completed', CURRENT_TIMESTAMP, 'finale_results', $6, $7, $8, $9, $10)`,
+        [subject, introText || '', recipients.length, sentResults.sent.length, sentResults.failed.length, tournament.game_type, tournament.level, tournamentId, req.user?.username || 'unknown', testMode || false],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.lastID);
+        }
+      );
+    });
+
+    // Update tournament results_email_sent flag
+    await new Promise((resolve) => {
+      db.run(
+        `UPDATE tournaments SET results_email_sent = TRUE, results_email_sent_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [tournamentId],
+        () => resolve()
+      );
+    });
+
+    const modeLabel = testMode ? ' (MODE TEST)' : '';
+    res.json({
+      success: true,
+      message: `Résultats envoyés${modeLabel}: ${sentResults.sent.length} envoyé(s), ${sentResults.failed.length} échec(s)`,
+      results: sentResults
+    });
+
+  } catch (error) {
+    console.error('Error sending finale results:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Helper function to build podium HTML for email
+function buildPodiumHtml(topThree, primaryColor) {
+  if (topThree.length < 3) return '';
+
+  const medals = ['🥇', '🥈', '🥉'];
+  const colors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+  const bgColors = ['#FFFBEB', '#F9FAFB', '#FEF3E7'];
+
+  let html = `
+    <div style="padding: 25px; background: #f8f9fa;">
+      <h3 style="text-align: center; color: ${primaryColor}; margin: 0 0 20px 0;">🏆 Podium de la Finale</h3>
+      <table style="width: 100%; border-collapse: separate; border-spacing: 10px;">
+        <tr>
+  `;
+
+  // Display in order: 2nd, 1st, 3rd
+  const order = [1, 0, 2];
+  for (const idx of order) {
+    const player = topThree[idx];
+    const position = idx + 1;
+    const moyenne = player.reprises > 0 ? (player.points / player.reprises).toFixed(3) : '0.000';
+
+    html += `
+      <td style="width: 33%; vertical-align: bottom; text-align: center;">
+        <div style="font-size: 40px; margin-bottom: 10px;">${medals[idx]}</div>
+        <div style="background: ${bgColors[idx]}; border: 2px solid ${colors[idx]}; border-radius: 8px; padding: 15px;">
+          <div style="font-weight: bold; color: #666; margin-bottom: 5px;">${position === 1 ? '1er' : position + 'ème'}</div>
+          <div style="font-weight: 600; color: ${primaryColor}; font-size: 14px; margin-bottom: 8px;">
+            ${player.display_name || player.player_name}
+          </div>
+          <div style="font-size: 12px; color: #666; line-height: 1.6;">
+            ${player.match_points} pts match<br>
+            Moy: <strong>${moyenne}</strong><br>
+            Meilleure Série: <strong>${player.serie || 0}</strong>
+          </div>
+          ${player.club ? `<div style="font-size: 11px; color: #888; margin-top: 8px;">${player.club}</div>` : ''}
+        </div>
+        <div style="background: linear-gradient(to bottom, #E8E8E8, #D0D0D0); height: ${position === 1 ? '60px' : position === 2 ? '45px' : '30px'}; border-radius: 4px 4px 0 0; margin-top: 10px; display: flex; align-items: center; justify-content: center;">
+          <span style="font-weight: bold; font-size: 24px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">${position}</span>
+        </div>
+      </td>
+    `;
+  }
+
+  html += `
+        </tr>
+      </table>
+    </div>
+  `;
+
+  return html;
+}
+
+// Helper function to build results table HTML for email
+function buildResultsTableHtml(results, primaryColor) {
+  let html = `
+    <div style="padding: 25px;">
+      <h3 style="color: ${primaryColor}; margin: 0 0 15px 0;">Classement Complet</h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="background: ${primaryColor}; color: white;">
+            <th style="padding: 10px 8px; text-align: center;">Pos</th>
+            <th style="padding: 10px 8px; text-align: left;">Joueur</th>
+            <th style="padding: 10px 8px; text-align: left;">Club</th>
+            <th style="padding: 10px 8px; text-align: center;">Pts Match</th>
+            <th style="padding: 10px 8px; text-align: center;">Points</th>
+            <th style="padding: 10px 8px; text-align: center;">Reprises</th>
+            <th style="padding: 10px 8px; text-align: center;">Moyenne</th>
+            <th style="padding: 10px 8px; text-align: center;">Série</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  results.forEach((player, index) => {
+    const position = index + 1;
+    const moyenne = player.reprises > 0 ? (player.points / player.reprises).toFixed(3) : '0.000';
+
+    // Row colors for top 3
+    let rowStyle = 'background: #fff;';
+    if (position === 1) rowStyle = 'background: #FFFBEB; font-weight: 600;';
+    else if (position === 2) rowStyle = 'background: #F9FAFB;';
+    else if (position === 3) rowStyle = 'background: #FEF3E7;';
+    else if (position % 2 === 0) rowStyle = 'background: #f8f9fa;';
+
+    html += `
+      <tr style="${rowStyle}">
+        <td style="padding: 8px; text-align: center; font-weight: bold;">${position}</td>
+        <td style="padding: 8px;">${player.display_name || player.player_name}</td>
+        <td style="padding: 8px; font-size: 12px;">${player.club || '-'}</td>
+        <td style="padding: 8px; text-align: center; font-weight: bold;">${player.match_points}</td>
+        <td style="padding: 8px; text-align: center;">${player.points}</td>
+        <td style="padding: 8px; text-align: center;">${player.reprises}</td>
+        <td style="padding: 8px; text-align: center;">${moyenne}</td>
+        <td style="padding: 8px; text-align: center;">${player.serie || 0}</td>
+      </tr>
+    `;
+  });
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return html;
+}
+
 // Helper function to check if a campaign was already manually sent
 async function checkIfAlreadySent(db, emailType, mode, category, tournamentId) {
   return new Promise((resolve, reject) => {

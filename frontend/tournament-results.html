@@ -200,6 +200,51 @@
         <button class="btn btn-success" id="exportExcelBtn">
           📊 Exporter en Excel
         </button>
+        <button class="btn" id="sendResultsEmailBtn" style="margin-left: 10px; display: none;">
+          ✉️ Envoyer les résultats par email
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email Modal -->
+  <div id="emailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;">
+    <div style="background: white; max-width: 600px; margin: 50px auto; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+      <div style="background: var(--color-primary, #1F4788); color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+        <h3 style="margin: 0;">✉️ Envoyer les résultats par email</h3>
+      </div>
+      <div style="padding: 20px;">
+        <div id="emailRecipientInfo" style="background: #e7f3ff; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+          <!-- Filled dynamically -->
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: 600; margin-bottom: 5px;">Texte d'introduction (optionnel)</label>
+          <textarea id="emailIntroText" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit;" placeholder="Ex: Félicitations à tous les participants..."></textarea>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: 600; margin-bottom: 5px;">Texte de conclusion (optionnel)</label>
+          <textarea id="emailOutroText" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit;" placeholder="Ex: Rendez-vous la saison prochaine..."></textarea>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-weight: 600; margin-bottom: 5px;">Email en copie (optionnel)</label>
+          <input type="email" id="emailCc" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="exemple@email.com">
+        </div>
+
+        <div style="background: #fff3cd; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" id="emailTestMode" style="margin-right: 10px;">
+            <span><strong>Mode Test</strong> - Envoyer uniquement à une adresse de test</span>
+          </label>
+          <input type="email" id="emailTestAddress" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-top: 10px; display: none;" placeholder="Votre email de test">
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button class="btn btn-secondary" onclick="closeEmailModal()">Annuler</button>
+          <button class="btn" id="confirmSendEmailBtn">Envoyer</button>
+        </div>
       </div>
     </div>
   </div>
@@ -380,6 +425,10 @@
           displayPodium(data.results.slice(0, 3));
         }
 
+        // Store data for email functionality and show email button
+        currentTournamentData = data;
+        document.getElementById('sendResultsEmailBtn').style.display = 'inline-block';
+
         // Set table title based on tournament type
         document.getElementById('tableTitle').textContent =
           isFinale ? 'Classement de la Finale Départementale' : 'Classement du Tournoi';
@@ -524,6 +573,97 @@
         console.error('Error exporting to Excel:', error);
         alert('Erreur lors de l\'export Excel');
       }
+    });
+
+    // Store tournament data for email
+    let currentTournamentData = null;
+
+    // Email functionality
+    document.getElementById('sendResultsEmailBtn').addEventListener('click', openEmailModal);
+    document.getElementById('confirmSendEmailBtn').addEventListener('click', sendResultsEmail);
+    document.getElementById('emailTestMode').addEventListener('change', function() {
+      document.getElementById('emailTestAddress').style.display = this.checked ? 'block' : 'none';
+    });
+
+    function openEmailModal() {
+      if (!currentTournamentData) {
+        alert('Données du tournoi non disponibles');
+        return;
+      }
+
+      const emailCount = currentTournamentData.results.filter(r => r.email && r.email.includes('@')).length;
+      document.getElementById('emailRecipientInfo').innerHTML = `
+        <strong>${emailCount}</strong> participant(s) avec email valide recevront les résultats.
+        ${currentTournamentData.tournament.results_email_sent ? '<br><span style="color: #856404;">⚠️ Un email de résultats a déjà été envoyé pour ce tournoi.</span>' : ''}
+      `;
+
+      document.getElementById('emailModal').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeEmailModal() {
+      document.getElementById('emailModal').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    async function sendResultsEmail() {
+      const testMode = document.getElementById('emailTestMode').checked;
+      const testEmail = document.getElementById('emailTestAddress').value;
+
+      if (testMode && !testEmail) {
+        alert('Veuillez entrer une adresse email de test');
+        return;
+      }
+
+      const confirmMsg = testMode
+        ? `Envoyer un email de test à ${testEmail} ?`
+        : `Envoyer les résultats à tous les participants avec email valide ?`;
+
+      if (!confirm(confirmMsg)) return;
+
+      const btn = document.getElementById('confirmSendEmailBtn');
+      btn.disabled = true;
+      btn.textContent = 'Envoi en cours...';
+
+      try {
+        const response = await fetch(`${API_URL}/emailing/send-finale-results`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            tournamentId: tournamentId,
+            introText: document.getElementById('emailIntroText').value,
+            outroText: document.getElementById('emailOutroText').value,
+            ccEmail: document.getElementById('emailCc').value,
+            testMode: testMode,
+            testEmail: testEmail
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          alert(data.message);
+          closeEmailModal();
+          // Reload to update the email sent status
+          loadTournamentResults();
+        } else {
+          alert(data.error || 'Erreur lors de l\'envoi');
+        }
+      } catch (error) {
+        console.error('Error sending email:', error);
+        alert('Erreur de connexion');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Envoyer';
+      }
+    }
+
+    // Close modal on outside click
+    document.getElementById('emailModal').addEventListener('click', function(e) {
+      if (e.target === this) closeEmailModal();
     });
   </script>
 </body>
