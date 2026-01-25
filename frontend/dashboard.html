@@ -432,10 +432,12 @@
         }
 
         if (tournamentsResponse.ok) {
-          const tournaments = await tournamentsResponse.json();
+          const allTournaments = await tournamentsResponse.json();
+          // Filter out finals (tournament_number = 4) for tournament count
+          const tournaments = allTournaments.filter(t => t.tournament_number !== 4);
           document.getElementById('tournamentCount').textContent = tournaments.length;
 
-          // Calculate cumulative participants (sum of all player_count from tournaments)
+          // Calculate cumulative participants (sum of all player_count from tournaments, excluding finals)
           const cumulativeParticipants = tournaments.reduce((sum, t) => sum + (parseInt(t.player_count, 10) || 0), 0);
           document.getElementById('cumulativeParticipants').textContent = cumulativeParticipants;
         }
