@@ -2640,10 +2640,11 @@ router.get('/poules/:tournoiId', authenticateToken, async (req, res) => {
     try {
       const inscribedPlayers = await new Promise((resolve, reject) => {
         db.all(`
-          SELECT i.licence, i.nom, i.prenom, i.club
+          SELECT i.licence, p.last_name, p.first_name, p.club
           FROM inscriptions i
+          LEFT JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
           WHERE i.tournoi_id = $1
-            AND i.statut = 'inscrit'
+            AND (i.statut IS NULL OR i.statut = 'inscrit')
             AND (i.forfait IS NULL OR i.forfait = 0)
             AND UPPER(i.licence) NOT LIKE 'TEST%'
         `, [tournoiId], (err, rows) => {
@@ -2664,7 +2665,7 @@ router.get('/poules/:tournoiId', authenticateToken, async (req, res) => {
         !poulesLicences.has(p.licence?.replace(/\s/g, ''))
       ).map(p => ({
         licence: p.licence,
-        name: `${p.nom || ''} ${p.prenom || ''}`.trim(),
+        name: `${p.last_name || ''} ${p.first_name || ''}`.trim() || p.licence,
         club: p.club
       }));
     } catch (inscribedErr) {
@@ -2824,10 +2825,11 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
     // Get inscribed players who might be missing from poules (e.g., reinstated after forfait)
     const inscribedPlayers = await new Promise((resolve, reject) => {
       db.all(`
-        SELECT i.licence, i.nom, i.prenom, i.club
+        SELECT i.licence, p.last_name, p.first_name, p.club
         FROM inscriptions i
+        LEFT JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
         WHERE i.tournoi_id = $1
-          AND i.statut = 'inscrit'
+          AND (i.statut IS NULL OR i.statut = 'inscrit')
           AND (i.forfait IS NULL OR i.forfait = 0)
           AND UPPER(i.licence) NOT LIKE 'TEST%'
       `, [tournoiId], (err, rows) => {
@@ -2841,13 +2843,14 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
     inscribedPlayers.forEach(p => {
       const normLicence = p.licence?.replace(/\s/g, '');
       if (!poulesLicences.has(normLicence) && !forfaitSet.has(normLicence)) {
+        const playerName = `${p.last_name || ''} ${p.first_name || ''}`.trim() || p.licence;
         activePlayers.push({
           licence: p.licence,
-          player_name: `${p.nom || ''} ${p.prenom || ''}`.trim(),
+          player_name: playerName,
           club: p.club
         });
         poulesLicences.add(normLicence);
-        console.log(`[Regenerate] Adding missing inscribed player: ${p.nom} ${p.prenom} (${p.licence})`);
+        console.log(`[Regenerate] Adding missing inscribed player: ${playerName} (${p.licence})`);
       }
     });
 
