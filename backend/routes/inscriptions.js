@@ -2115,10 +2115,10 @@ router.put('/:id/reintegrate', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Inscription not found' });
     }
 
-    // Update forfait to 0
+    // Update forfait to 0 and ensure convoque = 1 (player returns to "Convoqué" status)
     await new Promise((resolve, reject) => {
       db.run(
-        `UPDATE inscriptions SET forfait = 0 WHERE inscription_id = $1`,
+        `UPDATE inscriptions SET forfait = 0, convoque = 1 WHERE inscription_id = $1`,
         [id],
         function(err) {
           if (err) reject(err);
