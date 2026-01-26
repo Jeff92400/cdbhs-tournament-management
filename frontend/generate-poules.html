@@ -3819,12 +3819,31 @@
         if (poulesContainer) poulesContainer.style.display = 'none';
         if (actionsEl) actionsEl.style.display = 'none';
 
+        console.log('About to call renderPreview with poules:', forfaitPreviewData.poules);
+        console.log('Poules count:', forfaitPreviewData.poules?.length || 0);
+
+        // Check modal is still open
+        const modal = document.getElementById('forfaitModal');
+        console.log('Modal display:', modal ? modal.style.display : 'MODAL NOT FOUND');
+
         renderPreview(forfaitPreviewData);
+        console.log('renderPreview completed');
+
         if (previewEl) {
+          console.log('Setting forfaitPreview display to block');
           previewEl.style.display = 'block';
-          // Scroll to top of modal content
+          console.log('forfaitPreview display is now:', previewEl.style.display);
+          console.log('forfaitPreview offsetHeight:', previewEl.offsetHeight);
+          // Scroll preview into view
+          previewEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Also scroll modal to top
           const modalContent = previewEl.closest('.modal-content');
-          if (modalContent) modalContent.scrollTop = 0;
+          if (modalContent) {
+            modalContent.scrollTop = 0;
+            console.log('Modal content scrolled to top');
+          }
+        } else {
+          console.error('forfaitPreview element NOT FOUND!');
         }
 
       } catch (error) {
@@ -3839,7 +3858,16 @@
     }
 
     function renderPreview(data) {
+      console.log('[renderPreview] Starting with data:', data);
       const container = document.getElementById('forfaitPreviewPoules');
+      console.log('[renderPreview] Container found:', !!container);
+
+      if (!data || !data.poules) {
+        console.error('[renderPreview] ERROR: data.poules is missing!', data);
+        return;
+      }
+
+      console.log('[renderPreview] Rendering', data.poules.length, 'poules');
       container.innerHTML = data.poules.map(poule => `
         <div style="background: white; border: 1px solid #ddd; border-radius: 6px; overflow: hidden;">
           <div style="background: #17a2b8; color: white; padding: 8px 12px; font-weight: bold; font-size: 13px;">
@@ -3859,6 +3887,7 @@
           </div>
         </div>
       `).join('');
+      console.log('[renderPreview] Completed, container innerHTML length:', container.innerHTML.length);
     }
 
     function closePreview() {
