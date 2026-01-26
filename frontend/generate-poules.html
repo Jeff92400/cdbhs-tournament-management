@@ -3763,6 +3763,7 @@
     }
 
     async function previewPoules() {
+      alert('previewPoules function called!');
       const missingWarningEl = document.getElementById('forfaitMissingPlayersWarning');
       const hasMissingPlayers = missingWarningEl && missingWarningEl.style.display !== 'none';
 
@@ -4610,6 +4611,7 @@
     }
 
     async function regeneratePoules(withReplacement = false) {
+      alert('regeneratePoules function called!');
       // This is now a fallback - main flow uses preview + confirm
       // Check if there are missing players (shown in warning)
       const missingWarningEl = document.getElementById('forfaitMissingPlayersWarning');
