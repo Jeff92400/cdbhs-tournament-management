@@ -2728,24 +2728,23 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
       rankingMap.set(normLicence, r.rank_position);
     });
 
-    // Get current poules
-    const currentPoules = await new Promise((resolve, reject) => {
+    // Get location info from stored poules (if any)
+    const storedPoules = await new Promise((resolve, reject) => {
       db.all(`
-        SELECT licence, player_name, club, location_name, location_address, start_time
+        SELECT location_name, location_address, start_time
         FROM convocation_poules
         WHERE tournoi_id = $1
-        ORDER BY player_order
+        LIMIT 1
       `, [tournoiId], (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);
       });
     });
 
-    // Get unique location info
-    const locationInfo = currentPoules.length > 0 ? {
-      name: currentPoules[0].location_name,
-      address: currentPoules[0].location_address,
-      startTime: currentPoules[0].start_time
+    const locationInfo = storedPoules.length > 0 ? {
+      name: storedPoules[0].location_name,
+      address: storedPoules[0].location_address,
+      startTime: storedPoules[0].start_time
     } : null;
 
     // Use provided locations or default
@@ -2756,9 +2755,33 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
       startTime: locationInfo.startTime
     }] : []);
 
-    // Filter out forfait players
+    // Get ALL inscribed players from inscriptions table (not from stored poules)
+    // This ensures reinstated players like Eric are included
     const forfaitSet = new Set((forfaitLicences || []).map(l => l?.replace(/\s/g, '')));
-    let activePlayers = currentPoules.filter(p => !forfaitSet.has(p.licence?.replace(/\s/g, '')));
+
+    const inscribedPlayers = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT i.licence, p.last_name, p.first_name, p.club
+        FROM inscriptions i
+        LEFT JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+        WHERE i.tournoi_id = $1
+          AND (i.statut IS NULL OR i.statut = 'inscrit')
+          AND (i.forfait IS NULL OR i.forfait = 0)
+          AND UPPER(i.licence) NOT LIKE 'TEST%'
+      `, [tournoiId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    // Transform to expected format and filter out newly selected forfaits
+    let activePlayers = inscribedPlayers
+      .filter(p => !forfaitSet.has(p.licence?.replace(/\s/g, '')))
+      .map(p => ({
+        licence: p.licence,
+        player_name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.licence,
+        club: p.club || ''
+      }));
 
     // Remove duplicates (same player might appear in list)
     const seenLicences = new Set();
