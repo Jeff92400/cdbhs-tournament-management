@@ -3754,7 +3754,10 @@
         forfaitReplacementPlayer
       });
 
-      if (forfaitSelectedPlayers.size === 0 && !forfaitReplacementPlayer) {
+      // Check if there are missing players (shown in warning)
+      const hasMissingPlayers = document.getElementById('forfaitMissingPlayersWarning')?.style.display !== 'none';
+
+      if (forfaitSelectedPlayers.size === 0 && !forfaitReplacementPlayer && !hasMissingPlayers) {
         alert('Veuillez sélectionner au moins un joueur forfait');
         return;
       }
@@ -4586,7 +4589,10 @@
 
     async function regeneratePoules(withReplacement = false) {
       // This is now a fallback - main flow uses preview + confirm
-      if (forfaitSelectedPlayers.size === 0 && !withReplacement) {
+      // Check if there are missing players (shown in warning)
+      const hasMissingPlayers = document.getElementById('forfaitMissingPlayersWarning')?.style.display !== 'none';
+
+      if (forfaitSelectedPlayers.size === 0 && !withReplacement && !hasMissingPlayers) {
         alert('Veuillez sélectionner au moins un joueur forfait');
         return;
       }
