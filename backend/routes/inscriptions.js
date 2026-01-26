@@ -629,7 +629,7 @@ router.get('/tournoi', authenticateToken, async (req, res) => {
     // Use mode_mapping table to find all IONOS mode variations for this game_type
     // First, get all ionos_mode values that map to this game_type
     try {
-      const mappingQuery = 'SELECT ionos_mode FROM mode_mapping WHERE game_type = $1';
+      const mappingQuery = 'SELECT ionos_mode FROM mode_mapping WHERE UPPER(game_type) = UPPER($1)';
       const mappingResult = await new Promise((resolve, reject) => {
         db.all(mappingQuery, [mode], (err, rows) => {
           if (err) reject(err);
@@ -1372,7 +1372,7 @@ router.post('/generate-poules', authenticateToken, async (req, res) => {
     let gameParams = null;
     try {
       const gameParamsResult = await db.query(
-        'SELECT * FROM game_parameters WHERE mode = $1 AND categorie = $2',
+        'SELECT * FROM game_parameters WHERE UPPER(mode) = UPPER($1) AND UPPER(categorie) = UPPER($2)',
         [category.mode, category.categorie]
       );
       if (gameParamsResult.rows.length > 0) {

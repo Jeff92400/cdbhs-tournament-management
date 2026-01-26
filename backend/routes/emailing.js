@@ -3611,7 +3611,7 @@ router.get('/next-tournament', authenticateToken, async (req, res) => {
     // First get all IONOS mode variations for this game_type from mode_mapping
     const modeMappings = await new Promise((resolve, reject) => {
       db.all(
-        'SELECT ionos_mode FROM mode_mapping WHERE game_type = $1',
+        'SELECT ionos_mode FROM mode_mapping WHERE UPPER(game_type) = UPPER($1)',
         [mode],
         (err, rows) => {
           if (err) reject(err);
