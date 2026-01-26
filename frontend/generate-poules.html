@@ -3650,6 +3650,18 @@
         document.getElementById('forfaitPlayerCount').textContent = `${totalPlayers} joueur(s) - ${data.poules.length} poule(s)`;
         document.getElementById('forfaitTournamentInfo').style.display = 'block';
 
+        // Check for missing players (inscribed but not in poules)
+        const missingWarning = document.getElementById('forfaitMissingPlayersWarning');
+        if (data.missingPlayers && data.missingPlayers.length > 0) {
+          const list = document.getElementById('forfaitMissingPlayersList');
+          list.innerHTML = data.missingPlayers.map(p =>
+            `<span style="display: inline-block; background: white; padding: 3px 8px; margin: 2px; border-radius: 4px; font-size: 12px;">${p.name} (${p.licence})</span>`
+          ).join('');
+          missingWarning.style.display = 'block';
+        } else {
+          missingWarning.style.display = 'none';
+        }
+
         // Render poules
         renderForfaitPoules(data.poules);
         document.getElementById('forfaitPoulesContainer').style.display = 'block';
@@ -4722,6 +4734,15 @@
         <!-- Instructions -->
         <div id="forfaitInstructions" style="background: #e7f3ff; padding: 12px 15px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #0c5460;">
           <strong>💡 Instructions :</strong> Cliquez sur un joueur pour le déclarer forfait. Vous pourrez ensuite régénérer les poules.
+        </div>
+
+        <!-- Missing Players Warning -->
+        <div id="forfaitMissingPlayersWarning" style="display: none; background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+          <strong style="color: #856404;">⚠️ Joueurs inscrits mais absents des poules :</strong>
+          <div id="forfaitMissingPlayersList" style="margin-top: 8px;"></div>
+          <p style="margin: 10px 0 0 0; font-size: 12px; color: #856404;">
+            Ces joueurs ont été réinscrits après la régénération des poules. Cliquez sur <strong>"Régénérer les poules"</strong> pour les réintégrer.
+          </p>
         </div>
 
         <!-- Current Poules Display -->

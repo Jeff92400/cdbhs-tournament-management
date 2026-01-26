@@ -2621,6 +2621,33 @@ router.get('/poules/:tournoiId', authenticateToken, async (req, res) => {
 
     const forfaitLicences = new Set(forfaits.map(f => f.licence?.replace(/\s/g, '')));
 
+    // Get all inscribed players (not forfait) to check for missing players
+    const inscribedPlayers = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT i.licence, i.nom, i.prenom, i.club
+        FROM inscriptions i
+        WHERE i.tournoi_id = $1
+          AND i.statut = 'inscrit'
+          AND (i.forfait IS NULL OR i.forfait = 0)
+          AND UPPER(i.licence) NOT LIKE 'TEST%'
+      `, [tournoiId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    // Find licences in poules
+    const poulesLicences = new Set(poules.map(p => p.licence?.replace(/\s/g, '')));
+
+    // Find inscribed players who are NOT in the stored poules
+    const missingPlayers = inscribedPlayers.filter(p =>
+      !poulesLicences.has(p.licence?.replace(/\s/g, ''))
+    ).map(p => ({
+      licence: p.licence,
+      name: `${p.nom || ''} ${p.prenom || ''}`.trim(),
+      club: p.club
+    }));
+
     // Group by poule number and add forfait status
     const poulesGrouped = {};
     poules.forEach(p => {
@@ -2641,7 +2668,8 @@ router.get('/poules/:tournoiId', authenticateToken, async (req, res) => {
 
     res.json({
       tournament,
-      poules: Object.values(poulesGrouped)
+      poules: Object.values(poulesGrouped),
+      missingPlayers: missingPlayers.length > 0 ? missingPlayers : undefined
     });
   } catch (error) {
     console.error('Error fetching poules:', error);
@@ -2767,6 +2795,36 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
       if (seenLicences.has(normLicence)) return false;
       seenLicences.add(normLicence);
       return true;
+    });
+
+    // Get inscribed players who might be missing from poules (e.g., reinstated after forfait)
+    const inscribedPlayers = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT i.licence, i.nom, i.prenom, i.club
+        FROM inscriptions i
+        WHERE i.tournoi_id = $1
+          AND i.statut = 'inscrit'
+          AND (i.forfait IS NULL OR i.forfait = 0)
+          AND UPPER(i.licence) NOT LIKE 'TEST%'
+      `, [tournoiId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows || []);
+      });
+    });
+
+    // Add any inscribed players who are not in the current poules
+    const poulesLicences = new Set(activePlayers.map(p => p.licence?.replace(/\s/g, '')));
+    inscribedPlayers.forEach(p => {
+      const normLicence = p.licence?.replace(/\s/g, '');
+      if (!poulesLicences.has(normLicence) && !forfaitSet.has(normLicence)) {
+        activePlayers.push({
+          licence: p.licence,
+          player_name: `${p.nom || ''} ${p.prenom || ''}`.trim(),
+          club: p.club
+        });
+        poulesLicences.add(normLicence);
+        console.log(`[Regenerate] Adding missing inscribed player: ${p.nom} ${p.prenom} (${p.licence})`);
+      }
     });
 
     // Add replacement player if provided
