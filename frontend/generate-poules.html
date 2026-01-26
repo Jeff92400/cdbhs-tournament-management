@@ -3170,6 +3170,7 @@
       resultDiv.style.display = 'none';
 
       try {
+        console.log('[Save Poules] Saving with tournoiId:', lastGeneratedData.tournoiId);
         const response = await fetch(`${API_URL}/email/save-poules`, {
           method: 'POST',
           headers: {
@@ -3591,6 +3592,7 @@
         }
 
         competitionSelect.innerHTML = '';
+        console.log('[Forfait] Tournaments for dropdown:', tournaments.map(t => ({ id: t.tournoi_id, name: t.tournament_name })));
         tournaments.forEach(t => {
           const option = document.createElement('option');
           option.value = t.tournoi_id;
@@ -3612,6 +3614,7 @@
     }
 
     async function loadForfaitPoules(tournoiId) {
+      console.log('[Forfait] Loading poules for tournoiId:', tournoiId);
       forfaitSelectedTournoi = tournoiId;
       forfaitSelectedPlayers.clear();
       forfaitReplacementPlayer = null;
