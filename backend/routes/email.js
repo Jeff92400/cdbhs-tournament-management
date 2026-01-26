@@ -3019,6 +3019,121 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
   }
 });
 
+/**
+ * POST /api/email/generate-poules-pdf
+ * Generate a summary PDF for poules from forfait configuration
+ */
+router.post('/generate-poules-pdf', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { tournoiId, poules, location, time, gameParams } = req.body;
+
+  try {
+    // Get tournament info
+    const tournament = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT tournoi_id, nom, mode, categorie, debut, lieu
+        FROM tournoi_ext
+        WHERE tournoi_id = $1
+      `, [tournoiId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!tournament) {
+      return res.status(404).json({ error: 'Tournament not found' });
+    }
+
+    // Determine tournament number from nom (e.g., "Tournoi 3" -> "3")
+    const tournamentNumMatch = tournament.nom?.match(/(\d+)/);
+    const tournamentNum = tournamentNumMatch ? tournamentNumMatch[1] : '1';
+
+    // Format tournament date
+    const tournamentDate = tournament.debut
+      ? new Date(tournament.debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      : '';
+
+    // Determine current season
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const season = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+
+    // Build tournament info for PDF
+    const tournamentInfo = {
+      categoryName: `${tournament.mode || ''} ${tournament.categorie || ''}`.trim(),
+      tournamentNum: tournamentNum,
+      season: season,
+      date: tournamentDate,
+      isFinale: tournament.nom?.toLowerCase().includes('finale') || tournamentNum === '4'
+    };
+
+    // Format poules for PDF generation - ensure proper structure
+    const formattedPoules = poules.map(poule => ({
+      number: poule.number,
+      players: poule.players.map(p => ({
+        licence: p.licence,
+        player_name: p.player_name || p.name,
+        club: p.club,
+        rank: p.rank
+      }))
+    }));
+
+    // Build locations array
+    const locations = location ? [{
+      name: location,
+      address: '',
+      startTime: time || '13:30'
+    }] : [];
+
+    // Get category for ranking data
+    const normalizedMode = (tournament.mode || '').replace(/\s+/g, '').toUpperCase();
+    const normalizedCategorie = (tournament.categorie || '').toUpperCase();
+
+    const category = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT id FROM categories
+        WHERE UPPER(REPLACE(game_type, ' ', '')) = $1 AND UPPER(level) = $2
+      `, [normalizedMode, normalizedCategorie], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    // Get ranking data if category found
+    let rankingData = {};
+    if (category?.id) {
+      rankingData = await getRankingDataForCategory(category.id, season);
+    }
+
+    // Get branding settings
+    const brandingSettings = await appSettings.getSettingsBatch([
+      'primary_color', 'secondary_color', 'accent_color'
+    ]);
+
+    // Generate PDF
+    const pdfBuffer = await generateSummaryConvocationPDF(
+      tournamentInfo,
+      formattedPoules,
+      locations,
+      gameParams || {},
+      'normale',
+      rankingData,
+      brandingSettings
+    );
+
+    // Send PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    const filename = `Recap_${tournamentInfo.categoryName.replace(/\s+/g, '_')}_T${tournamentNum}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error('Error generating poules PDF:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============ ENROLLMENT REQUEST EMAILS ============
 
 /**
