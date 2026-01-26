@@ -3954,17 +3954,25 @@
       document.getElementById('summaryTables').textContent = regenerateResult.pouleCount;
 
       // Convert poules format for renderPoulePreview
+      // renderPoulePreview expects first_name and last_name separately
       const poulesForPreview = regenerateResult.poules.map(p => ({
         number: p.number,
         size: p.players.length,
-        players: p.players.map((player, idx) => ({
-          licence: player.licence,
-          name: player.name,
-          club: player.club,
-          finalRank: player.rank || 0,
-          pouleRank: idx + 1,
-          isNouveau: player.isNouveau
-        }))
+        players: p.players.map((player, idx) => {
+          // Split name into first_name and last_name (name format: "FirstName LastName")
+          const nameParts = (player.name || '').trim().split(' ');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          return {
+            licence: player.licence,
+            first_name: firstName,
+            last_name: lastName,
+            club: player.club,
+            finalRank: player.rank || idx + 1,
+            pouleRank: idx + 1,
+            isNew: player.isNouveau
+          };
+        })
       }));
 
       // Render poule preview
