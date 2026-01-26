@@ -501,8 +501,8 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
         doc.fillColor('white').fontSize(8).font('Helvetica-Bold');
         doc.text('#', 45, y + 5, { width: 20 });
         doc.text('Licence', 65, y + 5, { width: 60 });
-        doc.text('Nom', 130, y + 5, { width: 100 });
-        doc.text('Prenom', 235, y + 5, { width: 80 });
+        doc.text('Prenom', 130, y + 5, { width: 80 });
+        doc.text('Nom', 215, y + 5, { width: 100 });
         doc.text('Club', 320, y + 5, { width: 120 });
         doc.text('Moy.', 445, y + 5, { width: 40, align: 'center' });
         doc.text('Class.', 490, y + 5, { width: 40, align: 'center' });
@@ -522,8 +522,8 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
           doc.fillColor('#333333').fontSize(8).font(isCurrentPlayer ? 'Helvetica-Bold' : 'Helvetica');
           doc.text(String(pIndex + 1), 45, y + 5, { width: 20 });
           doc.text(p.licence || '', 65, y + 5, { width: 60 });
-          doc.text((p.last_name || '').toUpperCase(), 130, y + 5, { width: 100 });
-          doc.text(p.first_name || '', 235, y + 5, { width: 80 });
+          doc.text(p.first_name || '', 130, y + 5, { width: 80 });
+          doc.text((p.last_name || '').toUpperCase(), 215, y + 5, { width: 100 });
           doc.font('Helvetica').fontSize(7).text(p.club || '', 320, y + 6, { width: 120 });
           // Moyenne and Classement columns
           doc.font(isCurrentPlayer ? 'Helvetica-Bold' : 'Helvetica').fontSize(8);
@@ -597,8 +597,8 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
 
             const p1 = poule.players[match.p1 - 1];
             const p2 = poule.players[match.p2 - 1];
-            const p1Name = p1 ? `${(p1.last_name || '').toUpperCase()} ${p1.first_name || ''}`.trim() : `Joueur ${match.p1}`;
-            const p2Name = p2 ? `${(p2.last_name || '').toUpperCase()} ${p2.first_name || ''}`.trim() : `Joueur ${match.p2}`;
+            const p1Name = p1 ? `${p1.first_name || ''} ${(p1.last_name || '').toUpperCase()}`.trim() : `Joueur ${match.p1}`;
+            const p2Name = p2 ? `${p2.first_name || ''} ${(p2.last_name || '').toUpperCase()}`.trim() : `Joueur ${match.p2}`;
 
             doc.fillColor('#666666').fontSize(8).font('Helvetica');
             const matchLabel = match.table ? `T${match.table}:` : `${idx + 1}:`;
@@ -645,8 +645,8 @@ async function generatePlayerConvocationPDF(player, tournamentInfo, allPoules, l
                 const p1 = poule.players[match.player1 - 1];
                 const p2 = poule.players[match.player2 - 1];
                 if (p1 && p2) {
-                  const p1Name = `${(p1.last_name || '').toUpperCase()} ${p1.first_name || ''}`.trim();
-                  const p2Name = `${(p2.last_name || '').toUpperCase()} ${p2.first_name || ''}`.trim();
+                  const p1Name = `${p1.first_name || ''} ${(p1.last_name || '').toUpperCase()}`.trim();
+                  const p2Name = `${p2.first_name || ''} ${(p2.last_name || '').toUpperCase()}`.trim();
                   doc.font('Helvetica').fillColor('#333333')
                      .text(`${p1Name}  vs  ${p2Name}`, 105, y + 3, { width: 400 });
                 }
@@ -924,8 +924,8 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
 
             const p1 = poule.players[match.p1 - 1];
             const p2 = poule.players[match.p2 - 1];
-            const p1Name = p1 ? `${(p1.last_name || '').toUpperCase()} ${p1.first_name || ''}`.trim() : `Joueur ${match.p1}`;
-            const p2Name = p2 ? `${(p2.last_name || '').toUpperCase()} ${p2.first_name || ''}`.trim() : `Joueur ${match.p2}`;
+            const p1Name = p1 ? `${p1.first_name || ''} ${(p1.last_name || '').toUpperCase()}`.trim() : `Joueur ${match.p1}`;
+            const p2Name = p2 ? `${p2.first_name || ''} ${(p2.last_name || '').toUpperCase()}`.trim() : `Joueur ${match.p2}`;
 
             doc.fillColor('#666666').fontSize(8).font('Helvetica');
             const matchLabel = match.table ? `T${match.table}:` : `${idx + 1}:`;
@@ -972,8 +972,8 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
                 const p1 = poule.players[match.player1 - 1];
                 const p2 = poule.players[match.player2 - 1];
                 if (p1 && p2) {
-                  const p1Name = `${(p1.last_name || '').toUpperCase()} ${p1.first_name || ''}`.trim();
-                  const p2Name = `${(p2.last_name || '').toUpperCase()} ${p2.first_name || ''}`.trim();
+                  const p1Name = `${p1.first_name || ''} ${(p1.last_name || '').toUpperCase()}`.trim();
+                  const p2Name = `${p2.first_name || ''} ${(p2.last_name || '').toUpperCase()}`.trim();
                   doc.font('Helvetica').fillColor('#333333')
                      .text(`${p1Name}  vs  ${p2Name}`, 105, y + 3, { width: 400 });
                 }
@@ -1084,7 +1084,7 @@ function replaceTemplateVariables(template, variables) {
 
 // Send convocation emails
 router.post('/send-convocations', authenticateToken, async (req, res) => {
-  const { players, poules, category, season, tournament, tournamentDate, tournoiId, locations, sendToAll, specialNote, gameParams, selectedDistance, mockRankingData, isFinale } = req.body;
+  const { players, poules, category, season, tournament, tournamentDate, tournoiId, locations, sendToAll, specialNote, gameParams, selectedDistance, mockRankingData, isFinale, isTestMode, skipSavePoules } = req.body;
 
   const resend = getResend();
   if (!resend) {
@@ -1438,7 +1438,8 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
   }
 
   // Update convoque status and store convocation details for players who received their convocation email
-  if (tournoiId && results.sent.length > 0) {
+  // Skip in test mode to avoid modifying real data
+  if (tournoiId && results.sent.length > 0 && !isTestMode && !skipSavePoules) {
     try {
       // Get players who received emails with their convocation details
       const sentPlayers = players.filter(p => results.sent.some(s => s.email === p.email));
@@ -1499,66 +1500,73 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
 
       console.log(`Updated convoque status and convocation details for ${sentPlayers.length} players in tournament ${tournoiId}`);
 
-      // Save full poule composition to convocation_poules table
-      // First, clear any existing poule data for this tournament
-      await new Promise((resolve, reject) => {
-        db.run(
-          `DELETE FROM convocation_poules WHERE tournoi_id = $1`,
-          [tournoiId],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
+      // Skip saving poules in test mode
+      if (!isTestMode && !skipSavePoules) {
+        // Save full poule composition to convocation_poules table
+        // First, clear any existing poule data for this tournament
+        await new Promise((resolve, reject) => {
+          db.run(
+            `DELETE FROM convocation_poules WHERE tournoi_id = $1`,
+            [tournoiId],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+
+        // Insert all players from all poules
+        for (const poule of poules) {
+          const locNum = poule.locationNum || '1';
+          const loc = locations.find(l => l.locationNum === locNum) || locations[0];
+          const fullAddress = loc ? [loc.street, loc.zip_code, loc.city].filter(Boolean).join(' ') : '';
+
+          for (let i = 0; i < poule.players.length; i++) {
+            const p = poule.players[i];
+            await new Promise((resolve, reject) => {
+              db.run(
+                `INSERT INTO convocation_poules (tournoi_id, poule_number, licence, player_name, club, location_name, location_address, start_time, player_order)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                 ON CONFLICT (tournoi_id, poule_number, licence) DO UPDATE SET
+                   player_name = $4, club = $5, location_name = $6, location_address = $7, start_time = $8, player_order = $9`,
+                [
+                  tournoiId,
+                  poule.number,
+                  p.licence,
+                  `${p.first_name} ${p.last_name}`,
+                  p.club || '',
+                  loc?.name || '',
+                  fullAddress,
+                  loc?.startTime || '',
+                  i + 1
+                ],
+                (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                }
+              );
+            });
           }
-        );
-      });
-
-      // Insert all players from all poules
-      for (const poule of poules) {
-        const locNum = poule.locationNum || '1';
-        const loc = locations.find(l => l.locationNum === locNum) || locations[0];
-        const fullAddress = loc ? [loc.street, loc.zip_code, loc.city].filter(Boolean).join(' ') : '';
-
-        for (let i = 0; i < poule.players.length; i++) {
-          const p = poule.players[i];
-          await new Promise((resolve, reject) => {
-            db.run(
-              `INSERT INTO convocation_poules (tournoi_id, poule_number, licence, player_name, club, location_name, location_address, start_time, player_order)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-               ON CONFLICT (tournoi_id, poule_number, licence) DO UPDATE SET
-                 player_name = $4, club = $5, location_name = $6, location_address = $7, start_time = $8, player_order = $9`,
-              [
-                tournoiId,
-                poule.number,
-                p.licence,
-                `${p.first_name} ${p.last_name}`,
-                p.club || '',
-                loc?.name || '',
-                fullAddress,
-                loc?.startTime || '',
-                i + 1
-              ],
-              (err) => {
-                if (err) reject(err);
-                else resolve();
-              }
-            );
-          });
         }
+        console.log(`Saved ${poules.reduce((sum, p) => sum + p.players.length, 0)} players across ${poules.length} poules for tournament ${tournoiId}`);
+      } else {
+        console.log('Test mode - skipping poule save to database');
       }
-      console.log(`Saved ${poules.reduce((sum, p) => sum + p.players.length, 0)} players across ${poules.length} poules for tournament ${tournoiId}`);
 
-      // Mark convocation as sent on tournoi_ext
-      await new Promise((resolve, reject) => {
-        db.run(
-          `UPDATE tournoi_ext SET convocation_sent_at = CURRENT_TIMESTAMP WHERE tournoi_id = $1`,
-          [tournoiId],
-          (err) => {
-            if (err) reject(err);
-            else resolve();
-          }
-        );
-      });
-      console.log(`Marked convocation_sent_at for tournament ${tournoiId}`);
+      // Mark convocation as sent on tournoi_ext (skip in test mode)
+      if (!isTestMode && !skipSavePoules) {
+        await new Promise((resolve, reject) => {
+          db.run(
+            `UPDATE tournoi_ext SET convocation_sent_at = CURRENT_TIMESTAMP WHERE tournoi_id = $1`,
+            [tournoiId],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+        console.log(`Marked convocation_sent_at for tournament ${tournoiId}`);
+      }
 
     } catch (convoqueError) {
       console.error('Error updating convoque status:', convoqueError);

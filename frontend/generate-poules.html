@@ -660,9 +660,26 @@
             </p>
           </div>
 
+          <!-- Test mode section -->
+          <div id="testModeSection" style="margin-bottom: 20px; padding: 15px; background: #fff8e1; border: 2px solid #ffc107; border-radius: 8px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold; color: #333;">
+              <input type="checkbox" id="testModeCheckbox" style="width: 18px; height: 18px;">
+              <span>Mode Test</span>
+              <span style="font-weight: normal; color: #666;"> - Envoyer uniquement à mon adresse</span>
+            </label>
+            <div id="testEmailContainer" style="display: none; margin-top: 10px;">
+              <input type="email" id="testEmailInput"
+                     placeholder="votre.email@exemple.com"
+                     style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            </div>
+          </div>
+
           <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
             <button class="btn" id="sendConvocationsBtn" style="background: #17a2b8;">
               ✉️ Envoyer les convocations
+            </button>
+            <button class="btn" id="sendTestBtn" style="background: #f59e0b; display: none;">
+              🧪 Envoyer le Test
             </button>
             <button class="btn" id="savePoulesOnlyBtn" style="background: #6c757d;">
               💾 Sauvegarder les poules (sans email)
@@ -3003,6 +3020,108 @@
     function storeGenerationData(data) {
       lastGeneratedData = data;
     }
+
+    // Test mode toggle
+    document.getElementById('testModeCheckbox').addEventListener('change', (e) => {
+      const isTestMode = e.target.checked;
+      document.getElementById('testEmailContainer').style.display = isTestMode ? 'block' : 'none';
+      document.getElementById('sendConvocationsBtn').style.display = isTestMode ? 'none' : '';
+      document.getElementById('sendTestBtn').style.display = isTestMode ? '' : 'none';
+    });
+
+    // Send test convocation
+    document.getElementById('sendTestBtn').addEventListener('click', async () => {
+      if (!lastGeneratedData) {
+        alert('Veuillez d\'abord générer le fichier Excel');
+        return;
+      }
+
+      const testEmail = document.getElementById('testEmailInput').value.trim();
+      if (!testEmail || !testEmail.includes('@')) {
+        alert('Veuillez entrer une adresse email valide');
+        return;
+      }
+
+      const btn = document.getElementById('sendTestBtn');
+      const progress = document.getElementById('emailProgress');
+      const progressBar = document.getElementById('emailProgressBar');
+      const progressText = document.getElementById('emailProgressText');
+      const results = document.getElementById('emailResults');
+
+      // Get first checked player for test
+      const firstChecked = document.querySelector('#playerCheckboxList input[type="checkbox"]:checked');
+      if (!firstChecked) {
+        alert('Veuillez sélectionner au moins un joueur pour le test');
+        return;
+      }
+
+      const testLicence = firstChecked.dataset.licence;
+      const testPlayer = selectedPlayers.find(p => p.licence?.replace(/\s/g, '') === testLicence);
+
+      if (!testPlayer) {
+        alert('Joueur non trouvé');
+        return;
+      }
+
+      // Disable button and show progress
+      btn.disabled = true;
+      btn.textContent = 'Envoi du test...';
+      progress.style.display = 'block';
+      results.style.display = 'none';
+      progressBar.style.width = '50%';
+      progressText.textContent = 'Envoi du test...';
+
+      try {
+        // Send ONE convocation to the test email
+        const response = await fetch(`${API_URL}/email/send-convocations`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            players: [{ ...testPlayer, email: testEmail }],
+            poules: lastGeneratedData.poules,
+            category: currentCategory,
+            season: currentSeason,
+            tournament: currentTournament,
+            tournamentDate: lastGeneratedData.tournamentDate,
+            tournoiId: lastGeneratedData.tournoiId,
+            locations: lastGeneratedData.locations,
+            specialNote: document.getElementById('specialNoteField').value.trim(),
+            gameParams: lastGeneratedData.gameParams,
+            selectedDistance: lastGeneratedData.selectedDistance,
+            isFinale: window.currentCompetitionIsFinale || false,
+            isTestMode: true,
+            skipSavePoules: true
+          })
+        });
+
+        progressBar.style.width = '100%';
+        const result = await response.json();
+
+        if (response.ok && result.results.sent.length > 0) {
+          progressText.textContent = `Test envoyé avec succès à ${testEmail}`;
+          progressText.style.color = '#28a745';
+          results.style.display = 'block';
+          results.innerHTML = `<div style="background: #d4edda; padding: 10px; border-radius: 4px;">
+            <strong>✅ Test envoyé</strong><br>
+            Convocation de <strong>${testPlayer.first_name} ${testPlayer.last_name}</strong> envoyée à <strong>${testEmail}</strong>
+          </div>`;
+        } else {
+          progressText.textContent = `Erreur: ${result.error || 'Échec de l\'envoi'}`;
+          progressText.style.color = '#dc3545';
+        }
+      } catch (error) {
+        console.error('Error sending test:', error);
+        progressBar.style.width = '100%';
+        progressText.textContent = `Erreur: ${error.message}`;
+        progressText.style.color = '#dc3545';
+      }
+
+      btn.disabled = false;
+      btn.textContent = '🧪 Envoyer le Test';
+    });
 
     // Send convocations
     document.getElementById('sendConvocationsBtn').addEventListener('click', async () => {
