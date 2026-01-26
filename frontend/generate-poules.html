@@ -3711,6 +3711,11 @@
       const summary = document.getElementById('forfaitSummary');
       const list = document.getElementById('forfaitList');
       const previewBtn = document.getElementById('previewPoulesBtn');
+      const regenBtn = document.getElementById('regeneratePoulesBtn');
+
+      // Always enable buttons (allow regeneration to reintegrate players)
+      if (previewBtn) previewBtn.disabled = false;
+      if (regenBtn) regenBtn.disabled = false;
 
       if (forfaitSelectedPlayers.size > 0) {
         const names = [];
@@ -3723,10 +3728,8 @@
         });
         if (list) list.textContent = names.join(', ');
         if (summary) summary.style.display = 'block';
-        if (previewBtn) previewBtn.disabled = false;
       } else {
         if (summary) summary.style.display = 'none';
-        if (previewBtn) previewBtn.disabled = true;
       }
       // Close any open preview when selection changes
       closePreview();
@@ -3739,10 +3742,7 @@
         forfaitReplacementPlayer
       });
 
-      if (forfaitSelectedPlayers.size === 0 && !forfaitReplacementPlayer) {
-        alert('Veuillez sélectionner au moins un joueur forfait');
-        return;
-      }
+      // Allow regeneration even without selecting forfait (to reintegrate reinstated players)
 
       const btn = document.getElementById('previewPoulesBtn');
       if (btn) {
@@ -4107,11 +4107,7 @@
     }
 
     async function regeneratePoules(withReplacement = false) {
-      // This is now a fallback - main flow uses preview + confirm
-      if (forfaitSelectedPlayers.size === 0 && !withReplacement) {
-        alert('Veuillez sélectionner au moins un joueur forfait');
-        return;
-      }
+      // Allow regeneration even without selecting forfait (to reintegrate reinstated players)
 
       // If we have preview data, just confirm it
       if (forfaitPreviewData) {
@@ -4277,7 +4273,7 @@
             <button id="previewPoulesBtn" class="btn" style="background: #17a2b8; color: white;" onclick="previewPoules()">
               👁️ Prévisualiser
             </button>
-            <button id="regeneratePoulesBtn" class="btn" style="background: #28a745; color: white;" onclick="regeneratePoules(false)" disabled>
+            <button id="regeneratePoulesBtn" class="btn" style="background: #28a745; color: white;" onclick="regeneratePoules(false)">
               🔄 Régénérer les poules
             </button>
             <button id="regenerateWithReplacementBtn" class="btn" style="background: #1F4788; color: white;" onclick="openReplacementModal()">
