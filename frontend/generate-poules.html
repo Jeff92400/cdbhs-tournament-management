@@ -3170,7 +3170,6 @@
       resultDiv.style.display = 'none';
 
       try {
-        console.log('[Save Poules] Saving with tournoiId:', lastGeneratedData.tournoiId);
         const response = await fetch(`${API_URL}/email/save-poules`, {
           method: 'POST',
           headers: {
@@ -3592,7 +3591,6 @@
         }
 
         competitionSelect.innerHTML = '';
-        console.log('[Forfait] Tournaments for dropdown:', tournaments.map(t => ({ id: t.tournoi_id, name: t.tournament_name })));
         tournaments.forEach(t => {
           const option = document.createElement('option');
           option.value = t.tournoi_id;
@@ -3614,7 +3612,6 @@
     }
 
     async function loadForfaitPoules(tournoiId) {
-      console.log('[Forfait] Loading poules for tournoiId:', tournoiId);
       forfaitSelectedTournoi = tournoiId;
       forfaitSelectedPlayers.clear();
       forfaitReplacementPlayer = null;
@@ -3653,25 +3650,10 @@
         document.getElementById('forfaitPlayerCount').textContent = `${totalPlayers} joueur(s) - ${data.poules.length} poule(s)`;
         document.getElementById('forfaitTournamentInfo').style.display = 'block';
 
-        // Check for missing players (inscribed but not in poules)
-        const missingWarning = document.getElementById('forfaitMissingPlayersWarning');
-        if (data.missingPlayers && data.missingPlayers.length > 0) {
-          const list = document.getElementById('forfaitMissingPlayersList');
-          list.innerHTML = data.missingPlayers.map(p =>
-            `<span style="display: inline-block; background: white; padding: 3px 8px; margin: 2px; border-radius: 4px; font-size: 12px;">${p.name} (${p.licence})</span>`
-          ).join('');
-          missingWarning.style.display = 'block';
-        } else {
-          missingWarning.style.display = 'none';
-        }
-
         // Render poules
         renderForfaitPoules(data.poules);
         document.getElementById('forfaitPoulesContainer').style.display = 'block';
         document.getElementById('forfaitActions').style.display = 'block';
-
-        // Update button states (enables buttons if missing players exist)
-        updateForfaitSummary();
       } catch (error) {
         console.error('Error loading forfait poules:', error);
         document.getElementById('forfaitLoading').style.display = 'none';
@@ -3729,11 +3711,6 @@
       const summary = document.getElementById('forfaitSummary');
       const list = document.getElementById('forfaitList');
       const previewBtn = document.getElementById('previewPoulesBtn');
-      const regenBtn = document.getElementById('regeneratePoulesBtn');
-
-      // Check if there are missing players to reintegrate
-      const missingWarningEl = document.getElementById('forfaitMissingPlayersWarning');
-      const hasMissingPlayers = missingWarningEl && missingWarningEl.style.display !== 'none';
 
       if (forfaitSelectedPlayers.size > 0) {
         const names = [];
@@ -3747,36 +3724,23 @@
         if (list) list.textContent = names.join(', ');
         if (summary) summary.style.display = 'block';
         if (previewBtn) previewBtn.disabled = false;
-        if (regenBtn) regenBtn.disabled = false;
-      } else if (hasMissingPlayers) {
-        // Enable buttons when there are missing players to reintegrate
-        if (summary) summary.style.display = 'none';
-        if (previewBtn) previewBtn.disabled = false;
-        if (regenBtn) regenBtn.disabled = false;
       } else {
         if (summary) summary.style.display = 'none';
         if (previewBtn) previewBtn.disabled = true;
-        if (regenBtn) regenBtn.disabled = true;
       }
       // Close any open preview when selection changes
       closePreview();
     }
 
     async function previewPoules() {
-      alert('previewPoules function called!');
-      const missingWarningEl = document.getElementById('forfaitMissingPlayersWarning');
-      const hasMissingPlayers = missingWarningEl && missingWarningEl.style.display !== 'none';
-
       console.log('previewPoules called', {
         forfaitSelectedTournoi,
         forfaitSelectedPlayers: Array.from(forfaitSelectedPlayers),
-        forfaitReplacementPlayer,
-        hasMissingPlayers,
-        missingWarningDisplay: missingWarningEl?.style.display
+        forfaitReplacementPlayer
       });
 
-      if (forfaitSelectedPlayers.size === 0 && !forfaitReplacementPlayer && !hasMissingPlayers) {
-        alert('Veuillez sélectionner au moins un joueur forfait ou avoir des joueurs manquants à réintégrer');
+      if (forfaitSelectedPlayers.size === 0 && !forfaitReplacementPlayer) {
+        alert('Veuillez sélectionner au moins un joueur forfait');
         return;
       }
 
@@ -3821,10 +3785,9 @@
         if (actionsEl) actionsEl.style.display = 'none';
 
         renderPreview(forfaitPreviewData);
-
         if (previewEl) {
           previewEl.style.display = 'block';
-          previewEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Scroll to top of modal content
           const modalContent = previewEl.closest('.modal-content');
           if (modalContent) modalContent.scrollTop = 0;
         }
@@ -3842,8 +3805,6 @@
 
     function renderPreview(data) {
       const container = document.getElementById('forfaitPreviewPoules');
-      if (!data || !data.poules) return;
-
       container.innerHTML = data.poules.map(poule => `
         <div style="background: white; border: 1px solid #ddd; border-radius: 6px; overflow: hidden;">
           <div style="background: #17a2b8; color: white; padding: 8px 12px; font-weight: bold; font-size: 13px;">
@@ -3912,486 +3873,21 @@
 
         const result = await response.json();
 
-        // Show configuration screen instead of just reloading
+        alert(`Poules enregistrées avec succès!\n${result.playerCount} joueur(s) répartis en ${result.pouleCount} poule(s)`);
+
+        // Reload poules
         forfaitSelectedPlayers.clear();
         forfaitReplacementPlayer = null;
         forfaitPreviewData = null;
-
-        // Show configuration section with the new poules
-        await showForfaitConfiguration(result.poules);
+        await loadForfaitPoules(forfaitSelectedTournoi);
 
       } catch (error) {
         console.error('Error regenerating poules:', error);
         alert('Erreur: ' + error.message);
+      } finally {
         btn.disabled = false;
         btn.textContent = '✓ Confirmer et enregistrer';
       }
-    }
-
-    // Forfait configuration state
-    let forfaitConfigPoules = [];
-    let forfaitConfigGameParams = null;
-    let forfaitConfigTournament = null;
-
-    // Show configuration screen after regeneration
-    async function showForfaitConfiguration(poules) {
-      console.log('[ForfaitConfig] Starting with poules:', poules);
-
-      // Hide other sections
-      document.getElementById('forfaitPoulesContainer').style.display = 'none';
-      document.getElementById('forfaitActions').style.display = 'none';
-      document.getElementById('forfaitPreview').style.display = 'none';
-      document.getElementById('forfaitMissingPlayersWarning').style.display = 'none';
-      document.getElementById('forfaitInstructions').style.display = 'none';
-
-      // If no poules provided, reload from database
-      if (!poules || poules.length === 0) {
-        console.log('[ForfaitConfig] No poules provided, reloading from server...');
-        try {
-          const response = await fetch(`${API_URL}/email/poules/${forfaitSelectedTournoi}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (response.ok) {
-            const data = await response.json();
-            poules = data.poules || [];
-            console.log('[ForfaitConfig] Reloaded poules:', poules.length);
-          }
-        } catch (e) {
-          console.error('[ForfaitConfig] Error reloading poules:', e);
-        }
-      }
-
-      // Store poules for manipulation
-      forfaitConfigPoules = poules || forfaitCurrentPoules || [];
-
-      // Fetch tournament details
-      try {
-        const tournoiResponse = await fetch(`${API_URL}/email/poules/${forfaitSelectedTournoi}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (tournoiResponse.ok) {
-          const data = await tournoiResponse.json();
-          forfaitConfigTournament = data.tournament;
-        }
-      } catch (e) {
-        console.error('Error fetching tournament details:', e);
-      }
-
-      // Load game parameters
-      await loadForfaitGameParameters();
-
-      // Load clubs for location dropdowns
-      await loadForfaitClubOptions();
-
-      // Render poules with move dropdowns
-      renderForfaitConfigPoules();
-
-      // Pre-select location from tournament
-      if (forfaitConfigTournament && forfaitConfigTournament.lieu) {
-        preselectForfaitLocation(forfaitConfigTournament.lieu);
-      }
-
-      // Reset second location
-      document.getElementById('forfaitLocation2Container').style.display = 'none';
-      document.getElementById('forfaitAddLocation2Btn').style.display = 'inline-block';
-      document.getElementById('forfaitLocationSelect2').value = '';
-
-      // Show configuration section
-      document.getElementById('forfaitConfigSection').style.display = 'block';
-      console.log('[ForfaitConfig] Configuration section now visible');
-    }
-
-    // Load game parameters for forfait configuration
-    async function loadForfaitGameParameters() {
-      const section = document.getElementById('forfaitGameParamsSection');
-
-      if (!forfaitConfigTournament) {
-        section.style.display = 'none';
-        return;
-      }
-
-      try {
-        // Extract mode and level from tournament
-        const mode = forfaitConfigTournament.mode || '';
-        const categorie = forfaitConfigTournament.categorie || '';
-
-        const response = await fetch(`${API_URL}/settings/game-parameters/${encodeURIComponent(mode.toUpperCase())}/${encodeURIComponent(categorie.toUpperCase())}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!response.ok) {
-          section.style.display = 'none';
-          forfaitConfigGameParams = null;
-          return;
-        }
-
-        forfaitConfigGameParams = await response.json();
-        section.style.display = 'block';
-
-        // Update distance selector
-        const distanceSelect = document.getElementById('forfaitDistanceSelect');
-        distanceSelect.innerHTML = `<option value="normale">${forfaitConfigGameParams.distance_normale} points (Distance normale)</option>`;
-        if (forfaitConfigGameParams.distance_reduite) {
-          distanceSelect.innerHTML += `<option value="reduite">${forfaitConfigGameParams.distance_reduite} points (Distance réduite)</option>`;
-        }
-
-        // Update coin display
-        const coinSpan = document.getElementById('forfaitGameParamCoin');
-        if (forfaitConfigGameParams.coin === 'GC') {
-          coinSpan.textContent = 'Grand Coin';
-          coinSpan.style.background = '#ffc107';
-          coinSpan.style.color = '#000';
-        } else if (forfaitConfigGameParams.coin === 'PC') {
-          coinSpan.textContent = 'Petit Coin';
-          coinSpan.style.background = '#17a2b8';
-          coinSpan.style.color = '#fff';
-        } else {
-          coinSpan.textContent = '-';
-          coinSpan.style.background = '#6c757d';
-          coinSpan.style.color = '#fff';
-        }
-
-        // Update reprises
-        document.getElementById('forfaitGameParamReprises').textContent = forfaitConfigGameParams.reprises;
-
-        // Update moyenne info
-        document.getElementById('forfaitGameParamMoyenne').textContent =
-          `La moyenne qualificative pour cette catégorie est entre ${parseFloat(forfaitConfigGameParams.moyenne_mini).toFixed(3)} et ${parseFloat(forfaitConfigGameParams.moyenne_maxi).toFixed(3)}`;
-
-      } catch (error) {
-        console.error('Error loading forfait game parameters:', error);
-        section.style.display = 'none';
-      }
-    }
-
-    // Load club options for forfait location dropdowns
-    async function loadForfaitClubOptions() {
-      try {
-        const response = await fetch(`${API_URL}/clubs`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) return;
-
-        const clubs = await response.json();
-        const options = '<option value="">-- Sélectionner un club --</option>' +
-          clubs.map(c => `<option value="${c.name}">${c.display_name || c.name}</option>`).join('');
-
-        document.getElementById('forfaitLocationSelect1').innerHTML = options;
-        document.getElementById('forfaitLocationSelect2').innerHTML = options;
-      } catch (error) {
-        console.error('Error loading clubs:', error);
-      }
-    }
-
-    // Pre-select location in forfait dropdown
-    function preselectForfaitLocation(lieuName) {
-      if (!lieuName) return;
-      const select = document.getElementById('forfaitLocationSelect1');
-      const normalizedLieu = lieuName.toUpperCase().replace(/\s+/g, '');
-
-      for (let i = 0; i < select.options.length; i++) {
-        const optionVal = select.options[i].value.toUpperCase().replace(/\s+/g, '');
-        if (optionVal.includes(normalizedLieu) || normalizedLieu.includes(optionVal)) {
-          select.selectedIndex = i;
-          break;
-        }
-      }
-    }
-
-    // Render poules in configuration view with move dropdowns
-    function renderForfaitConfigPoules() {
-      const container = document.getElementById('forfaitConfigPoules');
-      const numPoules = forfaitConfigPoules.length;
-
-      container.innerHTML = forfaitConfigPoules.map((poule, pouleIdx) => {
-        return `
-        <div class="poule-card" data-poule="${poule.number}" style="border: 2px solid #28a745; border-radius: 8px; padding: 15px; background: white;">
-          <h4 style="color: #28a745; margin: 0 0 10px 0;">Poule ${poule.number} (${poule.players.length} joueurs)</h4>
-          ${poule.players.map((p, idx) => {
-            // Handle different data structures from API vs stored poules
-            const playerName = p.name || p.player_name || ((p.last_name || '') + ' ' + (p.first_name || '')).trim() || 'Joueur';
-            const playerRank = p.finalRank || p.rank || idx + 1;
-            return `
-            <div class="poule-player" style="display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #eee;">
-              <span style="font-weight: bold; color: #666; width: 25px;">${idx + 1}.</span>
-              <span style="flex: 1;">${playerName} <strong style="color: #1F4788;">(${playerRank})</strong></span>
-              ${numPoules > 1 ? `
-                <select class="forfait-move-player" data-licence="${p.licence}" data-from-poule="${poule.number}"
-                        onchange="moveForfaitPlayer(this)"
-                        style="padding: 2px 5px; font-size: 0.75em; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
-                  <option value="">Déplacer...</option>
-                  ${forfaitConfigPoules.filter(op => op.number !== poule.number).map(op =>
-                    `<option value="${op.number}">→ Poule ${op.number}</option>`
-                  ).join('')}
-                </select>
-              ` : ''}
-            </div>
-          `;}).join('')}
-          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
-            <select class="forfait-poule-location" data-poule="${poule.number}"
-                    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-              <option value="">Lieu de cette poule...</option>
-            </select>
-          </div>
-        </div>
-      `;}).join('');
-
-      // Populate poule location dropdowns with clubs
-      loadForfaitPouleLocationOptions();
-    }
-
-    // Load location options for each poule
-    async function loadForfaitPouleLocationOptions() {
-      try {
-        const response = await fetch(`${API_URL}/clubs`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) return;
-
-        const clubs = await response.json();
-        const options = '<option value="">Lieu de cette poule...</option>' +
-          clubs.map(c => `<option value="${c.name}">${c.display_name || c.name}</option>`).join('');
-
-        document.querySelectorAll('.forfait-poule-location').forEach(select => {
-          select.innerHTML = options;
-        });
-      } catch (error) {
-        console.error('Error loading poule location options:', error);
-      }
-    }
-
-    // Move player between poules in forfait config
-    function moveForfaitPlayer(selectEl) {
-      const licence = selectEl.dataset.licence;
-      const fromPoule = parseInt(selectEl.dataset.fromPoule);
-      const toPoule = parseInt(selectEl.value);
-
-      if (!toPoule) return;
-
-      // Find and move the player
-      let playerToMove = null;
-      forfaitConfigPoules.forEach(poule => {
-        if (poule.number === fromPoule) {
-          const idx = poule.players.findIndex(p => p.licence === licence);
-          if (idx !== -1) {
-            playerToMove = poule.players.splice(idx, 1)[0];
-          }
-        }
-      });
-
-      if (playerToMove) {
-        forfaitConfigPoules.forEach(poule => {
-          if (poule.number === toPoule) {
-            poule.players.push(playerToMove);
-          }
-        });
-      }
-
-      // Re-render
-      renderForfaitConfigPoules();
-    }
-
-    // Add second location for forfait
-    function addForfaitLocation2() {
-      document.getElementById('forfaitLocation2Container').style.display = 'block';
-      document.getElementById('forfaitAddLocation2Btn').style.display = 'none';
-    }
-
-    // Remove second location for forfait
-    function removeForfaitLocation2() {
-      console.log('[DEBUG] removeForfaitLocation2 called');
-      document.getElementById('forfaitLocation2Container').style.display = 'none';
-      document.getElementById('forfaitAddLocation2Btn').style.display = 'inline-block';
-      document.getElementById('forfaitLocationSelect2').value = '';
-    }
-
-    // Back to poules view from forfait config
-    function backToForfaitPoules() {
-      document.getElementById('forfaitConfigSection').style.display = 'none';
-      document.getElementById('forfaitPoulesContainer').style.display = 'block';
-      document.getElementById('forfaitActions').style.display = 'block';
-      loadForfaitPoules(forfaitSelectedTournoi);
-    }
-
-    // Generate Excel from forfait configuration
-    async function generateForfaitExcel() {
-      if (!forfaitSelectedTournoi || forfaitConfigPoules.length === 0) {
-        alert('Aucune poule à exporter');
-        return;
-      }
-
-      try {
-        // Build location data
-        const location1 = document.getElementById('forfaitLocationSelect1').value;
-        const time1 = document.getElementById('forfaitStartTime1').value;
-        const location2 = document.getElementById('forfaitLocationSelect2').value;
-        const time2 = document.getElementById('forfaitStartTime2').value;
-
-        // Get poule-specific locations
-        const pouleLocations = {};
-        document.querySelectorAll('.forfait-poule-location').forEach(select => {
-          const pouleNum = select.dataset.poule;
-          if (select.value) {
-            pouleLocations[pouleNum] = select.value;
-          }
-        });
-
-        // Call generate endpoint
-        const response = await fetch(`${API_URL}/email/generate-poules-excel`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            tournoiId: forfaitSelectedTournoi,
-            poules: forfaitConfigPoules,
-            location1,
-            time1,
-            location2,
-            time2,
-            pouleLocations,
-            gameParams: forfaitConfigGameParams
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Erreur lors de la génération du fichier');
-        }
-
-        // Download the file
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Poules_${forfaitConfigTournament?.nom || 'Tournoi'}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        a.remove();
-
-      } catch (error) {
-        console.error('Error generating Excel:', error);
-        alert('Erreur: ' + error.message);
-      }
-    }
-
-    // Generate PDF from forfait configuration
-    async function generateForfaitPdf() {
-      if (!forfaitSelectedTournoi || forfaitConfigPoules.length === 0) {
-        alert('Aucune poule à exporter');
-        return;
-      }
-
-      try {
-        const location1 = document.getElementById('forfaitLocationSelect1').value;
-        const time1 = document.getElementById('forfaitStartTime1').value;
-
-        const response = await fetch(`${API_URL}/email/generate-poules-pdf`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            tournoiId: forfaitSelectedTournoi,
-            poules: forfaitConfigPoules,
-            location: location1,
-            time: time1,
-            gameParams: forfaitConfigGameParams
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error('Erreur lors de la génération du PDF');
-        }
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Recap_${forfaitConfigTournament?.nom || 'Tournoi'}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        a.remove();
-
-      } catch (error) {
-        console.error('Error generating PDF:', error);
-        alert('Erreur: ' + error.message);
-      }
-    }
-
-    // Resend convocations from configuration screen
-    async function resendConvocationsFromConfig() {
-      if (!forfaitSelectedTournoi || forfaitConfigPoules.length === 0) {
-        alert('Aucune poule disponible');
-        return;
-      }
-
-      const location1 = document.getElementById('forfaitLocationSelect1').value;
-      const time1 = document.getElementById('forfaitStartTime1').value;
-      const location2 = document.getElementById('forfaitLocationSelect2').value;
-      const time2 = document.getElementById('forfaitStartTime2').value;
-
-      if (!location1) {
-        alert('Veuillez sélectionner un lieu principal');
-        return;
-      }
-
-      if (!time1) {
-        alert('Veuillez sélectionner une heure de début');
-        return;
-      }
-
-      // Get poule-specific locations
-      const pouleLocations = {};
-      document.querySelectorAll('.forfait-poule-location').forEach(select => {
-        const pouleNum = select.dataset.poule;
-        if (select.value) {
-          pouleLocations[pouleNum] = select.value;
-        }
-      });
-
-      // Save updated poules with locations first
-      try {
-        await fetch(`${API_URL}/email/poules/${forfaitSelectedTournoi}/update`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            poules: forfaitConfigPoules,
-            location1,
-            time1,
-            location2,
-            time2,
-            pouleLocations
-          })
-        });
-      } catch (e) {
-        console.error('Error saving poules:', e);
-      }
-
-      // Now trigger resend - close modal and open the email sending interface
-      closeForfaitModal();
-
-      // Store data for the email screen
-      window.forfaitResendData = {
-        tournoiId: forfaitSelectedTournoi,
-        poules: forfaitConfigPoules,
-        tournament: forfaitConfigTournament,
-        location1,
-        time1,
-        location2,
-        time2,
-        pouleLocations,
-        gameParams: forfaitConfigGameParams
-      };
-
-      // Navigate to step 4 of the main flow with the data
-      alert('Les poules ont été mises à jour. Utilisez le bouton "Renvoyer les convocations" dans la gestion des forfaits pour envoyer les emails.');
     }
 
     // Resend convocations - navigate to the existing email screen with data pre-loaded
@@ -4611,21 +4107,9 @@
     }
 
     async function regeneratePoules(withReplacement = false) {
-      alert('regeneratePoules function called!');
       // This is now a fallback - main flow uses preview + confirm
-      // Check if there are missing players (shown in warning)
-      const missingWarningEl = document.getElementById('forfaitMissingPlayersWarning');
-      const hasMissingPlayers = missingWarningEl && missingWarningEl.style.display !== 'none';
-
-      console.log('regeneratePoules called', {
-        withReplacement,
-        forfaitSelectedPlayers: Array.from(forfaitSelectedPlayers),
-        hasMissingPlayers,
-        missingWarningDisplay: missingWarningEl?.style.display
-      });
-
-      if (forfaitSelectedPlayers.size === 0 && !withReplacement && !hasMissingPlayers) {
-        alert('Veuillez sélectionner au moins un joueur forfait ou avoir des joueurs manquants à réintégrer');
+      if (forfaitSelectedPlayers.size === 0 && !withReplacement) {
+        alert('Veuillez sélectionner au moins un joueur forfait');
         return;
       }
 
@@ -4772,15 +4256,6 @@
           <strong>💡 Instructions :</strong> Cliquez sur un joueur pour le déclarer forfait. Vous pourrez ensuite régénérer les poules.
         </div>
 
-        <!-- Missing Players Warning -->
-        <div id="forfaitMissingPlayersWarning" style="display: none; background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-          <strong style="color: #856404;">⚠️ Joueurs inscrits mais absents des poules :</strong>
-          <div id="forfaitMissingPlayersList" style="margin-top: 8px;"></div>
-          <p style="margin: 10px 0 0 0; font-size: 12px; color: #856404;">
-            Ces joueurs ont été réinscrits après la régénération des poules. Cliquez sur <strong>"Régénérer les poules"</strong> pour les réintégrer.
-          </p>
-        </div>
-
         <!-- Current Poules Display -->
         <div id="forfaitPoulesContainer" style="display: none;">
           <h4 style="margin: 0 0 15px 0; color: #333;">Composition actuelle des poules</h4>
@@ -4799,10 +4274,10 @@
         <!-- Action Buttons -->
         <div id="forfaitActions" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="previewPoulesBtn" class="btn" style="background: #17a2b8; color: white;" onclick="alert('Button clicked!'); previewPoules();">
+            <button id="previewPoulesBtn" class="btn" style="background: #17a2b8; color: white;" onclick="previewPoules()">
               👁️ Prévisualiser
             </button>
-            <button id="regeneratePoulesBtn" class="btn" style="background: #28a745; color: white;" onclick="alert('Regen clicked!'); regeneratePoules(false);">
+            <button id="regeneratePoulesBtn" class="btn" style="background: #28a745; color: white;" onclick="regeneratePoules(false)" disabled>
               🔄 Régénérer les poules
             </button>
             <button id="regenerateWithReplacementBtn" class="btn" style="background: #1F4788; color: white;" onclick="openReplacementModal()">
@@ -4826,128 +4301,6 @@
           <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #17a2b8; display: flex; gap: 10px; justify-content: center;">
             <button class="btn" style="background: #28a745; color: white; padding: 12px 24px; font-size: 15px;" onclick="confirmRegeneration()">✓ Confirmer et enregistrer</button>
             <button class="btn" style="background: #dc3545; color: white; padding: 12px 24px; font-size: 15px;" onclick="closePreview()">✕ Annuler</button>
-          </div>
-        </div>
-
-        <!-- Configuration Section (shown after regeneration is confirmed) -->
-        <div id="forfaitConfigSection" style="display: none;">
-          <!-- Game Parameters -->
-          <div id="forfaitGameParamsSection" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-left: 4px solid #1F4788; border-radius: 4px;">
-            <h4 style="margin: 0 0 15px 0; color: #1F4788;">Paramètres de l'épreuve</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-              <div>
-                <label style="display: block; font-weight: 500; margin-bottom: 5px;">Distance :</label>
-                <select id="forfaitDistanceSelect" style="width: 100%; padding: 10px; border: 1px solid #1F4788; border-radius: 4px; font-size: 14px;">
-                  <option value="normale">Distance Normale</option>
-                </select>
-              </div>
-              <div>
-                <span style="display: block; font-weight: 500; margin-bottom: 5px;">Coin :</span>
-                <span id="forfaitGameParamCoin" style="display: inline-block; padding: 8px 15px; border-radius: 4px; background: #17a2b8; color: white; font-weight: bold;">-</span>
-              </div>
-              <div>
-                <span style="display: block; font-weight: 500; margin-bottom: 5px;">Reprises max :</span>
-                <span id="forfaitGameParamReprises" style="font-size: 18px; font-weight: bold; color: #1F4788;">-</span>
-              </div>
-            </div>
-            <p id="forfaitGameParamMoyenne" style="margin: 15px 0 0 0; padding: 10px; background: #fff; border-radius: 4px; font-size: 13px; color: #666;">-</p>
-          </div>
-
-          <!-- Poule Preview with Move Dropdowns -->
-          <h4>Aperçu des Poules (Distribution Serpentine)</h4>
-          <div id="forfaitConfigPoules" class="poule-preview" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
-            <!-- Poules will be rendered here -->
-          </div>
-
-          <!-- Location Settings -->
-          <h4 style="margin-top: 30px;">Lieu et Horaire de la Compétition</h4>
-          <div class="summary-box" style="padding: 20px; background: #f8f9fa; border-radius: 8px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-              <div>
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Lieu principal</label>
-                <select id="forfaitLocationSelect1" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                  <option value="">-- Sélectionner un club --</option>
-                </select>
-              </div>
-              <div>
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Heure de début</label>
-                <select id="forfaitStartTime1" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                  <option value="">-- Sélectionner --</option>
-                  <option value="08:00">08:00</option>
-                  <option value="08:30">08:30</option>
-                  <option value="09:00">09:00</option>
-                  <option value="09:30">09:30</option>
-                  <option value="10:00">10:00</option>
-                  <option value="10:30">10:30</option>
-                  <option value="11:00">11:00</option>
-                  <option value="11:30">11:30</option>
-                  <option value="12:00">12:00</option>
-                  <option value="12:30">12:30</option>
-                  <option value="13:00">13:00</option>
-                  <option value="13:30" selected>13:30</option>
-                  <option value="14:00">14:00</option>
-                  <option value="14:30">14:30</option>
-                  <option value="15:00">15:00</option>
-                  <option value="15:30">15:30</option>
-                  <option value="16:00">16:00</option>
-                  <option value="16:30">16:30</option>
-                  <option value="17:00">17:00</option>
-                  <option value="17:30">17:30</option>
-                  <option value="18:00">18:00</option>
-                </select>
-              </div>
-            </div>
-
-            <div id="forfaitLocation2Container" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd;">
-              <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 20px; align-items: end;">
-                <div>
-                  <label style="display: block; margin-bottom: 5px; font-weight: 500;">Lieu secondaire (split)</label>
-                  <select id="forfaitLocationSelect2" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                    <option value="">-- Sélectionner un club --</option>
-                  </select>
-                </div>
-                <div>
-                  <label style="display: block; margin-bottom: 5px; font-weight: 500;">Heure de début</label>
-                  <select id="forfaitStartTime2" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                    <option value="">-- Sélectionner --</option>
-                    <option value="08:00">08:00</option>
-                    <option value="08:30">08:30</option>
-                    <option value="09:00">09:00</option>
-                    <option value="09:30">09:30</option>
-                    <option value="10:00">10:00</option>
-                    <option value="10:30">10:30</option>
-                    <option value="11:00">11:00</option>
-                    <option value="11:30">11:30</option>
-                    <option value="12:00">12:00</option>
-                    <option value="12:30">12:30</option>
-                    <option value="13:00">13:00</option>
-                    <option value="13:30">13:30</option>
-                    <option value="14:00" selected>14:00</option>
-                    <option value="14:30">14:30</option>
-                    <option value="15:00">15:00</option>
-                    <option value="15:30">15:30</option>
-                    <option value="16:00">16:00</option>
-                    <option value="16:30">16:30</option>
-                    <option value="17:00">17:00</option>
-                    <option value="17:30">17:30</option>
-                    <option value="18:00">18:00</option>
-                  </select>
-                </div>
-                <button class="btn" id="forfaitRemoveLocation2Btn" style="background: #dc3545; padding: 10px 15px;" onclick="removeForfaitLocation2()">Retirer</button>
-              </div>
-            </div>
-
-            <div style="margin-top: 15px;">
-              <button class="btn" id="forfaitAddLocation2Btn" style="background: #17a2b8;" onclick="addForfaitLocation2()">+ Ajouter un second lieu (split)</button>
-            </div>
-          </div>
-
-          <!-- Action Buttons -->
-          <div class="action-buttons" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="btn" style="background: #6c757d;" onclick="backToForfaitPoules()">Retour aux poules</button>
-            <button class="btn btn-success" style="background: #28a745;" onclick="generateForfaitExcel()">Générer le fichier Excel</button>
-            <button class="btn" style="background: #dc3545; color: white;" onclick="generateForfaitPdf()">Générer PDF Récapitulatif</button>
-            <button class="btn" style="background: #fd7e14; color: white;" onclick="resendConvocationsFromConfig()">✉️ Renvoyer les convocations</button>
           </div>
         </div>
 

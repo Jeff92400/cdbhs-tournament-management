@@ -1500,23 +1500,20 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
       console.log(`Updated convoque status and convocation details for ${sentPlayers.length} players in tournament ${tournoiId}`);
 
       // Save full poule composition to convocation_poules table
-      // Safety check: only delete and re-insert if we have poules with players
-      const totalPlayersInPoules = (poules || []).reduce((sum, p) => sum + (p.players?.length || 0), 0);
-      if (totalPlayersInPoules > 0) {
-        // First, clear any existing poule data for this tournament
-        await new Promise((resolve, reject) => {
-          db.run(
-            `DELETE FROM convocation_poules WHERE tournoi_id = $1`,
-            [tournoiId],
-            (err) => {
-              if (err) reject(err);
-              else resolve();
-            }
-          );
-        });
+      // First, clear any existing poule data for this tournament
+      await new Promise((resolve, reject) => {
+        db.run(
+          `DELETE FROM convocation_poules WHERE tournoi_id = $1`,
+          [tournoiId],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
 
-        // Insert all players from all poules
-        for (const poule of poules) {
+      // Insert all players from all poules
+      for (const poule of poules) {
         const locNum = poule.locationNum || '1';
         const loc = locations.find(l => l.locationNum === locNum) || locations[0];
         const fullAddress = loc ? [loc.street, loc.zip_code, loc.city].filter(Boolean).join(' ') : '';
@@ -1548,10 +1545,7 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
           });
         }
       }
-        console.log(`Saved ${poules.reduce((sum, p) => sum + p.players.length, 0)} players across ${poules.length} poules for tournament ${tournoiId}`);
-      } else {
-        console.warn(`[Send Convocations] Skipping poule save - no players in poules array for tournament ${tournoiId}`);
-      }
+      console.log(`Saved ${poules.reduce((sum, p) => sum + p.players.length, 0)} players across ${poules.length} poules for tournament ${tournoiId}`);
 
       // Mark convocation as sent on tournoi_ext
       await new Promise((resolve, reject) => {
@@ -1596,13 +1590,6 @@ router.post('/save-poules', authenticateToken, async (req, res) => {
 
   if (!tournoiId || !poules || !Array.isArray(poules)) {
     return res.status(400).json({ error: 'tournoiId and poules array required' });
-  }
-
-  // Safety check: don't delete if no poules to insert
-  const totalPlayersToInsert = poules.reduce((sum, p) => sum + (p.players?.length || 0), 0);
-  if (totalPlayersToInsert === 0) {
-    console.warn(`[Save Poules] Refusing to save empty poules for tournament ${tournoiId} - this would delete existing data`);
-    return res.status(400).json({ error: 'Cannot save empty poules - no players in poules array' });
   }
 
   try {
@@ -2634,45 +2621,6 @@ router.get('/poules/:tournoiId', authenticateToken, async (req, res) => {
 
     const forfaitLicences = new Set(forfaits.map(f => f.licence?.replace(/\s/g, '')));
 
-    // Get all inscribed players (not forfait) to check for missing players
-    // Wrapped in try-catch to not break the whole endpoint if this fails
-    let missingPlayers = [];
-    try {
-      const inscribedPlayers = await new Promise((resolve, reject) => {
-        db.all(`
-          SELECT i.licence, p.last_name, p.first_name, p.club
-          FROM inscriptions i
-          LEFT JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-          WHERE i.tournoi_id = $1
-            AND (i.statut IS NULL OR i.statut = 'inscrit')
-            AND (i.forfait IS NULL OR i.forfait = 0)
-            AND UPPER(i.licence) NOT LIKE 'TEST%'
-        `, [tournoiId], (err, rows) => {
-          if (err) {
-            console.error('[Get Poules] Error fetching inscribed players:', err);
-            reject(err);
-          } else {
-            resolve(rows || []);
-          }
-        });
-      });
-
-      // Find licences in poules
-      const poulesLicences = new Set(poules.map(p => p.licence?.replace(/\s/g, '')));
-
-      // Find inscribed players who are NOT in the stored poules
-      missingPlayers = inscribedPlayers.filter(p =>
-        !poulesLicences.has(p.licence?.replace(/\s/g, ''))
-      ).map(p => ({
-        licence: p.licence,
-        name: `${p.last_name || ''} ${p.first_name || ''}`.trim() || p.licence,
-        club: p.club
-      }));
-    } catch (inscribedErr) {
-      console.error('[Get Poules] Failed to fetch inscribed players, continuing without missing players check:', inscribedErr);
-      // Continue without the missing players feature
-    }
-
     // Group by poule number and add forfait status
     const poulesGrouped = {};
     poules.forEach(p => {
@@ -2693,8 +2641,7 @@ router.get('/poules/:tournoiId', authenticateToken, async (req, res) => {
 
     res.json({
       tournament,
-      poules: Object.values(poulesGrouped),
-      missingPlayers: missingPlayers.length > 0 ? missingPlayers : undefined
+      poules: Object.values(poulesGrouped)
     });
   } catch (error) {
     console.error('Error fetching poules:', error);
@@ -2822,38 +2769,6 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
       return true;
     });
 
-    // Get inscribed players who might be missing from poules (e.g., reinstated after forfait)
-    const inscribedPlayers = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT i.licence, p.last_name, p.first_name, p.club
-        FROM inscriptions i
-        LEFT JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
-        WHERE i.tournoi_id = $1
-          AND (i.statut IS NULL OR i.statut = 'inscrit')
-          AND (i.forfait IS NULL OR i.forfait = 0)
-          AND UPPER(i.licence) NOT LIKE 'TEST%'
-      `, [tournoiId], (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
-
-    // Add any inscribed players who are not in the current poules
-    const poulesLicences = new Set(activePlayers.map(p => p.licence?.replace(/\s/g, '')));
-    inscribedPlayers.forEach(p => {
-      const normLicence = p.licence?.replace(/\s/g, '');
-      if (!poulesLicences.has(normLicence) && !forfaitSet.has(normLicence)) {
-        const playerName = `${p.last_name || ''} ${p.first_name || ''}`.trim() || p.licence;
-        activePlayers.push({
-          licence: p.licence,
-          player_name: playerName,
-          club: p.club
-        });
-        poulesLicences.add(normLicence);
-        console.log(`[Regenerate] Adding missing inscribed player: ${playerName} (${p.licence})`);
-      }
-    });
-
     // Add replacement player if provided
     if (replacementPlayer) {
       activePlayers.push({
@@ -2952,13 +2867,6 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
 
     // Save new poules to database only if not preview
     if (!previewOnly) {
-      // Safety check: ensure we have players to insert
-      const totalPlayersToSave = newPoules.reduce((sum, p) => sum + (p.players?.length || 0), 0);
-      if (totalPlayersToSave === 0) {
-        console.warn(`[Regenerate Poules] No players to save for tournament ${tournoiId} - aborting to preserve existing data`);
-        return res.status(400).json({ error: 'Cannot regenerate - no active players remain' });
-      }
-
       await new Promise((resolve, reject) => {
         db.run(`DELETE FROM convocation_poules WHERE tournoi_id = $1`, [tournoiId], (err) => {
           if (err) reject(err);
@@ -2981,7 +2889,6 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
           });
         }
       }
-      console.log(`[Regenerate Poules] Saved ${totalPlayersToSave} players across ${newPoules.length} poules for tournament ${tournoiId}`);
     }
 
     // Log the action (only if not preview)
@@ -3015,121 +2922,6 @@ router.post('/poules/:tournoiId/regenerate', authenticateToken, async (req, res)
     });
   } catch (error) {
     console.error('Error regenerating poules:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * POST /api/email/generate-poules-pdf
- * Generate a summary PDF for poules from forfait configuration
- */
-router.post('/generate-poules-pdf', authenticateToken, async (req, res) => {
-  const db = require('../db-loader');
-  const { tournoiId, poules, location, time, gameParams } = req.body;
-
-  try {
-    // Get tournament info
-    const tournament = await new Promise((resolve, reject) => {
-      db.get(`
-        SELECT tournoi_id, nom, mode, categorie, debut, lieu
-        FROM tournoi_ext
-        WHERE tournoi_id = $1
-      `, [tournoiId], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
-
-    if (!tournament) {
-      return res.status(404).json({ error: 'Tournament not found' });
-    }
-
-    // Determine tournament number from nom (e.g., "Tournoi 3" -> "3")
-    const tournamentNumMatch = tournament.nom?.match(/(\d+)/);
-    const tournamentNum = tournamentNumMatch ? tournamentNumMatch[1] : '1';
-
-    // Format tournament date
-    const tournamentDate = tournament.debut
-      ? new Date(tournament.debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-      : '';
-
-    // Determine current season
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const season = month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-
-    // Build tournament info for PDF
-    const tournamentInfo = {
-      categoryName: `${tournament.mode || ''} ${tournament.categorie || ''}`.trim(),
-      tournamentNum: tournamentNum,
-      season: season,
-      date: tournamentDate,
-      isFinale: tournament.nom?.toLowerCase().includes('finale') || tournamentNum === '4'
-    };
-
-    // Format poules for PDF generation - ensure proper structure
-    const formattedPoules = poules.map(poule => ({
-      number: poule.number,
-      players: poule.players.map(p => ({
-        licence: p.licence,
-        player_name: p.player_name || p.name,
-        club: p.club,
-        rank: p.rank
-      }))
-    }));
-
-    // Build locations array
-    const locations = location ? [{
-      name: location,
-      address: '',
-      startTime: time || '13:30'
-    }] : [];
-
-    // Get category for ranking data
-    const normalizedMode = (tournament.mode || '').replace(/\s+/g, '').toUpperCase();
-    const normalizedCategorie = (tournament.categorie || '').toUpperCase();
-
-    const category = await new Promise((resolve, reject) => {
-      db.get(`
-        SELECT id FROM categories
-        WHERE UPPER(REPLACE(game_type, ' ', '')) = $1 AND UPPER(level) = $2
-      `, [normalizedMode, normalizedCategorie], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
-
-    // Get ranking data if category found
-    let rankingData = {};
-    if (category?.id) {
-      rankingData = await getRankingDataForCategory(category.id, season);
-    }
-
-    // Get branding settings
-    const brandingSettings = await appSettings.getSettingsBatch([
-      'primary_color', 'secondary_color', 'accent_color'
-    ]);
-
-    // Generate PDF
-    const pdfBuffer = await generateSummaryConvocationPDF(
-      tournamentInfo,
-      formattedPoules,
-      locations,
-      gameParams || {},
-      'normale',
-      rankingData,
-      brandingSettings
-    );
-
-    // Send PDF
-    res.setHeader('Content-Type', 'application/pdf');
-    const filename = `Recap_${tournamentInfo.categoryName.replace(/\s+/g, '_')}_T${tournamentNum}.pdf`;
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(pdfBuffer);
-
-  } catch (error) {
-    console.error('Error generating poules PDF:', error);
     res.status(500).json({ error: error.message });
   }
 });
