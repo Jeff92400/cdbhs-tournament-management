@@ -3806,6 +3806,7 @@
       document.getElementById('forfaitNoPoules').style.display = 'none';
       document.getElementById('forfaitTournamentInfo').style.display = 'none';
       document.getElementById('forfaitActions').style.display = 'none';
+      document.getElementById('forfaitPlayersSection').style.display = 'none';
 
       try {
         const response = await fetch(`${API_URL}/email/poules/${tournoiId}`, {
@@ -3819,6 +3820,8 @@
 
         if (!data.poules || data.poules.length === 0) {
           document.getElementById('forfaitNoPoules').style.display = 'block';
+          // Still load forfait players even if no poules
+          await loadForfaitPlayers(tournoiId);
           return;
         }
 
@@ -3839,10 +3842,87 @@
         renderForfaitPoules(data.poules);
         document.getElementById('forfaitPoulesContainer').style.display = 'block';
         document.getElementById('forfaitActions').style.display = 'block';
+
+        // Also load forfait players from inscriptions
+        await loadForfaitPlayers(tournoiId);
       } catch (error) {
         console.error('Error loading forfait poules:', error);
         document.getElementById('forfaitLoading').style.display = 'none';
         document.getElementById('forfaitNoPoules').style.display = 'block';
+      }
+    }
+
+    // Load players marked as forfait in inscriptions
+    async function loadForfaitPlayers(tournoiId) {
+      try {
+        const response = await fetch(`${API_URL}/inscriptions?tournoi_id=${tournoiId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const inscriptions = Array.isArray(data) ? data : (data.inscriptions || []);
+
+        // Filter to get only forfait players
+        const forfaitPlayers = inscriptions.filter(i => i.forfait === 1);
+
+        const section = document.getElementById('forfaitPlayersSection');
+        const countEl = document.getElementById('forfaitPlayersCount');
+        const listEl = document.getElementById('forfaitPlayersList');
+
+        if (forfaitPlayers.length === 0) {
+          section.style.display = 'none';
+          return;
+        }
+
+        countEl.textContent = forfaitPlayers.length;
+        listEl.innerHTML = forfaitPlayers.map(player => `
+          <div class="forfait-player-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: white; border-radius: 6px; border: 1px solid #ffc107;">
+            <div>
+              <div style="font-weight: 600; color: #333;">${player.first_name || ''} ${player.last_name || ''}</div>
+              <div style="font-size: 12px; color: #666;">${player.club || ''} • ${player.licence}</div>
+            </div>
+            <button class="btn" style="background: #28a745; color: white; padding: 6px 12px; font-size: 12px;"
+                    onclick="reintegratePlayer(${player.inscription_id}, '${(player.first_name || '').replace(/'/g, "\\'")} ${(player.last_name || '').replace(/'/g, "\\'")}')">
+              Réintégrer
+            </button>
+          </div>
+        `).join('');
+
+        section.style.display = 'block';
+      } catch (error) {
+        console.error('Error loading forfait players:', error);
+      }
+    }
+
+    // Reintegrate a forfait player
+    async function reintegratePlayer(inscriptionId, playerName) {
+      if (!confirm(`Réintégrer ${playerName} dans la liste des inscrits ?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/inscriptions/${inscriptionId}/reintegrate`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Erreur lors de la réintégration');
+        }
+
+        // Reload forfait players list
+        await loadForfaitPlayers(forfaitSelectedTournoi);
+
+        alert(`${playerName} a été réintégré. Cliquez sur "Régénérer les poules" pour mettre à jour les poules.`);
+      } catch (error) {
+        console.error('Error reintegrating player:', error);
+        alert('Erreur: ' + error.message);
       }
     }
 
@@ -4579,6 +4659,19 @@
           <h4 style="margin: 0 0 15px 0; color: #333;">Composition actuelle des poules</h4>
           <div id="forfaitPoulesList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px;">
             <!-- Poules will be loaded here -->
+          </div>
+        </div>
+
+        <!-- Forfait Players Section -->
+        <div id="forfaitPlayersSection" style="display: none; margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
+          <h4 style="margin: 0 0 15px 0; color: #856404; display: flex; align-items: center; gap: 8px;">
+            <span>👤</span> Joueurs forfait (<span id="forfaitPlayersCount">0</span>)
+          </h4>
+          <p style="font-size: 12px; color: #856404; margin: 0 0 15px 0;">
+            Ces joueurs sont marqués forfait. Cliquez sur "Réintégrer" pour les remettre dans la liste des inscrits.
+          </p>
+          <div id="forfaitPlayersList" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Forfait players will be loaded here -->
           </div>
         </div>
 

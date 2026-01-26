@@ -2092,6 +2092,59 @@ ${orgName}`;
   }
 });
 
+// Reintegrate a forfait player - set forfait=0
+router.put('/:id/reintegrate', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Get inscription details for response
+    const inscription = await new Promise((resolve, reject) => {
+      db.get(`
+        SELECT i.inscription_id, i.licence, i.tournoi_id, i.forfait,
+               p.first_name, p.last_name, p.club
+        FROM inscriptions i
+        LEFT JOIN players p ON REPLACE(i.licence, ' ', '') = REPLACE(p.licence, ' ', '')
+        WHERE i.inscription_id = $1
+      `, [id], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (!inscription) {
+      return res.status(404).json({ error: 'Inscription not found' });
+    }
+
+    // Update forfait to 0
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE inscriptions SET forfait = 0 WHERE inscription_id = $1`,
+        [id],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+
+    console.log(`Reintegrated player ${inscription.first_name} ${inscription.last_name} (${inscription.licence}) for tournament ${inscription.tournoi_id}`);
+
+    res.json({
+      success: true,
+      message: 'Joueur réintégré avec succès',
+      player: {
+        licence: inscription.licence,
+        name: `${inscription.first_name || ''} ${inscription.last_name || ''}`.trim(),
+        club: inscription.club
+      }
+    });
+
+  } catch (err) {
+    console.error('Error reintegrating player:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete a single inscription (admin only)
 router.delete('/:id', authenticateToken, async (req, res) => {
   // Check admin role
