@@ -3712,11 +3712,9 @@
     function updateForfaitSummary() {
       const summary = document.getElementById('forfaitSummary');
       const list = document.getElementById('forfaitList');
-      const previewBtn = document.getElementById('previewPoulesBtn');
       const regenBtn = document.getElementById('regeneratePoulesBtn');
 
-      // Always enable buttons (allow regeneration to reintegrate players)
-      if (previewBtn) previewBtn.disabled = false;
+      // Always enable button (allow regeneration to reintegrate players)
       if (regenBtn) regenBtn.disabled = false;
 
       if (forfaitSelectedPlayers.size > 0) {
@@ -3746,7 +3744,7 @@
 
       // Allow regeneration even without selecting forfait (to reintegrate reinstated players)
 
-      const btn = document.getElementById('previewPoulesBtn');
+      const btn = document.getElementById('regeneratePoulesBtn');
       if (btn) {
         btn.disabled = true;
         btn.textContent = 'Chargement...';
@@ -3800,7 +3798,7 @@
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.textContent = '👁️ Prévisualiser';
+          btn.textContent = '🔄 Régénérer les poules';
         }
       }
     }
@@ -4408,17 +4406,11 @@
         <!-- Action Buttons -->
         <div id="forfaitActions" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="previewPoulesBtn" class="btn" style="background: #17a2b8; color: white;" onclick="previewPoules()">
-              👁️ Prévisualiser
-            </button>
-            <button id="regeneratePoulesBtn" class="btn" style="background: #28a745; color: white;" onclick="regeneratePoules(false)">
+            <button id="regeneratePoulesBtn" class="btn" style="background: #28a745; color: white;" onclick="previewPoules()">
               🔄 Régénérer les poules
             </button>
             <button id="regenerateWithReplacementBtn" class="btn" style="background: #1F4788; color: white;" onclick="openReplacementModal()">
               👤 Ajouter un remplaçant
-            </button>
-            <button id="resendConvocationsBtn" class="btn" style="background: #fd7e14; color: white;" onclick="resendConvocationsFromForfait()">
-              ✉️ Renvoyer les convocations
             </button>
           </div>
           <div id="forfaitSummary" style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 6px; display: none;">
