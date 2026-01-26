@@ -829,8 +829,8 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
         doc.fillColor('white').fontSize(8).font('Helvetica-Bold');
         doc.text('#', 45, y + 5, { width: 20 });
         doc.text('Licence', 65, y + 5, { width: 60 });
-        doc.text('Nom', 130, y + 5, { width: 100 });
-        doc.text('Prenom', 235, y + 5, { width: 80 });
+        doc.text('Prenom', 130, y + 5, { width: 80 });
+        doc.text('Nom', 215, y + 5, { width: 100 });
         doc.text('Club', 320, y + 5, { width: 120 });
         doc.text('Moy.', 445, y + 5, { width: 40, align: 'center' });
         doc.text('Class.', 490, y + 5, { width: 40, align: 'center' });
@@ -849,8 +849,8 @@ async function generateSummaryConvocationPDF(tournamentInfo, allPoules, location
           doc.fillColor('#333333').fontSize(8).font('Helvetica');
           doc.text(String(pIndex + 1), 45, y + 5, { width: 20 });
           doc.text(p.licence || '', 65, y + 5, { width: 60 });
-          doc.text((p.last_name || '').toUpperCase(), 130, y + 5, { width: 100 });
-          doc.text(p.first_name || '', 235, y + 5, { width: 80 });
+          doc.text(p.first_name || '', 130, y + 5, { width: 80 });
+          doc.text((p.last_name || '').toUpperCase(), 215, y + 5, { width: 100 });
           doc.fontSize(7).text(p.club || '', 320, y + 6, { width: 120 });
           // Moyenne and Classement columns
           doc.fontSize(8);
