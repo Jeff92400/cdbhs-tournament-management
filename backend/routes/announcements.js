@@ -182,4 +182,83 @@ router.delete('/:id', authenticateToken, (req, res) => {
   );
 });
 
+// Purge announcements (bulk delete based on criteria)
+router.post('/purge', authenticateToken, async (req, res) => {
+  const db = getDb();
+  const { criteria, dateFrom, dateTo } = req.body;
+
+  // criteria: 'expired', 'inactive', 'date_range', 'all_inactive_and_expired'
+  if (!criteria) {
+    return res.status(400).json({ error: 'Criteria required' });
+  }
+
+  let query = '';
+  let params = [];
+
+  try {
+    switch (criteria) {
+      case 'expired':
+        // Delete all expired announcements (expires_at < now)
+        query = 'DELETE FROM announcements WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP';
+        break;
+
+      case 'inactive':
+        // Delete all inactive announcements
+        query = 'DELETE FROM announcements WHERE is_active = FALSE';
+        break;
+
+      case 'all_inactive_and_expired':
+        // Delete both inactive and expired
+        query = `DELETE FROM announcements WHERE is_active = FALSE OR (expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP)`;
+        break;
+
+      case 'date_range':
+        // Delete announcements created between two dates
+        if (!dateFrom || !dateTo) {
+          return res.status(400).json({ error: 'dateFrom and dateTo required for date_range criteria' });
+        }
+        query = 'DELETE FROM announcements WHERE created_at >= $1 AND created_at <= $2';
+        params = [dateFrom, dateTo + ' 23:59:59'];
+        break;
+
+      default:
+        return res.status(400).json({ error: 'Invalid criteria' });
+    }
+
+    // First count how many will be deleted
+    const countQuery = query.replace('DELETE FROM', 'SELECT COUNT(*) as count FROM');
+    const countResult = await new Promise((resolve, reject) => {
+      db.get(countQuery, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    const toDeleteCount = countResult?.count || 0;
+
+    if (toDeleteCount === 0) {
+      return res.json({ success: true, deleted: 0, message: 'Aucune annonce correspondant aux critères' });
+    }
+
+    // Execute deletion
+    await new Promise((resolve, reject) => {
+      db.run(query, params, function(err) {
+        if (err) reject(err);
+        else resolve(this.changes);
+      });
+    });
+
+    console.log(`Purged ${toDeleteCount} announcements with criteria: ${criteria}`);
+    res.json({
+      success: true,
+      deleted: toDeleteCount,
+      message: `${toDeleteCount} annonce(s) supprimée(s)`
+    });
+
+  } catch (err) {
+    console.error('Error purging announcements:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

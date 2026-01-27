@@ -458,6 +458,39 @@
         <div id="announcementsList" style="margin-top: 15px;">
           <div style="text-align: center; padding: 20px; color: #666;">Chargement...</div>
         </div>
+
+        <!-- Purge Section -->
+        <details style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+          <summary style="cursor: pointer; font-weight: 600; color: #666; user-select: none;">
+            🗑️ Purger les annonces
+          </summary>
+          <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
+              <div>
+                <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Critère</label>
+                <select id="purgeCriteria" style="padding: 8px 12px; border-radius: 4px; border: 1px solid #ddd;">
+                  <option value="">-- Sélectionner --</option>
+                  <option value="expired">Toutes les expirées</option>
+                  <option value="inactive">Toutes les inactives</option>
+                  <option value="all_inactive_and_expired">Inactives + Expirées</option>
+                  <option value="date_range">Par période de création</option>
+                </select>
+              </div>
+              <div id="purgeDateRange" style="display: none;">
+                <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Du</label>
+                <input type="date" id="purgeDateFrom" style="padding: 8px 12px; border-radius: 4px; border: 1px solid #ddd;">
+              </div>
+              <div id="purgeDateRangeTo" style="display: none;">
+                <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 500;">Au</label>
+                <input type="date" id="purgeDateTo" style="padding: 8px 12px; border-radius: 4px; border: 1px solid #ddd;">
+              </div>
+              <button id="purgeBtn" class="btn" style="background: #dc3545; padding: 8px 16px;" disabled>
+                Purger
+              </button>
+            </div>
+            <p id="purgeMessage" style="margin-top: 10px; font-size: 13px; color: #666;"></p>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -5974,6 +6007,118 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         showError(error.message);
       }
     }
+
+    // Purge announcements
+    document.getElementById('purgeCriteria')?.addEventListener('change', (e) => {
+      const criteria = e.target.value;
+      const dateRange = document.getElementById('purgeDateRange');
+      const dateRangeTo = document.getElementById('purgeDateRangeTo');
+      const purgeBtn = document.getElementById('purgeBtn');
+
+      if (criteria === 'date_range') {
+        dateRange.style.display = 'block';
+        dateRangeTo.style.display = 'block';
+        purgeBtn.disabled = true; // Will enable when dates are selected
+      } else {
+        dateRange.style.display = 'none';
+        dateRangeTo.style.display = 'none';
+        purgeBtn.disabled = !criteria;
+      }
+
+      updatePurgeMessage(criteria);
+    });
+
+    document.getElementById('purgeDateFrom')?.addEventListener('change', updatePurgeDateState);
+    document.getElementById('purgeDateTo')?.addEventListener('change', updatePurgeDateState);
+
+    function updatePurgeDateState() {
+      const criteria = document.getElementById('purgeCriteria').value;
+      const dateFrom = document.getElementById('purgeDateFrom').value;
+      const dateTo = document.getElementById('purgeDateTo').value;
+      const purgeBtn = document.getElementById('purgeBtn');
+
+      if (criteria === 'date_range') {
+        purgeBtn.disabled = !dateFrom || !dateTo;
+        if (dateFrom && dateTo) {
+          updatePurgeMessage(criteria);
+        }
+      }
+    }
+
+    function updatePurgeMessage(criteria) {
+      const msgEl = document.getElementById('purgeMessage');
+      switch (criteria) {
+        case 'expired':
+          msgEl.textContent = 'Supprimera toutes les annonces dont la date d\'expiration est passée.';
+          break;
+        case 'inactive':
+          msgEl.textContent = 'Supprimera toutes les annonces désactivées manuellement.';
+          break;
+        case 'all_inactive_and_expired':
+          msgEl.textContent = 'Supprimera toutes les annonces inactives ET expirées.';
+          break;
+        case 'date_range':
+          const from = document.getElementById('purgeDateFrom').value;
+          const to = document.getElementById('purgeDateTo').value;
+          if (from && to) {
+            msgEl.textContent = `Supprimera les annonces créées entre le ${new Date(from).toLocaleDateString('fr-FR')} et le ${new Date(to).toLocaleDateString('fr-FR')}.`;
+          } else {
+            msgEl.textContent = 'Sélectionnez les dates de début et de fin.';
+          }
+          break;
+        default:
+          msgEl.textContent = '';
+      }
+    }
+
+    document.getElementById('purgeBtn')?.addEventListener('click', async () => {
+      const criteria = document.getElementById('purgeCriteria').value;
+      const dateFrom = document.getElementById('purgeDateFrom').value;
+      const dateTo = document.getElementById('purgeDateTo').value;
+
+      if (!criteria) return;
+
+      const criteriaLabels = {
+        'expired': 'expirées',
+        'inactive': 'inactives',
+        'all_inactive_and_expired': 'inactives et expirées',
+        'date_range': `créées du ${dateFrom} au ${dateTo}`
+      };
+
+      if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement toutes les annonces ${criteriaLabels[criteria]} ?\n\nCette action est irréversible.`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/announcements/purge`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ criteria, dateFrom, dateTo })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Erreur lors de la purge');
+        }
+
+        showSuccess(data.message);
+        document.getElementById('purgeCriteria').value = '';
+        document.getElementById('purgeDateFrom').value = '';
+        document.getElementById('purgeDateTo').value = '';
+        document.getElementById('purgeDateRange').style.display = 'none';
+        document.getElementById('purgeDateRangeTo').style.display = 'none';
+        document.getElementById('purgeBtn').disabled = true;
+        document.getElementById('purgeMessage').textContent = '';
+        loadAnnouncements();
+
+      } catch (error) {
+        showError(error.message);
+      }
+    });
 
     function escapeHtmlAnn(text) {
       const div = document.createElement('div');
