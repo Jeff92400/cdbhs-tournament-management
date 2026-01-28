@@ -205,7 +205,7 @@ app.get('/api/seed-demo', async (req, res) => {
   const bcrypt = require('bcrypt');
 
   try {
-    // Create tables if they don't exist
+    // Create/fix tables
     await new Promise((resolve, reject) => {
       db.run(`
         CREATE TABLE IF NOT EXISTS app_settings (
@@ -216,17 +216,23 @@ app.get('/api/seed-demo', async (req, res) => {
       `, [], (err) => err ? reject(err) : resolve());
     });
 
+    // Drop and recreate users table to ensure correct schema
+    await new Promise((resolve, reject) => {
+      db.run(`DROP TABLE IF EXISTS users`, [], (err) => err ? reject(err) : resolve());
+    });
+
     await new Promise((resolve, reject) => {
       db.run(`
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE users (
           id SERIAL PRIMARY KEY,
-          username TEXT UNIQUE NOT NULL,
-          password TEXT NOT NULL,
+          username TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'viewer',
+          is_active INTEGER DEFAULT 1,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          last_login TIMESTAMP,
           email TEXT,
-          role TEXT DEFAULT 'viewer',
-          is_active BOOLEAN DEFAULT true,
-          receive_tournament_alerts BOOLEAN DEFAULT false,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          receive_tournament_alerts BOOLEAN DEFAULT false
         )
       `, [], (err) => err ? reject(err) : resolve());
     });
