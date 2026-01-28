@@ -81,8 +81,15 @@ async function initializeDatabase() {
     await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS gdpr_consent_date TIMESTAMP`);
     await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS gdpr_consent_version VARCHAR(10)`);
 
-    // Migrations that depend on player_accounts - wrapped in try-catch for fresh databases
-    try {
+    // Migrations that depend on player_accounts - check if table exists first
+    const tableCheck = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = 'player_accounts'
+      )
+    `);
+
+    if (tableCheck.rows[0].exists) {
       // Migrate existing admins from player_accounts.is_admin to players.player_app_role
       await client.query(`
         UPDATE players p
@@ -101,9 +108,8 @@ async function initializeDatabase() {
         WHERE REPLACE(p.licence, ' ', '') = REPLACE(pa.licence, ' ', '')
           AND p.player_app_user = FALSE
       `);
-    } catch (migrationErr) {
-      // Silently ignore - player_accounts table may not exist on fresh databases
-      console.log('Skipping player_accounts migration (table may not exist yet)');
+    } else {
+      console.log('Skipping player_accounts migration (table does not exist yet)');
     }
 
     // Set player_app_role = 'joueur' for players who are Player App users but have no role
