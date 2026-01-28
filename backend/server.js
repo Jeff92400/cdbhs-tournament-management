@@ -205,6 +205,32 @@ app.get('/api/seed-demo', async (req, res) => {
   const bcrypt = require('bcrypt');
 
   try {
+    // Create tables if they don't exist
+    await new Promise((resolve, reject) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `, [], (err) => err ? reject(err) : resolve());
+    });
+
+    await new Promise((resolve, reject) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          username TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          email TEXT,
+          role TEXT DEFAULT 'viewer',
+          is_active BOOLEAN DEFAULT true,
+          receive_tournament_alerts BOOLEAN DEFAULT false,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `, [], (err) => err ? reject(err) : resolve());
+    });
+
     // Demo branding
     const demoBranding = {
       organization_name: 'Comite Departemental de Billard - DEMO',
