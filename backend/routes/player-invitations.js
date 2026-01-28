@@ -919,6 +919,190 @@ router.post('/resend/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Batch resend invitations (for multiple "En attente" players)
+router.post('/resend-batch', authenticateToken, async (req, res) => {
+  const { invitation_ids } = req.body;
+
+  if (!invitation_ids || !Array.isArray(invitation_ids) || invitation_ids.length === 0) {
+    return res.status(400).json({ error: 'Liste des invitations requise' });
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    return res.status(500).json({ error: 'Configuration email manquante (RESEND_API_KEY)' });
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  try {
+    // Get all pending invitations that match the IDs
+    const placeholders = invitation_ids.map((_, i) => `$${i + 1}`).join(', ');
+    const invitations = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT * FROM player_invitations WHERE id IN (${placeholders}) AND has_signed_up IS NOT TRUE`,
+        invitation_ids,
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    if (invitations.length === 0) {
+      return res.json({ success: true, sent: 0, message: 'Aucune invitation en attente à renvoyer' });
+    }
+
+    // Get email settings
+    const emailSettings = await appSettings.getSettingsBatch([
+      'primary_color', 'email_communication', 'email_sender_name',
+      'organization_name', 'organization_short_name', 'summary_email'
+    ]);
+
+    const templateSubject = await new Promise((resolve, reject) => {
+      db.get(
+        "SELECT value FROM app_settings WHERE key = 'player_invitation_email_subject'",
+        [],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row?.value || DEFAULT_EMAIL_SUBJECT);
+        }
+      );
+    });
+
+    const templateBody = await new Promise((resolve, reject) => {
+      db.get(
+        "SELECT value FROM app_settings WHERE key = 'player_invitation_email_template'",
+        [],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row?.value || DEFAULT_EMAIL_BODY);
+        }
+      );
+    });
+
+    const orgName = emailSettings.organization_name || 'Comité Départemental Billard Hauts-de-Seine';
+    const orgShortName = emailSettings.organization_short_name || 'CDBHS';
+    const senderName = emailSettings.email_sender_name || 'CDBHS';
+    const senderEmail = emailSettings.email_communication || 'communication@cdbhs.net';
+    const primaryColor = emailSettings.primary_color || '#1F4788';
+    const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
+    const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
+    const logoUrl = `${baseUrl}/logo.png?v=${Date.now()}`;
+    const logoHtml = `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; margin-bottom: 10px;" onerror="this.style.display='none'">`;
+
+    // Get PDF attachment
+    const pdfRow = await new Promise((resolve, reject) => {
+      db.get('SELECT filename, file_data FROM invitation_pdf ORDER BY created_at DESC LIMIT 1', [], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    let sentCount = 0;
+    let errors = [];
+
+    // Send emails one by one with small delay
+    for (const invitation of invitations) {
+      try {
+        const firstName = invitation.first_name || 'Joueur';
+
+        const emailBody = templateBody
+          .replace(/\{first_name\}/g, firstName)
+          .replace(/\{organisation_name\}/g, orgName)
+          .replace(/\{organization_name\}/g, orgName)
+          .replace(/\{organisation_short_name\}/g, orgShortName)
+          .replace(/\{organization_short_name\}/g, orgShortName)
+          .replace(/\{organisation_email\}/g, replyToEmail)
+          .replace(/\{organization_email\}/g, replyToEmail);
+
+        const reminderCount = (invitation.resend_count || 0) + 1;
+        let emailSubject = templateSubject
+          .replace(/\{first_name\}/g, firstName)
+          .replace(/\{organisation_name\}/g, orgName)
+          .replace(/\{organization_name\}/g, orgName)
+          .replace(/\{organisation_short_name\}/g, orgShortName)
+          .replace(/\{organization_short_name\}/g, orgShortName)
+          .replace(/\{organisation_email\}/g, replyToEmail)
+          .replace(/\{organization_email\}/g, replyToEmail);
+
+        // Add "Rappel amical" prefix for resends
+        if (reminderCount === 1) {
+          emailSubject = `Rappel amical - ${emailSubject}`;
+        } else {
+          emailSubject = `Rappel amical (${reminderCount}) - ${emailSubject}`;
+        }
+
+        const htmlBody = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
+              ${logoHtml}
+              <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
+            </div>
+            <div style="padding: 20px; background: #f8f9fa;">
+              ${emailBody.replace(/\n/g, '<br>')}
+            </div>
+            <div style="background: ${primaryColor}; color: white; padding: 10px; text-align: center; font-size: 12px;">
+              ${orgShortName} - ${replyToEmail}
+            </div>
+          </div>
+        `;
+
+        const emailOptions = {
+          from: `${senderName} <${senderEmail}>`,
+          replyTo: replyToEmail,
+          to: [invitation.email],
+          subject: emailSubject,
+          html: htmlBody
+        };
+
+        if (pdfRow) {
+          const pdfContent = Buffer.isBuffer(pdfRow.file_data) ? pdfRow.file_data : Buffer.from(pdfRow.file_data);
+          emailOptions.attachments = [{
+            filename: pdfRow.filename || 'Guide-Application-Joueur.pdf',
+            content: pdfContent
+          }];
+        }
+
+        await resend.emails.send(emailOptions);
+
+        // Update resend count
+        await new Promise((resolve, reject) => {
+          db.run(
+            `UPDATE player_invitations SET resend_count = resend_count + 1, last_resent_at = NOW() WHERE id = $1`,
+            [invitation.id],
+            (err) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+
+        sentCount++;
+
+        // Small delay between emails to avoid rate limiting
+        await new Promise(r => setTimeout(r, 100));
+
+      } catch (err) {
+        console.error(`Error sending reminder to ${invitation.email}:`, err.message);
+        errors.push({ email: invitation.email, error: err.message });
+      }
+    }
+
+    console.log(`Batch resend: ${sentCount}/${invitations.length} reminders sent`);
+
+    res.json({
+      success: true,
+      sent: sentCount,
+      total: invitations.length,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `${sentCount} rappel(s) envoyé(s) sur ${invitations.length}`
+    });
+
+  } catch (error) {
+    console.error('Error in batch resend:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'envoi des rappels' });
+  }
+});
+
 // Sync signed-up status from player_accounts
 router.post('/sync-signups', authenticateToken, async (req, res) => {
   try {

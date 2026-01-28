@@ -423,10 +423,19 @@
           <button class="btn btn-secondary" onclick="syncSignups()">Synchroniser statuts</button>
         </div>
 
+        <!-- Batch action bar -->
+        <div id="batchActionBar" style="display: none; padding: 12px 15px; background: #e3f2fd; border-radius: 8px; margin-bottom: 15px; display: none; align-items: center; gap: 15px;">
+          <span><strong id="batchSelectedCount">0</strong> sélectionné(s)</span>
+          <button class="btn" style="padding: 8px 16px;" onclick="batchResendInvitations()">📧 Renvoyer la sélection</button>
+          <button class="btn btn-secondary" style="padding: 8px 16px;" onclick="selectAllPending()">Sélectionner tous les "En attente"</button>
+          <button class="btn btn-secondary" style="padding: 8px 16px;" onclick="clearBatchSelection()">Désélectionner tout</button>
+        </div>
+
         <div style="max-height: 500px; overflow-y: auto;">
           <table class="player-table">
             <thead>
               <tr>
+                <th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" title="Sélectionner tous les 'En attente'"></th>
                 <th>Nom</th>
                 <th>Club</th>
                 <th>Email</th>
@@ -437,7 +446,7 @@
               </tr>
             </thead>
             <tbody id="trackingTable">
-              <tr><td colspan="7" class="empty-state">Chargement...</td></tr>
+              <tr><td colspan="8" class="empty-state">Chargement...</td></tr>
             </tbody>
           </table>
         </div>
@@ -792,16 +801,28 @@
       }
     }
 
+    // Track selected invitation IDs for batch operations
+    let batchSelectedIds = new Set();
+
     function renderTracking(invitations) {
       const tbody = document.getElementById('trackingTable');
+      batchSelectedIds.clear();
+      updateBatchActionBar();
 
       if (invitations.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">
           <h4>Aucune invitation</h4>
           <p>Aucune invitation n'a encore ete envoyee.</p>
         </td></tr>`;
+        document.getElementById('selectAllCheckbox').style.display = 'none';
         return;
       }
+
+      document.getElementById('selectAllCheckbox').style.display = '';
+      document.getElementById('selectAllCheckbox').checked = false;
+
+      // Store invitations for later use
+      window.trackingInvitations = invitations;
 
       tbody.innerHTML = invitations.map(inv => {
         const statusHtml = inv.has_signed_up
@@ -816,8 +837,14 @@
           ? `<br><small style="color:#666">Renvoye ${inv.resend_count}x</small>`
           : '';
 
+        // Only show checkbox for pending invitations
+        const checkboxHtml = !inv.has_signed_up
+          ? `<input type="checkbox" class="batch-checkbox" data-id="${inv.id}" onchange="toggleBatchSelection(${inv.id}, this.checked)">`
+          : '<span style="color: #ccc;">-</span>';
+
         return `
           <tr>
+            <td style="text-align: center;">${checkboxHtml}</td>
             <td><strong>${inv.first_name || ''} ${inv.last_name || ''}</strong><br><small style="color:#666">${inv.licence || ''}</small></td>
             <td>${inv.club || '-'}</td>
             <td>${inv.email}</td>
@@ -831,6 +858,96 @@
           </tr>
         `;
       }).join('');
+    }
+
+    function toggleBatchSelection(id, checked) {
+      if (checked) {
+        batchSelectedIds.add(id);
+      } else {
+        batchSelectedIds.delete(id);
+      }
+      updateBatchActionBar();
+      updateSelectAllCheckbox();
+    }
+
+    function updateBatchActionBar() {
+      const bar = document.getElementById('batchActionBar');
+      const countEl = document.getElementById('batchSelectedCount');
+      if (batchSelectedIds.size > 0) {
+        bar.style.display = 'flex';
+        countEl.textContent = batchSelectedIds.size;
+      } else {
+        bar.style.display = 'none';
+      }
+    }
+
+    function updateSelectAllCheckbox() {
+      const checkboxes = document.querySelectorAll('.batch-checkbox');
+      const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
+      document.getElementById('selectAllCheckbox').checked = allChecked;
+    }
+
+    function toggleSelectAll(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.batch-checkbox');
+      checkboxes.forEach(cb => {
+        cb.checked = masterCheckbox.checked;
+        const id = parseInt(cb.dataset.id);
+        if (masterCheckbox.checked) {
+          batchSelectedIds.add(id);
+        } else {
+          batchSelectedIds.delete(id);
+        }
+      });
+      updateBatchActionBar();
+    }
+
+    function selectAllPending() {
+      const checkboxes = document.querySelectorAll('.batch-checkbox');
+      checkboxes.forEach(cb => {
+        cb.checked = true;
+        batchSelectedIds.add(parseInt(cb.dataset.id));
+      });
+      document.getElementById('selectAllCheckbox').checked = true;
+      updateBatchActionBar();
+    }
+
+    function clearBatchSelection() {
+      batchSelectedIds.clear();
+      document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = false);
+      document.getElementById('selectAllCheckbox').checked = false;
+      updateBatchActionBar();
+    }
+
+    async function batchResendInvitations() {
+      if (batchSelectedIds.size === 0) return;
+
+      if (!confirm(`Êtes-vous sûr de vouloir renvoyer un rappel à ${batchSelectedIds.size} joueur(s) ?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/player-invitations/resend-batch`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ invitation_ids: Array.from(batchSelectedIds) })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Erreur lors de l\'envoi');
+        }
+
+        showSuccess(data.message);
+        clearBatchSelection();
+        loadTracking();
+
+      } catch (error) {
+        showError(error.message);
+      }
     }
 
     // Send modal
