@@ -4,7 +4,7 @@
  * Populates the database with fictional demo data for training purposes.
  * Run with: node backend/scripts/seed-demo.js
  *
- * WARNING: This will clear existing data in the target database!
+ * WARNING: This will add demo data to the target database!
  */
 
 const bcrypt = require('bcrypt');
@@ -20,27 +20,16 @@ const DEMO_ADMIN = {
   role: 'admin'
 };
 
-// Demo branding (orange theme to distinguish from production)
-const DEMO_BRANDING = {
-  organization_name: 'Comite Departemental de Billard - DEMO',
-  organization_short_name: 'CDBHS DEMO',
-  primary_color: '#E67E22',      // Orange instead of blue
-  secondary_color: '#F39C12',
-  accent_color: '#3498DB',
-  background_color: '#FFFFFF',
-  background_secondary_color: '#FDF2E9'
-};
-
 // Sample clubs
 const DEMO_CLUBS = [
-  { name: 'ACADEMIE BILLARD CLICHY', code: 'ABC', ville: 'Clichy' },
-  { name: 'BILLARD CLUB BOULOGNE', code: 'BCB', ville: 'Boulogne-Billancourt' },
-  { name: 'CERCLE BILLARD NEUILLY', code: 'CBN', ville: 'Neuilly-sur-Seine' },
-  { name: 'ASSOCIATION BILLARD LEVALLOIS', code: 'ABL', ville: 'Levallois-Perret' },
-  { name: 'BILLARD CLUB COLOMBES', code: 'BCC', ville: 'Colombes' },
-  { name: 'ENTENTE BILLARD NANTERRE', code: 'EBN', ville: 'Nanterre' },
-  { name: 'BILLARD CLUB RUEIL', code: 'BCR', ville: 'Rueil-Malmaison' },
-  { name: 'ACADEMIE CARAMBOLE ASNIERES', code: 'ACA', ville: 'Asnieres-sur-Seine' }
+  { name: 'ACADEMIE BILLARD CLICHY', display_name: 'Académie Billard Clichy', city: 'Clichy' },
+  { name: 'BILLARD CLUB BOULOGNE', display_name: 'Billard Club Boulogne', city: 'Boulogne-Billancourt' },
+  { name: 'CERCLE BILLARD NEUILLY', display_name: 'Cercle Billard Neuilly', city: 'Neuilly-sur-Seine' },
+  { name: 'ASSOCIATION BILLARD LEVALLOIS', display_name: 'Association Billard Levallois', city: 'Levallois-Perret' },
+  { name: 'BILLARD CLUB COLOMBES', display_name: 'Billard Club Colombes', city: 'Colombes' },
+  { name: 'ENTENTE BILLARD NANTERRE', display_name: 'Entente Billard Nanterre', city: 'Nanterre' },
+  { name: 'BILLARD CLUB RUEIL', display_name: 'Billard Club Rueil', city: 'Rueil-Malmaison' },
+  { name: 'ACADEMIE CARAMBOLE ASNIERES', display_name: 'Académie Carambole Asnières', city: 'Asnières-sur-Seine' }
 ];
 
 // Sample player names (fictional)
@@ -60,13 +49,7 @@ const LAST_NAMES = [
 ];
 
 // FFB ranking levels
-const FFB_RANKINGS = ['N1', 'N2', 'N3', 'R1', 'R2', 'R3', 'R4', 'R5', 'D1', 'D2', 'D3'];
-
-// Game modes
-const GAME_MODES = ['LIBRE', 'CADRE 47/2', 'BANDE', '3 BANDES'];
-
-// Category levels for tournaments
-const CATEGORY_LEVELS = ['N3', 'R1', 'R2', 'R3', 'R4'];
+const FFB_RANKINGS = ['N1', 'N2', 'N3', 'R1', 'R2', 'R3', 'R4', 'D1', 'D2', 'D3'];
 
 // Helper functions
 function randomElement(arr) {
@@ -81,17 +64,6 @@ function generateLicence(index) {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const num = String(100000 + index).slice(1);
   return `D${num}${letters[index % letters.length]}`;
-}
-
-function generateMoyenne(ranking) {
-  const baseRanges = {
-    'N1': [3.0, 5.0], 'N2': [2.0, 3.5], 'N3': [1.5, 2.5],
-    'R1': [1.0, 2.0], 'R2': [0.8, 1.5], 'R3': [0.6, 1.2],
-    'R4': [0.4, 1.0], 'R5': [0.3, 0.8], 'D1': [0.2, 0.6],
-    'D2': [0.15, 0.4], 'D3': [0.1, 0.3]
-  };
-  const [min, max] = baseRanges[ranking] || [0.5, 1.0];
-  return (min + Math.random() * (max - min)).toFixed(3);
 }
 
 // Get current season
@@ -148,45 +120,47 @@ async function seedDemoData() {
     console.log('1. Creating demo admin user...');
     const hashedPassword = await bcrypt.hash(DEMO_ADMIN.password, 10);
 
-    await dbRun(`DELETE FROM users WHERE username = $1`, [DEMO_ADMIN.username]);
-    await dbRun(
-      `INSERT INTO users (username, password, email, role, is_active) VALUES ($1, $2, $3, $4, true)`,
-      [DEMO_ADMIN.username, hashedPassword, DEMO_ADMIN.email, DEMO_ADMIN.role]
-    );
-    console.log(`   Created admin: ${DEMO_ADMIN.username} / ${DEMO_ADMIN.password}`);
-    console.log('');
+    // Check if demo user exists
+    const existingUser = await dbGet(`SELECT id FROM users WHERE username = $1`, [DEMO_ADMIN.username]);
 
-    // 2. Set demo branding
-    console.log('2. Setting demo branding...');
-    for (const [key, value] of Object.entries(DEMO_BRANDING)) {
+    if (existingUser) {
+      await dbRun(`UPDATE users SET password_hash = $1, email = $2, role = $3, is_active = 1 WHERE username = $4`,
+        [hashedPassword, DEMO_ADMIN.email, DEMO_ADMIN.role, DEMO_ADMIN.username]);
+      console.log(`   Updated existing admin: ${DEMO_ADMIN.username}`);
+    } else {
       await dbRun(
-        `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP)
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP`,
-        [key, value]
+        `INSERT INTO users (username, password_hash, email, role, is_active) VALUES ($1, $2, $3, $4, 1)`,
+        [DEMO_ADMIN.username, hashedPassword, DEMO_ADMIN.email, DEMO_ADMIN.role]
       );
-      console.log(`   ${key}: ${value}`);
+      console.log(`   Created admin: ${DEMO_ADMIN.username} / ${DEMO_ADMIN.password}`);
     }
     console.log('');
 
-    // 3. Create clubs
-    console.log('3. Creating demo clubs...');
-    await dbRun(`DELETE FROM clubs WHERE name LIKE '%DEMO%' OR name IN (${DEMO_CLUBS.map((_, i) => `$${i + 1}`).join(',')})`,
-      DEMO_CLUBS.map(c => c.name));
+    // 2. Create clubs
+    console.log('2. Creating demo clubs...');
+    let clubsCreated = 0;
 
     for (const club of DEMO_CLUBS) {
-      await dbRun(
-        `INSERT INTO clubs (name, code, ville, is_active) VALUES ($1, $2, $3, true)
-         ON CONFLICT (name) DO UPDATE SET code = EXCLUDED.code, ville = EXCLUDED.ville`,
-        [club.name, club.code, club.ville]
-      );
+      const existing = await dbGet(`SELECT id FROM clubs WHERE name = $1`, [club.name]);
+      if (!existing) {
+        await dbRun(
+          `INSERT INTO clubs (name, display_name, city) VALUES ($1, $2, $3)`,
+          [club.name, club.display_name, club.city]
+        );
+        clubsCreated++;
+      }
     }
-    console.log(`   Created ${DEMO_CLUBS.length} clubs`);
+    console.log(`   Created ${clubsCreated} new clubs (${DEMO_CLUBS.length - clubsCreated} already existed)`);
     console.log('');
 
-    // 4. Create demo players
-    console.log('4. Creating demo players...');
+    // 3. Create demo players
+    console.log('3. Creating demo players...');
     const players = [];
     const usedNames = new Set();
+
+    // Check existing demo players
+    const existingPlayers = await dbAll(`SELECT licence FROM players WHERE licence LIKE 'D%'`);
+    const existingLicences = new Set(existingPlayers.map(p => p.licence));
 
     for (let i = 0; i < 80; i++) {
       let firstName, lastName, fullName;
@@ -199,79 +173,66 @@ async function seedDemoData() {
 
       const club = randomElement(DEMO_CLUBS);
       const licence = generateLicence(i);
-      const ranking = randomElement(FFB_RANKINGS);
+
+      // Skip if player already exists
+      if (existingLicences.has(licence)) continue;
 
       players.push({
         licence,
-        nom: lastName,
-        prenom: firstName,
+        first_name: firstName,
+        last_name: lastName,
         club: club.name,
-        ranking_libre: ranking,
-        ranking_cadre: randomElement(FFB_RANKINGS),
-        ranking_bande: randomElement(FFB_RANKINGS),
-        ranking_3bandes: randomElement(FFB_RANKINGS),
-        moyenne_libre: generateMoyenne(ranking),
-        moyenne_cadre: generateMoyenne(randomElement(FFB_RANKINGS)),
-        moyenne_bande: generateMoyenne(randomElement(FFB_RANKINGS)),
-        moyenne_3bandes: generateMoyenne(randomElement(FFB_RANKINGS)),
+        rank_libre: randomElement(FFB_RANKINGS),
+        rank_cadre: randomElement(FFB_RANKINGS),
+        rank_bande: randomElement(FFB_RANKINGS),
+        rank_3bandes: randomElement(FFB_RANKINGS),
         email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@demo.com`
       });
     }
 
-    // Clear existing demo players and insert new ones
-    await dbRun(`DELETE FROM players WHERE licence LIKE 'D%'`);
-
     for (const p of players) {
       await dbRun(
-        `INSERT INTO players (licence, nom, prenom, club, ranking_libre, ranking_cadre, ranking_bande, ranking_3bandes,
-         moyenne_libre, moyenne_cadre, moyenne_bande, moyenne_3bandes, email)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        [p.licence, p.nom, p.prenom, p.club, p.ranking_libre, p.ranking_cadre, p.ranking_bande, p.ranking_3bandes,
-         p.moyenne_libre, p.moyenne_cadre, p.moyenne_bande, p.moyenne_3bandes, p.email]
+        `INSERT INTO players (licence, first_name, last_name, club, rank_libre, rank_cadre, rank_bande, rank_3bandes, email)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [p.licence, p.first_name, p.last_name, p.club, p.rank_libre, p.rank_cadre, p.rank_bande, p.rank_3bandes, p.email]
       );
     }
-    console.log(`   Created ${players.length} players`);
+    console.log(`   Created ${players.length} new players`);
     console.log('');
 
-    // 5. Create demo tournaments (external)
-    console.log('5. Creating demo tournaments...');
-
-    // Clear existing demo tournaments
-    await dbRun(`DELETE FROM inscriptions WHERE tournoi_id IN (SELECT tournoi_id FROM tournoi_ext WHERE season = $1)`, [season]);
-    await dbRun(`DELETE FROM tournoi_ext WHERE season = $1`, [season]);
+    // 4. Create demo tournaments (external)
+    console.log('4. Creating demo tournaments...');
 
     const tournaments = [];
     const now = new Date();
-    let tournoiId = 1;
 
-    // Create T1, T2, T3 and Finale for each mode/category combination
+    // Get max tournoi_id
+    const maxIdResult = await dbGet(`SELECT COALESCE(MAX(tournoi_id), 0) as max_id FROM tournoi_ext`);
+    let tournoiId = (maxIdResult?.max_id || 0) + 1;
+
+    // Create T1, T2, T3 for each mode/category combination
     for (const mode of ['LIBRE', 'BANDE', '3 BANDES']) {
       for (const categorie of ['N3', 'R1', 'R2']) {
-        const locations = DEMO_CLUBS.map(c => c.ville);
+        const locations = DEMO_CLUBS.map(c => c.city);
 
-        // T1 - 2 months ago (completed)
+        // T1 - 2 months ago
         const t1Date = new Date(now);
         t1Date.setMonth(t1Date.getMonth() - 2);
         t1Date.setDate(randomInt(1, 28));
 
-        // T2 - 1 month ago (completed)
+        // T2 - 1 month ago
         const t2Date = new Date(now);
         t2Date.setMonth(t2Date.getMonth() - 1);
         t2Date.setDate(randomInt(1, 28));
 
-        // T3 - in 2 weeks (upcoming)
+        // T3 - in 2 weeks
         const t3Date = new Date(now);
         t3Date.setDate(t3Date.getDate() + randomInt(10, 20));
 
-        // Finale - in 5 weeks (upcoming)
-        const finaleDate = new Date(now);
-        finaleDate.setDate(finaleDate.getDate() + randomInt(30, 40));
-
         const tournamentSet = [
-          { nom: 'Tournoi 1', date: t1Date, completed: true },
-          { nom: 'Tournoi 2', date: t2Date, completed: true },
-          { nom: 'Tournoi 3', date: t3Date, completed: false },
-          { nom: 'Finale Departementale', date: finaleDate, completed: false }
+          { nom: `Tournoi 1 ${mode} ${categorie}`, date: t1Date },
+          { nom: `Tournoi 2 ${mode} ${categorie}`, date: t2Date },
+          { nom: `Tournoi 3 ${mode} ${categorie}`, date: t3Date }
         ];
 
         for (const t of tournamentSet) {
@@ -281,9 +242,7 @@ async function seedDemoData() {
             mode,
             categorie,
             debut: t.date.toISOString().split('T')[0],
-            lieu: randomElement(locations),
-            season,
-            completed: t.completed
+            lieu: randomElement(locations)
           });
         }
       }
@@ -291,49 +250,52 @@ async function seedDemoData() {
 
     for (const t of tournaments) {
       await dbRun(
-        `INSERT INTO tournoi_ext (tournoi_id, nom, mode, categorie, debut, lieu, season)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [t.tournoi_id, t.nom, t.mode, t.categorie, t.debut, t.lieu, t.season]
+        `INSERT INTO tournoi_ext (tournoi_id, nom, mode, categorie, debut, lieu)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [t.tournoi_id, t.nom, t.mode, t.categorie, t.debut, t.lieu]
       );
     }
     console.log(`   Created ${tournaments.length} tournaments`);
     console.log('');
 
-    // 6. Create demo inscriptions
-    console.log('6. Creating demo inscriptions...');
+    // 5. Create demo inscriptions
+    console.log('5. Creating demo inscriptions...');
     let inscriptionCount = 0;
 
+    // Get all players for inscriptions
+    const allPlayers = await dbAll(`SELECT licence, first_name, last_name, club, email FROM players WHERE licence LIKE 'D%'`);
+
     for (const tournament of tournaments) {
-      // Get players with appropriate ranking for this category
-      const eligiblePlayers = players.filter(p => {
-        const ranking = tournament.mode === 'LIBRE' ? p.ranking_libre :
-                       tournament.mode === 'BANDE' ? p.ranking_bande :
-                       tournament.mode === '3 BANDES' ? p.ranking_3bandes : p.ranking_libre;
-
-        // Simplified eligibility - just pick random subset
-        return true;
-      });
-
       // Select random players for this tournament
-      const numInscriptions = tournament.nom.includes('Finale') ? randomInt(4, 8) : randomInt(8, 16);
-      const shuffled = eligiblePlayers.sort(() => Math.random() - 0.5);
+      const numInscriptions = randomInt(8, 16);
+      const shuffled = [...allPlayers].sort(() => Math.random() - 0.5);
       const selected = shuffled.slice(0, Math.min(numInscriptions, shuffled.length));
 
       for (const player of selected) {
-        const forfait = tournament.completed && Math.random() < 0.1 ? 1 : 0; // 10% forfait rate for past tournaments
-
-        await dbRun(
-          `INSERT INTO inscriptions (tournoi_id, licence, nom, prenom, club, email, source, forfait, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, 'demo', $7, CURRENT_TIMESTAMP)`,
-          [tournament.tournoi_id, player.licence, player.nom, player.prenom, player.club, player.email, forfait]
+        // Check if inscription exists
+        const existing = await dbGet(
+          `SELECT inscription_id FROM inscriptions WHERE tournoi_id = $1 AND licence = $2`,
+          [tournament.tournoi_id, player.licence]
         );
-        inscriptionCount++;
+
+        if (!existing) {
+          // Get next inscription_id
+          const maxInscId = await dbGet(`SELECT COALESCE(MAX(inscription_id), 0) as max_id FROM inscriptions`);
+          const inscriptionId = (maxInscId?.max_id || 0) + 1;
+
+          await dbRun(
+            `INSERT INTO inscriptions (inscription_id, tournoi_id, licence, email, source, timestamp)
+             VALUES ($1, $2, $3, $4, 'demo', CURRENT_TIMESTAMP)`,
+            [inscriptionId, tournament.tournoi_id, player.licence, player.email]
+          );
+          inscriptionCount++;
+        }
       }
     }
     console.log(`   Created ${inscriptionCount} inscriptions`);
     console.log('');
 
-    // 7. Summary
+    // 6. Summary
     console.log('='.repeat(60));
     console.log('DEMO DATA SEED COMPLETE');
     console.log('='.repeat(60));
@@ -341,10 +303,9 @@ async function seedDemoData() {
     console.log('Summary:');
     console.log(`  - Admin account: ${DEMO_ADMIN.username} / ${DEMO_ADMIN.password}`);
     console.log(`  - Clubs: ${DEMO_CLUBS.length}`);
-    console.log(`  - Players: ${players.length}`);
+    console.log(`  - Players: ${players.length} new`);
     console.log(`  - Tournaments: ${tournaments.length}`);
     console.log(`  - Inscriptions: ${inscriptionCount}`);
-    console.log(`  - Branding: Orange theme with "CDBHS DEMO" name`);
     console.log('');
     console.log('The demo environment is ready for training!');
     console.log('');
