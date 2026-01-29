@@ -404,23 +404,7 @@ app.get('/api/seed-demo-full', async (req, res) => {
 
     stats.internalTournaments = 0;
 
-    // Get valid game mode codes from settings (exact codes like LIBRE, BANDE, 3BANDES, CADRE)
-    const gameModes = await dbAll(`SELECT code FROM game_modes WHERE is_active = true`);
-    const validCodes = new Set(gameModes.map(m => m.code));
-
-    // Clean up wrongly created categories (those whose game_type doesn't EXACTLY match a valid game_mode code)
-    // This removes entries like "Libre" (should be "LIBRE"), "3 Bandes" (should be "3BANDES"), etc.
-    const allCategories = await dbAll(`SELECT id, game_type FROM categories`);
-    for (const cat of allCategories) {
-      if (!validCodes.has(cat.game_type)) {
-        // Delete tournaments referencing this category first
-        await dbRun(`DELETE FROM tournaments WHERE category_id = $1`, [cat.id]);
-        await dbRun(`DELETE FROM categories WHERE id = $1`, [cat.id]);
-        stats.cleared.categories = (stats.cleared.categories || 0) + 1;
-      }
-    }
-
-    // Get existing valid categories and create tournaments for them
+    // Get existing categories (don't modify them - they're configured via settings)
     const existingCategories = await dbAll(`SELECT id, game_type, level FROM categories`);
 
     for (const category of existingCategories) {
