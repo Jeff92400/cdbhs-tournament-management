@@ -3782,10 +3782,17 @@
       const competitionsCard = document.getElementById('upcomingTournamentsCard');
       const historySection = document.getElementById('historySection');
       const quickActionsCard = document.getElementById('quickActionsCard');
+      const stepIndicator = document.getElementById('stepIndicatorContainer');
+      const step1 = document.getElementById('step1');
 
       if (competitionsCard) competitionsCard.style.display = 'block';
       if (historySection) historySection.style.display = 'none';
       if (quickActionsCard) quickActionsCard.style.display = 'none';
+      if (stepIndicator) stepIndicator.style.display = 'flex';
+      if (step1) step1.style.display = 'block';
+
+      // Load and show upcoming tournaments
+      loadUpcomingTournaments();
 
       // Scroll to competitions
       if (competitionsCard) competitionsCard.scrollIntoView({behavior: 'smooth'});
