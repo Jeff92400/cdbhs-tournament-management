@@ -205,65 +205,18 @@ app.get('/api/seed-demo', async (req, res) => {
   const bcrypt = require('bcrypt');
 
   try {
-    // Create/fix tables
-    await new Promise((resolve, reject) => {
-      db.run(`
-        CREATE TABLE IF NOT EXISTS app_settings (
-          key TEXT PRIMARY KEY,
-          value TEXT,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `, [], (err) => err ? reject(err) : resolve());
-    });
-
-    // Drop and recreate users table to ensure correct schema
-    await new Promise((resolve, reject) => {
-      db.run(`DROP TABLE IF EXISTS users`, [], (err) => err ? reject(err) : resolve());
-    });
-
-    await new Promise((resolve, reject) => {
-      db.run(`
-        CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
-          username TEXT NOT NULL UNIQUE,
-          password_hash TEXT NOT NULL,
-          role TEXT NOT NULL DEFAULT 'viewer',
-          is_active INTEGER DEFAULT 1,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          last_login TIMESTAMP,
-          email TEXT,
-          receive_tournament_alerts BOOLEAN DEFAULT false
-        )
-      `, [], (err) => err ? reject(err) : resolve());
-    });
-
-    // Demo branding
-    const demoBranding = {
-      organization_name: 'Comite Departemental de Billard - DEMO',
-      organization_short_name: 'CDBHS DEMO',
-      primary_color: '#E67E22',
-      secondary_color: '#F39C12',
-      accent_color: '#3498DB',
-      background_color: '#FFFFFF',
-      background_secondary_color: '#FDF2E9'
-    };
-
-    for (const [key, value] of Object.entries(demoBranding)) {
-      await new Promise((resolve, reject) => {
-        db.run(
-          `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP)
-           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP`,
-          [key, value],
-          (err) => err ? reject(err) : resolve()
-        );
-      });
-    }
-
-    // Create demo admin
+    // Create demo admin (upsert - insert or update if exists)
     const hashedPassword = await bcrypt.hash('demo123', 10);
+
+    // First try to delete existing demo user
     await new Promise((resolve, reject) => {
-      db.run(`DELETE FROM users WHERE username = $1`, ['demo'], (err) => err ? reject(err) : resolve());
+      db.run(`DELETE FROM users WHERE username = $1`, ['demo'], (err) => {
+        // Ignore errors - user might not exist
+        resolve();
+      });
     });
+
+    // Insert demo user
     await new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO users (username, password_hash, email, role, is_active) VALUES ($1, $2, $3, $4, 1)`,
@@ -274,8 +227,9 @@ app.get('/api/seed-demo', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Demo data seeded successfully!',
-      login: { username: 'demo', password: 'demo123' }
+      message: 'Demo admin user created successfully!',
+      login: { username: 'demo', password: 'demo123' },
+      note: 'For full demo data (players, tournaments, inscriptions), run: node backend/scripts/seed-demo.js via Railway shell'
     });
   } catch (error) {
     console.error('Seed error:', error);
