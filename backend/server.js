@@ -396,6 +396,57 @@ app.get('/api/seed-demo-full', async (req, res) => {
       stats.tournaments++;
     }
 
+    // 3b. Create categories and internal tournaments (for generate-poules season dropdown)
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const currentSeason = currentMonth >= 8 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+
+    // Create categories for each mode/level combination
+    const GAME_TYPES = ['LIBRE', 'BANDE', '3 BANDES'];
+    const LEVELS = ['N3', 'R1', 'R2'];
+    stats.categories = 0;
+    stats.internalTournaments = 0;
+
+    for (const gameType of GAME_TYPES) {
+      for (const level of LEVELS) {
+        const displayName = `${gameType} ${level}`;
+
+        // Insert or get category
+        let category = await dbGet(
+          `SELECT id FROM categories WHERE game_type = $1 AND level = $2`,
+          [gameType, level]
+        );
+
+        if (!category) {
+          await dbRun(
+            `INSERT INTO categories (game_type, level, display_name) VALUES ($1, $2, $3)`,
+            [gameType, level, displayName]
+          );
+          category = await dbGet(
+            `SELECT id FROM categories WHERE game_type = $1 AND level = $2`,
+            [gameType, level]
+          );
+          stats.categories++;
+        }
+
+        // Create tournaments 1, 2, 3 for current season
+        for (let tournamentNum = 1; tournamentNum <= 3; tournamentNum++) {
+          const existing = await dbGet(
+            `SELECT id FROM tournaments WHERE category_id = $1 AND tournament_number = $2 AND season = $3`,
+            [category.id, tournamentNum, currentSeason]
+          );
+
+          if (!existing) {
+            await dbRun(
+              `INSERT INTO tournaments (category_id, tournament_number, season) VALUES ($1, $2, $3)`,
+              [category.id, tournamentNum, currentSeason]
+            );
+            stats.internalTournaments++;
+          }
+        }
+      }
+    }
+
     // 4. Create inscriptions
     const allPlayers = await dbAll(`SELECT licence, email FROM players WHERE licence LIKE 'D%'`);
 
