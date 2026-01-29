@@ -98,9 +98,9 @@
   const CSV_CACHE_KEY = 'csv_imports_enabled';
 
   // List of import pages that should be blocked when CSV imports are disabled
+  // Note: import-tournament.html is NOT blocked (FFB results import, always available)
   const CSV_IMPORT_PAGES = [
     'import-players.html',
-    'import-tournament.html',
     'import-inscriptions.html',
     'import-external.html',
     'import-config.html',
