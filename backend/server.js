@@ -542,15 +542,22 @@ app.get('/api/normalize-modes', async (req, res) => {
   try {
     // Uppercase values to delete/normalize
     const wrongModes = ['LIBRE', 'BANDE', '3 BANDES', '3BANDES', 'CADRE'];
-    const stats = { deletedCategories: 0, updatedTournaments: 0 };
+    const stats = { deletedCategories: 0, deletedTournaments: 0, deletedMappings: 0, updatedTournois: 0 };
 
     // 1. Delete duplicate categories with uppercase game_type
     // (keep the Title Case ones that already exist)
+    // Must delete in order: tournaments -> category_mapping -> categories
     for (const wrongMode of wrongModes) {
-      // First delete category_mapping references
-      await dbRun(`DELETE FROM category_mapping WHERE category_id IN (SELECT id FROM categories WHERE game_type = $1)`, [wrongMode]);
-      // Then delete the categories
-      const result = await dbRun(`DELETE FROM categories WHERE game_type = $1`, [wrongMode]);
+      // First delete tournaments referencing these categories
+      let result = await dbRun(`DELETE FROM tournaments WHERE category_id IN (SELECT id FROM categories WHERE game_type = $1)`, [wrongMode]);
+      stats.deletedTournaments += result.changes || 0;
+
+      // Then delete category_mapping references
+      result = await dbRun(`DELETE FROM category_mapping WHERE category_id IN (SELECT id FROM categories WHERE game_type = $1)`, [wrongMode]);
+      stats.deletedMappings += result.changes || 0;
+
+      // Finally delete the categories
+      result = await dbRun(`DELETE FROM categories WHERE game_type = $1`, [wrongMode]);
       stats.deletedCategories += result.changes || 0;
     }
 
@@ -565,7 +572,7 @@ app.get('/api/normalize-modes', async (req, res) => {
 
     for (const [upper, canonical] of Object.entries(modeMapping)) {
       const result = await dbRun(`UPDATE tournoi_ext SET mode = $1 WHERE mode = $2`, [canonical, upper]);
-      stats.updatedTournaments += result.changes || 0;
+      stats.updatedTournois += result.changes || 0;
     }
 
     // 3. List remaining categories for verification
