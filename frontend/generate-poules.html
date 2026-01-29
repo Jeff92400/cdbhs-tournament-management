@@ -286,26 +286,44 @@
     <div id="errorMessage" class="error" style="display: none;"></div>
     <div id="successMessage" class="success" style="display: none;"></div>
 
-    <!-- Warning: Update inscriptions -->
-    <div class="card" id="inscriptionWarning" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); border-left: 5px solid #ffc107; margin-bottom: 20px;">
+    <!-- Warning: Update inscriptions (shown when CSV imports enabled) -->
+    <div class="card csv-import-btn" id="inscriptionWarning" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); border-left: 5px solid #ffc107; margin-bottom: 20px;">
       <div style="display: flex; align-items: flex-start; gap: 15px;">
         <div style="font-size: 32px;">⚠️</div>
         <div style="flex: 1;">
           <h3 style="margin: 0 0 10px 0; color: #856404;">Mise à jour des inscriptions</h3>
-          <p class="csv-import-btn" style="margin: 0 0 10px 0; color: #856404;">
+          <p style="margin: 0 0 10px 0; color: #856404;">
             Avant de générer les poules, assurez-vous que les fichiers CSV sont à jour.
           </p>
-          <div id="lastImportInfo" class="csv-import-btn" style="margin: 0 0 15px 0; padding: 10px 12px; background: rgba(255,255,255,0.5); border-radius: 4px;">
+          <div id="lastImportInfo" style="margin: 0 0 15px 0; padding: 10px 12px; background: rgba(255,255,255,0.5); border-radius: 4px;">
             <span style="color: #666;">Chargement des informations...</span>
           </div>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <a href="import-external.html" class="btn csv-import-btn" style="background: #ffc107; color: #856404; font-weight: bold;">
+            <a href="import-external.html" class="btn" style="background: #ffc107; color: #856404; font-weight: bold;">
               📤 Mettre à jour les inscriptions
             </a>
             <button class="btn" id="skipInscriptionUpdate" style="background: #6c757d;">
               Continuer sans mise à jour →
             </button>
             <button class="btn" id="openForfaitManager" style="background: #dc3545; color: white; font-weight: bold;">
+              🚫 Gestion des forfaits
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick actions (shown when CSV imports disabled) -->
+    <div class="card csv-import-disabled-only" id="quickActionsCard" style="background: linear-gradient(135deg, #e7f3ff 0%, #cce5ff 100%); border-left: 5px solid #1F4788; margin-bottom: 20px; display: none;">
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="font-size: 32px;">🎯</div>
+        <div style="flex: 1;">
+          <h3 style="margin: 0 0 10px 0; color: #1F4788;">Gestion des compétitions</h3>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn" id="goToCompetitions" style="background: #1F4788; color: white; font-weight: bold;" onclick="document.getElementById('upcomingTournamentsCard').scrollIntoView({behavior: 'smooth'});">
+              📅 Voir les compétitions à venir
+            </button>
+            <button class="btn" id="openForfaitManager2" style="background: #dc3545; color: white; font-weight: bold;">
               🚫 Gestion des forfaits
             </button>
           </div>
@@ -3762,6 +3780,8 @@
     function setupForfaitListeners() {
       const openBtn = document.getElementById('openForfaitManager');
       if (openBtn) openBtn.addEventListener('click', openForfaitModal);
+      const openBtn2 = document.getElementById('openForfaitManager2');
+      if (openBtn2) openBtn2.addEventListener('click', openForfaitModal);
 
       const categorySelect = document.getElementById('forfaitCategorySelect');
       if (categorySelect) {

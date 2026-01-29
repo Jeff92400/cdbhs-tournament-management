@@ -134,8 +134,13 @@
   // Apply CSV import visibility to elements with class 'csv-import-btn'
   function applyCsvImportVisibility() {
     const enabled = isCsvImportsEnabled();
+    // Hide elements when CSV disabled
     document.querySelectorAll('.csv-import-btn').forEach(el => {
       el.style.display = enabled ? '' : 'none';
+    });
+    // Show alternate elements when CSV disabled
+    document.querySelectorAll('.csv-import-disabled-only').forEach(el => {
+      el.style.display = enabled ? 'none' : '';
     });
     // Also check page access
     checkCsvImportPageAccess();
