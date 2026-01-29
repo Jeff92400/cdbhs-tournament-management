@@ -1151,19 +1151,22 @@
               }
             });
 
-            // Extract unique seasons
-            const seasons = [...new Set(tournaments.map(t => t.season))].sort().reverse();
+            // Extract unique seasons from tournament results
+            const seasonsFromResults = tournaments.map(t => t.season).filter(s => s);
+
+            // Always include current season (computed from today's date)
+            const todaySeason = getSeasonForDate(new Date());
+            const allSeasons = [...new Set([todaySeason, ...seasonsFromResults])].sort().reverse();
+
             const seasonSelect = document.getElementById('seasonSelect');
             seasonSelect.innerHTML = '<option value="">-- Sélectionner --</option>';
-            seasons.forEach(season => {
+            allSeasons.forEach(season => {
               seasonSelect.innerHTML += `<option value="${season}">${season}</option>`;
             });
 
-            // Pre-select current season if available
-            if (seasons.length > 0) {
-              seasonSelect.value = seasons[0];
-              currentSeason = seasons[0];
-            }
+            // Pre-select current season
+            seasonSelect.value = todaySeason;
+            currentSeason = todaySeason;
           }
         }
 
@@ -1395,6 +1398,14 @@
         document.getElementById('modeSelect').dispatchEvent(new Event('change'));
         document.getElementById('levelSelect').value = matchingCategory.level;
         document.getElementById('levelSelect').dispatchEvent(new Event('change'));
+
+        // Set season based on tournament date
+        if (date) {
+          const tournamentSeason = getSeasonForDate(new Date(date));
+          document.getElementById('seasonSelect').value = tournamentSeason;
+          currentSeason = tournamentSeason;
+        }
+
         // For finals, set tournament to "Finale", otherwise use tournament number
         document.getElementById('tournamentSelect').value = isFinale ? 'Finale' : tournamentNum;
 
