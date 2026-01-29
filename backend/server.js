@@ -525,77 +525,57 @@ app.get('/api/normalize-modes', async (req, res) => {
     return res.status(403).json({ error: 'Invalid secret' });
   }
 
+  const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+
+  const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+
   try {
-    // Define canonical mode names (display_name format - Title Case)
+    // Uppercase values to delete/normalize
+    const wrongModes = ['LIBRE', 'BANDE', '3 BANDES', '3BANDES', 'CADRE'];
+    const stats = { deletedCategories: 0, updatedTournaments: 0 };
+
+    // 1. Delete duplicate categories with uppercase game_type
+    // (keep the Title Case ones that already exist)
+    for (const wrongMode of wrongModes) {
+      // First delete category_mapping references
+      await dbRun(`DELETE FROM category_mapping WHERE category_id IN (SELECT id FROM categories WHERE game_type = $1)`, [wrongMode]);
+      // Then delete the categories
+      const result = await dbRun(`DELETE FROM categories WHERE game_type = $1`, [wrongMode]);
+      stats.deletedCategories += result.changes || 0;
+    }
+
+    // 2. Normalize tournoi_ext.mode to Title Case
     const modeMapping = {
       'LIBRE': 'Libre',
       'BANDE': 'Bande',
       '3 BANDES': '3 Bandes',
       '3BANDES': '3 Bandes',
-      'CADRE': 'Cadre',
-      'CADRE 47/2': 'Cadre',
-      'CADRE 47/1': 'Cadre',
-      'CADRE 71/2': 'Cadre'
+      'CADRE': 'Cadre'
     };
 
-    const stats = { categories: 0, tournaments: 0, gameModes: 0 };
-
-    // 1. Update game_modes display_name to canonical format
     for (const [upper, canonical] of Object.entries(modeMapping)) {
-      await new Promise((resolve, reject) => {
-        db.run(
-          `UPDATE game_modes SET display_name = $1 WHERE UPPER(code) = $2 OR UPPER(display_name) = $2`,
-          [canonical, upper],
-          function(err) {
-            if (err) reject(err);
-            else {
-              stats.gameModes += this.changes || 0;
-              resolve();
-            }
-          }
-        );
-      });
+      const result = await dbRun(`UPDATE tournoi_ext SET mode = $1 WHERE mode = $2`, [canonical, upper]);
+      stats.updatedTournaments += result.changes || 0;
     }
 
-    // 2. Update categories.game_type to canonical format
-    for (const [upper, canonical] of Object.entries(modeMapping)) {
-      await new Promise((resolve, reject) => {
-        db.run(
-          `UPDATE categories SET game_type = $1 WHERE UPPER(game_type) = $2`,
-          [canonical, upper],
-          function(err) {
-            if (err) reject(err);
-            else {
-              stats.categories += this.changes || 0;
-              resolve();
-            }
-          }
-        );
-      });
-    }
-
-    // 3. Update tournoi_ext.mode to canonical format
-    for (const [upper, canonical] of Object.entries(modeMapping)) {
-      await new Promise((resolve, reject) => {
-        db.run(
-          `UPDATE tournoi_ext SET mode = $1 WHERE UPPER(mode) = $2`,
-          [canonical, upper],
-          function(err) {
-            if (err) reject(err);
-            else {
-              stats.tournaments += this.changes || 0;
-              resolve();
-            }
-          }
-        );
-      });
-    }
+    // 3. List remaining categories for verification
+    const remainingCategories = await dbAll(`SELECT DISTINCT game_type FROM categories ORDER BY game_type`);
 
     res.json({
       success: true,
-      message: 'Game modes normalized to canonical format',
+      message: 'Uppercase modes deleted, tournaments normalized',
       stats,
-      canonicalModes: ['Libre', 'Bande', '3 Bandes', 'Cadre']
+      remainingGameTypes: remainingCategories.map(c => c.game_type)
     });
   } catch (error) {
     console.error('Normalize error:', error);
