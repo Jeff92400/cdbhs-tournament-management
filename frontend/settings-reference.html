@@ -653,6 +653,7 @@
           document.getElementById('addGameModeForm').reset();
           document.getElementById('gmColor').value = '#1F4788';
           loadGameModes();
+          loadCategoryDropdowns(); // Refresh category dropdown with new game mode
         } else {
           showMessage('error', result.error || 'Erreur lors de l\'ajout');
         }
@@ -711,6 +712,7 @@
           showMessage('success', 'Mode de jeu mis a jour');
           closeModal('editGameModeModal');
           loadGameModes();
+          loadCategoryDropdowns(); // Refresh category dropdown with updated game modes
         } else {
           showMessage('error', result.error || 'Erreur lors de la mise a jour');
         }
@@ -734,6 +736,7 @@
         if (response.ok) {
           showMessage('success', 'Mode de jeu supprime');
           loadGameModes();
+          loadCategoryDropdowns(); // Refresh category dropdown
         } else {
           showMessage('error', result.error || 'Erreur lors de la suppression');
         }
