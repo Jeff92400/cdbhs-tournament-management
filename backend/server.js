@@ -919,7 +919,7 @@ async function processTemplatedScheduledEmail(db, resend, scheduled, delay) {
         subject: emailSubject,
         html: `<div style="font-family: Arial; max-width: 600px; margin: 0 auto;">
           <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-            <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+            <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
             <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
           </div>
           <div style="padding: 20px; background: #f8f9fa;">
@@ -1313,7 +1313,7 @@ async function processScheduledEmails() {
             subject: emailSubject,
             html: `<div style="font-family: Arial; max-width: 600px; margin: 0 auto;">
               <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-                <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+                <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
                 <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
               </div>
               <div style="padding: 20px; background: #f8f9fa;">${imageHtml}${emailBody.replace(/\n/g, '<br>')}</div>

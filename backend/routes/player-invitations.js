@@ -563,7 +563,7 @@ router.post('/send', authenticateToken, async (req, res) => {
           .replace(/\{organization_email\}/g, replyToEmail);
 
         // Build HTML email
-        const logoHtml = `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; margin-bottom: 10px;" onerror="this.style.display='none'">`;
+        const logoHtml = `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">`;
 
         const htmlBody = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -668,7 +668,7 @@ router.post('/send', authenticateToken, async (req, res) => {
         const summaryHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
             <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-              <img src="${logoUrl}" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
               <h1 style="margin: 0; font-size: 24px;">📋 Récapitulatif Invitations Player App</h1>
             </div>
             <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
@@ -829,7 +829,7 @@ router.post('/resend/:id', authenticateToken, async (req, res) => {
     // Logo URL - always include, onerror will hide if not found
     // Add cache-busting timestamp to ensure email clients get latest logo
     const logoUrl = `${baseUrl}/logo.png?v=${Date.now()}`;
-    const logoHtml = `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; margin-bottom: 10px;" onerror="this.style.display='none'">`;
+    const logoHtml = `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">`;
 
     const emailBody = templateBody
       .replace(/\{first_name\}/g, firstName)
@@ -987,7 +987,7 @@ router.post('/resend-batch', authenticateToken, async (req, res) => {
     const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
     const baseUrl = process.env.BASE_URL || 'https://cdbhs-tournament-management-production.up.railway.app';
     const logoUrl = `${baseUrl}/logo.png?v=${Date.now()}`;
-    const logoHtml = `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; margin-bottom: 10px;" onerror="this.style.display='none'">`;
+    const logoHtml = `<img src="${logoUrl}" alt="${orgShortName}" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">`;
 
     // Get PDF attachment
     const pdfRow = await new Promise((resolve, reject) => {

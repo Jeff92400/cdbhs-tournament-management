@@ -1086,7 +1086,7 @@ router.post('/send', authenticateToken, async (req, res) => {
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-                <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+                <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
                 <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
               </div>
               <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
@@ -1627,7 +1627,7 @@ router.post('/send-finale-results', authenticateToken, async (req, res) => {
       <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; background: #ffffff;">
         <!-- Header -->
         <div style="background: ${primaryColor}; color: white; padding: 25px; text-align: center;">
-          <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 60px; margin-bottom: 15px;" onerror="this.style.display='none'">
+          <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 15px;" onerror="this.style.display='none'">
           <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
         </div>
 
@@ -1734,7 +1734,7 @@ router.post('/send-finale-results', authenticateToken, async (req, res) => {
         const summaryHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
             <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
               <h1 style="margin: 0; font-size: 24px;">${orgName}</h1>
               <p style="margin: 10px 0 0 0; opacity: 0.9;">📋 Récapitulatif Envoi Résultats Finale - ${tournament.display_name}</p>
             </div>
@@ -2527,7 +2527,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
             <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
               <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
               <p style="margin: 10px 0 0 0; opacity: 0.9;">Résultats - ${tournament.display_name}</p>
               <p style="margin: 5px 0 0 0; opacity: 0.8; font-size: 14px;">${tournamentDate}${tournament.location ? ' - ' + tournament.location : ''}</p>
@@ -2632,7 +2632,7 @@ router.post('/send-results', authenticateToken, async (req, res) => {
         const summaryHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
             <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
               <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
               <p style="margin: 10px 0 0 0; opacity: 0.9;">📋 Récapitulatif Envoi Résultats - ${tournament.display_name}</p>
             </div>
@@ -3093,7 +3093,7 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
             <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
               <h1 style="margin: 0; font-size: 24px;">🏆 Convocation Finale Départementale</h1>
               <p style="margin: 10px 0 0 0; opacity: 0.9;">${category.display_name}</p>
             </div>
@@ -3202,7 +3202,7 @@ router.post('/send-finale-convocation', authenticateToken, async (req, res) => {
         const summaryHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
             <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
               <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
               <p style="margin: 10px 0 0 0; opacity: 0.9;">📋 Récapitulatif Convocations Finale - ${category.display_name}</p>
             </div>
@@ -4525,7 +4525,7 @@ router.post('/send-relance', authenticateToken, async (req, res) => {
         const emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="Logo" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
               <h1 style="margin: 0; font-size: 24px;">${await appSettings.getSetting('organization_name') || 'Comité Départemental de Billard'}</h1>
             </div>
             <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">

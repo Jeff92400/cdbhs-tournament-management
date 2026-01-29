@@ -1267,7 +1267,7 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
               <h1 style="margin: 0; font-size: 24px;">${orgShortName}</h1>
               <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">CONVOCATION</p>
             </div>
@@ -1357,7 +1357,7 @@ router.post('/send-convocations', authenticateToken, async (req, res) => {
       const summaryHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
           <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-            <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+            <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="${orgShortName}" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
             <h1 style="margin: 0; font-size: 24px;">📋 Récapitulatif Convocations</h1>
             <p style="margin: 10px 0 0 0; opacity: 0.9;">${category.display_name}</p>
           </div>
@@ -2013,7 +2013,7 @@ Le {organization_short_name}`;
     const emailBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-          <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
+          <img src="${baseUrl}/logo.png?v=${Date.now()}" alt="" style="height: 60px; max-width: 80%; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
           <h1 style="margin: 0; font-size: 24px;">${orgShortName}</h1>
         </div>
         <div style="padding: 20px; background: #f8f9fa; line-height: 1.6;">
