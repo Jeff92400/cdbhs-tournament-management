@@ -590,6 +590,75 @@ app.get('/api/normalize-modes', async (req, res) => {
   }
 });
 
+// TEMPORARY: Sync categories with game_modes (fixes display_name inconsistencies)
+app.get('/api/sync-categories', async (req, res) => {
+  const secret = req.query.secret;
+  if (secret !== 'seed-demo-2024') {
+    return res.status(403).json({ error: 'Invalid secret' });
+  }
+
+  const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+
+  const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+
+  try {
+    const stats = { gameModes: 0, categoriesUpdated: 0, tournoisUpdated: 0 };
+
+    // 1. Get all game_modes
+    const gameModes = await dbAll(`SELECT code, display_name FROM game_modes WHERE is_active = true`);
+    stats.gameModes = gameModes.length;
+
+    // 2. For each game_mode, update categories to use display_name as game_type
+    for (const mode of gameModes) {
+      // Update categories where game_type matches code OR old display_name (case insensitive)
+      const result = await dbRun(
+        `UPDATE categories
+         SET game_type = $1,
+             display_name = $1 || ' - ' || level
+         WHERE UPPER(game_type) = UPPER($2)
+            OR UPPER(game_type) = UPPER($1)`,
+        [mode.display_name, mode.code]
+      );
+      stats.categoriesUpdated += result.changes || 0;
+
+      // Also update tournoi_ext.mode
+      const result2 = await dbRun(
+        `UPDATE tournoi_ext
+         SET mode = $1
+         WHERE UPPER(mode) = UPPER($2)
+            OR UPPER(mode) = UPPER($1)`,
+        [mode.display_name, mode.code]
+      );
+      stats.tournoisUpdated += result2.changes || 0;
+    }
+
+    // 3. Get final state for verification
+    const categories = await dbAll(`SELECT id, game_type, level, display_name FROM categories ORDER BY game_type, level`);
+    const distinctModes = await dbAll(`SELECT DISTINCT mode FROM tournoi_ext ORDER BY mode`);
+
+    res.json({
+      success: true,
+      message: 'Categories synchronized with game_modes',
+      stats,
+      categories: categories.map(c => ({ id: c.id, game_type: c.game_type, display_name: c.display_name })),
+      tournoi_modes: distinctModes.map(m => m.mode)
+    });
+  } catch (error) {
+    console.error('Sync categories error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve frontend pages
 app.get('/', (req, res) => {
   res.sendFile(path.join(frontendPath, 'login.html'));
