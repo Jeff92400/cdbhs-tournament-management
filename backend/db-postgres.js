@@ -129,36 +129,48 @@ async function initializeDatabase() {
     `);
 
     // Populate players email/telephone from inscriptions (batch migration)
-    // Uses most recent inscription for each player
-    await client.query(`
-      UPDATE players p
-      SET email = i.email
-      FROM (
-        SELECT DISTINCT ON (REPLACE(licence, ' ', ''))
-          REPLACE(licence, ' ', '') as clean_licence,
-          email
-        FROM inscriptions
-        WHERE email IS NOT NULL AND email != ''
-        ORDER BY REPLACE(licence, ' ', ''), timestamp DESC
-      ) i
-      WHERE REPLACE(p.licence, ' ', '') = i.clean_licence
-        AND (p.email IS NULL OR p.email = '')
+    // Check if inscriptions table exists first (it's created later in initialization)
+    const inscriptionsCheck = await client.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = 'inscriptions'
+      )
     `);
 
-    await client.query(`
-      UPDATE players p
-      SET telephone = i.telephone
-      FROM (
-        SELECT DISTINCT ON (REPLACE(licence, ' ', ''))
-          REPLACE(licence, ' ', '') as clean_licence,
-          telephone
-        FROM inscriptions
-        WHERE telephone IS NOT NULL AND telephone != ''
-        ORDER BY REPLACE(licence, ' ', ''), timestamp DESC
-      ) i
-      WHERE REPLACE(p.licence, ' ', '') = i.clean_licence
-        AND (p.telephone IS NULL OR p.telephone = '')
-    `);
+    if (inscriptionsCheck.rows[0].exists) {
+      // Uses most recent inscription for each player
+      await client.query(`
+        UPDATE players p
+        SET email = i.email
+        FROM (
+          SELECT DISTINCT ON (REPLACE(licence, ' ', ''))
+            REPLACE(licence, ' ', '') as clean_licence,
+            email
+          FROM inscriptions
+          WHERE email IS NOT NULL AND email != ''
+          ORDER BY REPLACE(licence, ' ', ''), timestamp DESC
+        ) i
+        WHERE REPLACE(p.licence, ' ', '') = i.clean_licence
+          AND (p.email IS NULL OR p.email = '')
+      `);
+
+      await client.query(`
+        UPDATE players p
+        SET telephone = i.telephone
+        FROM (
+          SELECT DISTINCT ON (REPLACE(licence, ' ', ''))
+            REPLACE(licence, ' ', '') as clean_licence,
+            telephone
+          FROM inscriptions
+          WHERE telephone IS NOT NULL AND telephone != ''
+          ORDER BY REPLACE(licence, ' ', ''), timestamp DESC
+        ) i
+        WHERE REPLACE(p.licence, ' ', '') = i.clean_licence
+          AND (p.telephone IS NULL OR p.telephone = '')
+      `);
+    } else {
+      console.log('Skipping inscriptions migration (table does not exist yet)');
+    }
 
     // Categories table
     await client.query(`
