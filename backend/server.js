@@ -237,6 +237,58 @@ app.get('/api/seed-demo', async (req, res) => {
   }
 });
 
+// TEMPORARY: Cleanup duplicate categories created by seed
+app.get('/api/cleanup-categories', async (req, res) => {
+  const secret = req.query.secret;
+  if (secret !== 'seed-demo-2024') {
+    return res.status(403).json({ error: 'Invalid secret' });
+  }
+
+  const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+
+  const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+
+  try {
+    // Wrong game_type values created by seed (codes instead of display names)
+    const wrongGameTypes = ['LIBRE', 'BANDE', '3BANDES', '3 BANDES', 'CADRE', '3bandes'];
+    let deleted = { categories: 0, tournaments: 0, mappings: 0 };
+
+    for (const wrongType of wrongGameTypes) {
+      // Get categories with wrong game_type
+      const wrongCats = await dbAll(`SELECT id FROM categories WHERE game_type = $1`, [wrongType]);
+
+      for (const cat of wrongCats) {
+        // Delete related records first (handle foreign keys)
+        await dbRun(`DELETE FROM category_mapping WHERE category_id = $1`, [cat.id]);
+        deleted.mappings++;
+        await dbRun(`DELETE FROM tournaments WHERE category_id = $1`, [cat.id]);
+        deleted.tournaments++;
+        await dbRun(`DELETE FROM categories WHERE id = $1`, [cat.id]);
+        deleted.categories++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Cleanup complete',
+      deleted
+    });
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // TEMPORARY: Full demo seed endpoint - creates players, clubs, tournaments, inscriptions
 app.get('/api/seed-demo-full', async (req, res) => {
   const secret = req.query.secret;
