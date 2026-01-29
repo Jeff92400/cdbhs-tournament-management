@@ -318,6 +318,10 @@ app.get('/api/seed-demo-full', async (req, res) => {
       }
     }
 
+    // Clean up any wrongly created categories (with '3 BANDES' instead of '3BANDES')
+    await dbRun(`DELETE FROM tournaments WHERE category_id IN (SELECT id FROM categories WHERE game_type = '3 BANDES')`);
+    await dbRun(`DELETE FROM categories WHERE game_type = '3 BANDES'`);
+
     // 1. Create clubs
     for (const club of DEMO_CLUBS) {
       const existing = await dbGet(`SELECT id FROM clubs WHERE name = $1`, [club.name]);
@@ -370,7 +374,7 @@ app.get('/api/seed-demo-full', async (req, res) => {
     const tournaments = [];
     const now = new Date();
 
-    for (const mode of ['LIBRE', 'BANDE', '3 BANDES']) {
+    for (const mode of ['LIBRE', 'BANDE', '3BANDES']) {
       for (const categorie of ['N3', 'R1', 'R2']) {
         for (let t = 1; t <= 3; t++) {
           const tDate = new Date(now);
@@ -402,7 +406,7 @@ app.get('/api/seed-demo-full', async (req, res) => {
     const currentSeason = currentMonth >= 8 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
 
     // Create categories for each mode/level combination
-    const GAME_TYPES = ['LIBRE', 'BANDE', '3 BANDES'];
+    const GAME_TYPES = ['LIBRE', 'BANDE', '3BANDES'];
     const LEVELS = ['N3', 'R1', 'R2'];
     stats.categories = 0;
     stats.internalTournaments = 0;
