@@ -211,7 +211,8 @@ async function seedDemoData() {
     let tournoiId = (maxIdResult?.max_id || 0) + 1;
 
     // Create T1, T2, T3 for each mode/category combination
-    for (const mode of ['LIBRE', 'BANDE', '3 BANDES']) {
+    // Use Title Case to match game_modes.display_name
+    for (const mode of ['Libre', 'Bande', '3 Bandes']) {
       for (const categorie of ['N3', 'R1', 'R2']) {
         const locations = DEMO_CLUBS.map(c => c.city);
 

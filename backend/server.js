@@ -423,7 +423,8 @@ app.get('/api/seed-demo-full', async (req, res) => {
     const tournaments = [];
     const now = new Date();
 
-    for (const mode of ['LIBRE', 'BANDE', '3BANDES']) {
+    // Use Title Case modes to match game_modes.display_name
+    for (const mode of ['Libre', 'Bande', '3 Bandes']) {
       for (const categorie of ['N3', 'R1', 'R2']) {
         for (let t = 1; t <= 3; t++) {
           const tDate = new Date(now);
