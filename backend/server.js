@@ -612,15 +612,47 @@ app.get('/api/sync-categories', async (req, res) => {
   });
 
   try {
-    const stats = { gameModes: 0, categoriesUpdated: 0, tournoisUpdated: 0 };
+    const stats = { gameModes: 0, duplicatesDeleted: 0, categoriesUpdated: 0, tournoisUpdated: 0 };
 
     // 1. Get all game_modes
     const gameModes = await dbAll(`SELECT code, display_name FROM game_modes WHERE is_active = true`);
     stats.gameModes = gameModes.length;
 
-    // 2. For each game_mode, update categories to use display_name as game_type
+    // 2. For each game_mode, first delete duplicate categories, then update remaining
     for (const mode of gameModes) {
-      // Update categories where game_type matches code OR old display_name (case insensitive)
+      // Find all categories that would map to this mode (by code or display_name)
+      const matchingCategories = await dbAll(
+        `SELECT id, game_type, level FROM categories
+         WHERE UPPER(game_type) = UPPER($1) OR UPPER(game_type) = UPPER($2)
+         ORDER BY id`,
+        [mode.code, mode.display_name]
+      );
+
+      // Group by level to find duplicates
+      const byLevel = {};
+      for (const cat of matchingCategories) {
+        const lvl = cat.level.toUpperCase();
+        if (!byLevel[lvl]) byLevel[lvl] = [];
+        byLevel[lvl].push(cat);
+      }
+
+      // For each level, keep lowest ID, delete others
+      for (const level in byLevel) {
+        const cats = byLevel[level];
+        if (cats.length > 1) {
+          // Keep first (lowest ID), delete rest
+          const toDelete = cats.slice(1).map(c => c.id);
+          for (const id of toDelete) {
+            // Delete from tournaments first (foreign key)
+            await dbRun(`DELETE FROM tournaments WHERE category_id = $1`, [id]);
+            await dbRun(`DELETE FROM category_mapping WHERE category_id = $1`, [id]);
+            await dbRun(`DELETE FROM categories WHERE id = $1`, [id]);
+            stats.duplicatesDeleted++;
+          }
+        }
+      }
+
+      // Now safe to update remaining categories
       const result = await dbRun(
         `UPDATE categories
          SET game_type = $1,
@@ -648,7 +680,7 @@ app.get('/api/sync-categories', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Categories synchronized with game_modes',
+      message: 'Categories synchronized with game_modes (duplicates removed)',
       stats,
       categories: categories.map(c => ({ id: c.id, game_type: c.game_type, display_name: c.display_name })),
       tournoi_modes: distinctModes.map(m => m.mode)
