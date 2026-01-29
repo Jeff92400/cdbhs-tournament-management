@@ -517,6 +517,91 @@ app.get('/api/seed-demo-full', async (req, res) => {
   }
 });
 
+// TEMPORARY: Normalize game modes across all tables
+app.get('/api/normalize-modes', async (req, res) => {
+  const secret = req.query.secret;
+  if (secret !== 'seed-demo-2024') {
+    return res.status(403).json({ error: 'Invalid secret' });
+  }
+
+  try {
+    // Define canonical mode names (display_name format - Title Case)
+    const modeMapping = {
+      'LIBRE': 'Libre',
+      'BANDE': 'Bande',
+      '3 BANDES': '3 Bandes',
+      '3BANDES': '3 Bandes',
+      'CADRE': 'Cadre',
+      'CADRE 47/2': 'Cadre',
+      'CADRE 47/1': 'Cadre',
+      'CADRE 71/2': 'Cadre'
+    };
+
+    const stats = { categories: 0, tournaments: 0, gameModes: 0 };
+
+    // 1. Update game_modes display_name to canonical format
+    for (const [upper, canonical] of Object.entries(modeMapping)) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE game_modes SET display_name = $1 WHERE UPPER(code) = $2 OR UPPER(display_name) = $2`,
+          [canonical, upper],
+          function(err) {
+            if (err) reject(err);
+            else {
+              stats.gameModes += this.changes || 0;
+              resolve();
+            }
+          }
+        );
+      });
+    }
+
+    // 2. Update categories.game_type to canonical format
+    for (const [upper, canonical] of Object.entries(modeMapping)) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE categories SET game_type = $1 WHERE UPPER(game_type) = $2`,
+          [canonical, upper],
+          function(err) {
+            if (err) reject(err);
+            else {
+              stats.categories += this.changes || 0;
+              resolve();
+            }
+          }
+        );
+      });
+    }
+
+    // 3. Update tournoi_ext.mode to canonical format
+    for (const [upper, canonical] of Object.entries(modeMapping)) {
+      await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE tournoi_ext SET mode = $1 WHERE UPPER(mode) = $2`,
+          [canonical, upper],
+          function(err) {
+            if (err) reject(err);
+            else {
+              stats.tournaments += this.changes || 0;
+              resolve();
+            }
+          }
+        );
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Game modes normalized to canonical format',
+      stats,
+      canonicalModes: ['Libre', 'Bande', '3 Bandes', 'Cadre']
+    });
+  } catch (error) {
+    console.error('Normalize error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve frontend pages
 app.get('/', (req, res) => {
   res.sendFile(path.join(frontendPath, 'login.html'));
