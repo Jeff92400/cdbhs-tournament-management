@@ -796,6 +796,7 @@
                 <label style="display: block; font-weight: bold; margin-bottom: 5px;">Type de Relance</label>
                 <select id="relanceTypeSelect" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;" disabled>
                   <option value="">-- Sélectionner --</option>
+                  <option value="t1">Relance T1 (ouverture de saison)</option>
                   <option value="t2">Relance T2 (joueurs du T1)</option>
                   <option value="t3">Relance T3 (joueurs au classement)</option>
                   <option value="finale">Relance Finale (qualifiés)</option>
@@ -1508,12 +1509,13 @@
           <h3 style="margin: 0;">🔔 Templates Relances Inscriptions</h3>
           <button class="btn template-back-btn" style="background: #6c757d; padding: 8px 15px;">← Retour</button>
         </div>
-        <p style="color: #666; margin-bottom: 15px;">Personnalisez les templates pour les relances d'inscription (T2, T3, Finale).</p>
+        <p style="color: #666; margin-bottom: 15px;">Personnalisez les templates pour les relances d'inscription (T1, T2, T3, Finale).</p>
 
         <div style="margin-bottom: 20px;">
           <label style="font-weight: bold;">Sélectionner un template:</label>
           <select id="relanceTemplateSelect" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-width: 200px;">
             <option value="">-- Choisir --</option>
+            <option value="relance_t1">Relance T1 (ouverture de saison)</option>
             <option value="relance_t2">Relance T2 (joueurs du T1)</option>
             <option value="relance_t3">Relance T3 (joueurs au classement)</option>
             <option value="relance_finale">Relance Finale (qualifiés)</option>
@@ -3960,7 +3962,24 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
       // Update extra variables based on type
       // Note: {inscription_method} shows app button for players with account, or cdbhs.net link for others
-      if (relanceType === 't2') {
+      if (relanceType === 't1') {
+        extraVarsSpan.innerHTML = '<code>{ffb_ranking}</code> <code>{mode}</code> <code>{season}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code> <code style="background:#e8f5e9;border-color:#4caf50;">{inscription_method}</code>';
+        customFieldsContent.innerHTML = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label style="font-size: 12px;">Date du T1</label>
+              <input type="date" id="relanceT1Date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+              <label style="font-size: 12px;">Lieu du T1</label>
+              <select id="relanceT1Lieu" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                ${clubOptions}
+              </select>
+            </div>
+          </div>
+        `;
+        customFieldsDiv.style.display = 'block';
+      } else if (relanceType === 't2') {
         extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code> <code style="background:#e8f5e9;border-color:#4caf50;">{inscription_method}</code>';
         customFieldsContent.innerHTML = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -4088,7 +4107,15 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       if (pendingLieu || pendingDebut) {
         if (infoDiv) infoDiv.style.display = 'none';
 
-        if (relanceType === 't2') {
+        if (relanceType === 't1') {
+          if (pendingDebut) {
+            const dateInput = document.getElementById('relanceT1Date');
+            if (dateInput) dateInput.value = pendingDebut.split('T')[0];
+          }
+          if (pendingLieu) {
+            setLocationDropdown('relanceT1Lieu', pendingLieu);
+          }
+        } else if (relanceType === 't2') {
           if (pendingDebut) {
             const dateInput = document.getElementById('relanceT2Date');
             if (dateInput) dateInput.value = pendingDebut.split('T')[0];
@@ -4145,7 +4172,15 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
           infoDiv.style.display = 'none';
         }
 
-        if (relanceType === 't2') {
+        if (relanceType === 't1') {
+          if (data.tournament_date) {
+            const dateInput = document.getElementById('relanceT1Date');
+            if (dateInput) dateInput.value = data.tournament_date.split('T')[0];
+          }
+          if (data.location) {
+            setLocationDropdown('relanceT1Lieu', data.location);
+          }
+        } else if (relanceType === 't2') {
           if (data.tournament_date) {
             const dateInput = document.getElementById('relanceT2Date');
             if (dateInput) dateInput.value = data.tournament_date.split('T')[0];
@@ -4184,7 +4219,9 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
       try {
         let endpoint = '';
-        if (relanceType === 't2') {
+        if (relanceType === 't1') {
+          endpoint = `${API_URL}/emailing/t1-players?mode=${mode}&category=${category}`;
+        } else if (relanceType === 't2') {
           endpoint = `${API_URL}/emailing/t1-participants?mode=${mode}&category=${category}`;
         } else if (relanceType === 't3') {
           endpoint = `${API_URL}/emailing/ranking-for-relance?mode=${mode}&category=${category}`;
@@ -4225,13 +4262,35 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         const infoContent = document.getElementById('relanceInfoContent');
         infoDiv.style.display = 'block';
 
-        if (relanceType === 't2' && relanceData.t1Tournament) {
+        if (relanceType === 't1' && relanceData.category) {
+          let t1Info = `
+            <strong>Catégorie:</strong> ${relanceData.category.display_name}<br>
+            <strong>Saison:</strong> ${relanceData.season || '-'}<br>
+            <strong>Joueurs avec classement ${relanceData.category.level}:</strong> ${relanceParticipants.length}
+          `;
+          // Show T1 tournament info if found
+          if (relanceData.t1Tournament) {
+            const t1Date = relanceData.t1Tournament.date ? new Date(relanceData.t1Tournament.date).toLocaleDateString('fr-FR') : '-';
+            t1Info += `<br><strong>T1:</strong> ${t1Date} - ${relanceData.t1Tournament.location || '-'}`;
+          } else {
+            t1Info += `<br><em style="color: #999;">Aucun T1 trouvé dans les tournois externes (nom doit contenir "T1" ou "TOURNOI 1")</em>`;
+          }
+          infoContent.innerHTML = t1Info;
+        } else if (relanceType === 't2' && relanceData.t1Tournament) {
           const t1Date = relanceData.t1Tournament.date ? new Date(relanceData.t1Tournament.date).toLocaleDateString('fr-FR') : '-';
-          infoContent.innerHTML = `
+          let t2Info = `
             <strong>T1 joué:</strong> ${t1Date} à ${relanceData.t1Tournament.location || '-'}<br>
             <strong>Catégorie:</strong> ${relanceData.t1Tournament.category}<br>
             <strong>Participants T1:</strong> ${relanceParticipants.length} joueurs
           `;
+          // Show T2 tournament info if found
+          if (relanceData.t2Tournament) {
+            const t2Date = relanceData.t2Tournament.date ? new Date(relanceData.t2Tournament.date).toLocaleDateString('fr-FR') : '-';
+            t2Info += `<br><strong>T2:</strong> ${t2Date} - ${relanceData.t2Tournament.location || '-'}`;
+          } else {
+            t2Info += `<br><em style="color: #999;">Aucun T2 trouvé dans les tournois externes (nom doit contenir "T2" ou "TOURNOI 2")</em>`;
+          }
+          infoContent.innerHTML = t2Info;
         } else if (relanceType === 't3' && relanceData.category) {
           let t3Info = `
             <strong>Catégorie:</strong> ${relanceData.category.display_name}<br>
@@ -4395,7 +4454,14 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
 
       // Build custom data based on relance type
       let customData = {};
-      if (relanceType === 't2') {
+      if (relanceType === 't1') {
+        const dateInput = document.getElementById('relanceT1Date');
+        const lieuInput = document.getElementById('relanceT1Lieu');
+        customData.tournament_date = dateInput?.value ? new Date(dateInput.value).toLocaleDateString('fr-FR') : '';
+        customData.tournament_lieu = lieuInput?.value || '';
+        customData.season = relanceData?.season || '';
+        customData.mode = relanceData?.mode || '';
+      } else if (relanceType === 't2') {
         const dateInput = document.getElementById('relanceT2Date');
         const lieuInput = document.getElementById('relanceT2Lieu');
         customData.tournament_date = dateInput?.value ? new Date(dateInput.value).toLocaleDateString('fr-FR') : '';
@@ -4840,6 +4906,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
     const CAMPAIGN_TYPES = {
       'tournament_results': 'Résultats',
       'finale_convocation': 'Convoc. Finale',
+      'relance_t1': 'Relance T1',
       'relance_t2': 'Relance T2',
       'relance_t3': 'Relance T3',
       'relance_finale': 'Relance Finale',
@@ -5081,6 +5148,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
     };
 
     const SCHEDULED_TYPE_LABELS = {
+      'relance_t1': 'Relance T1',
       'relance_t2': 'Relance T2',
       'relance_t3': 'Relance T3',
       'relance_finale': 'Relance Finale',

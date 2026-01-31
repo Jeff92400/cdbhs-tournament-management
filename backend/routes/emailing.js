@@ -3337,6 +3337,24 @@ router.put('/campaigns/:id', authenticateToken, async (req, res) => {
 
 // Default templates for relances
 const DEFAULT_RELANCE_TEMPLATES = {
+  relance_t1: {
+    subject: 'Inscription T1 {category} - Ouverture de la saison {season}',
+    intro: `Bonjour {first_name},
+
+La nouvelle saison {season} débute bientôt ! En tant que joueur classé {ffb_ranking} en {mode}, vous êtes invité(e) à participer au premier tournoi qualificatif (T1) de la catégorie {category}.
+
+📅 Date : {tournament_date}
+📍 Lieu : {tournament_lieu}
+⏰ Date limite d'inscription : {deadline_date}
+
+Ce premier tournoi est essentiel pour bien démarrer votre saison et accumuler des points pour le classement départemental. Nous comptons sur une forte participation pour cette ouverture !
+
+{inscription_method}`,
+    outro: `Pour toute question ou information, écrivez à {organization_email}
+
+Sportivement,
+{organization_name}`
+  },
   relance_t2: {
     subject: 'Inscription T2 {category} - Confirmez votre participation',
     intro: `Bonjour {first_name},
@@ -3404,7 +3422,7 @@ router.get('/relance-templates', authenticateToken, async (req, res) => {
 
     // Build result with defaults for missing templates
     const result = {};
-    for (const key of ['relance_t2', 'relance_t3', 'relance_finale']) {
+    for (const key of ['relance_t1', 'relance_t2', 'relance_t3', 'relance_finale']) {
       const dbTemplate = templates.find(t => t.template_key === key);
       if (dbTemplate) {
         result[key] = {
@@ -3430,7 +3448,7 @@ router.put('/relance-templates/:key', authenticateToken, async (req, res) => {
   const { key } = req.params;
   const { subject, intro, outro } = req.body;
 
-  if (!['relance_t2', 'relance_t3', 'relance_finale'].includes(key)) {
+  if (!['relance_t1', 'relance_t2', 'relance_t3', 'relance_finale'].includes(key)) {
     return res.status(400).json({ error: 'Invalid template key' });
   }
 
@@ -3765,20 +3783,69 @@ router.get('/t1-participants', authenticateToken, async (req, res) => {
       );
     });
 
-    // Also try to get T2 from tournoi_ext
+    // Also try to get T2 from tournoi_ext with flexible name matching
+    // First get mode mappings
+    const t2ModeMappings = await new Promise((resolve, reject) => {
+      db.all(
+        'SELECT ionos_mode FROM mode_mapping WHERE UPPER(game_type) = UPPER($1)',
+        [mode],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    // Build mode matching condition for T2
+    let t2ModeCondition;
+    let t2ModeParams = [];
+    if (t2ModeMappings.length > 0) {
+      const placeholders = t2ModeMappings.map((_, i) => `$${i + 1}`).join(', ');
+      t2ModeCondition = `UPPER(mode) IN (${placeholders})`;
+      t2ModeParams = t2ModeMappings.map(m => m.ionos_mode.toUpperCase());
+    } else {
+      t2ModeCondition = 'UPPER(mode) = $1';
+      t2ModeParams = [mode.toUpperCase()];
+    }
+
+    // Use flexible name matching (T2, TOURNOI 2, TOURNOI2)
+    const t2NameCondition = "(UPPER(nom) LIKE '%T2%' OR UPPER(nom) LIKE '%TOURNOI 2%' OR UPPER(nom) LIKE '%TOURNOI2%')";
+    const t2CatParamIdx = t2ModeParams.length + 1;
+
     const t2External = await new Promise((resolve, reject) => {
       db.get(
         `SELECT * FROM tournoi_ext
-         WHERE UPPER(mode) = $1 AND UPPER(categorie) = $2
-         AND UPPER(nom) LIKE '%T2%'
+         WHERE ${t2ModeCondition} AND UPPER(categorie) = $${t2CatParamIdx}
+         AND ${t2NameCondition}
          ORDER BY debut DESC LIMIT 1`,
-        [mode.toUpperCase(), category.toUpperCase()],
+        [...t2ModeParams, category.toUpperCase()],
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
         }
       );
     });
+
+    // Get inscriptions for T2 tournament to mark already inscribed players
+    let inscribedLicences = new Set();
+    const t2TournoiId = t2External?.tournoi_id;
+    if (t2TournoiId) {
+      const inscriptions = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT REPLACE(UPPER(licence), ' ', '') as normalized_licence FROM inscriptions WHERE tournoi_id = $1`,
+          [t2TournoiId],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+      inscribedLicences = new Set(inscriptions.map(i => i.normalized_licence));
+    }
+
+    const alreadyInscribedCount = participants.filter(p =>
+      inscribedLicences.has(p.licence?.replace(/\s/g, '').toUpperCase())
+    ).length;
 
     res.json({
       t1Tournament: {
@@ -3789,7 +3856,8 @@ router.get('/t1-participants', authenticateToken, async (req, res) => {
       },
       t2Tournament: t2Tournament || t2External ? {
         date: t2Tournament?.tournament_date || t2External?.debut,
-        location: t2Tournament?.location || t2External?.lieu
+        location: t2Tournament?.location || t2External?.lieu,
+        tournoi_id: t2TournoiId
       } : null,
       participants: participants.map(p => ({
         licence: p.licence,
@@ -3801,9 +3869,11 @@ router.get('/t1-participants', authenticateToken, async (req, res) => {
         contact_id: p.contact_id,
         t1_position: p.position,
         t1_points: p.match_points,
-        email_optin: p.email_optin
+        email_optin: p.email_optin,
+        already_inscribed: inscribedLicences.has(p.licence?.replace(/\s/g, '').toUpperCase())
       })),
-      emailCount: participants.filter(p => p.email && p.email.includes('@')).length
+      emailCount: participants.filter(p => p.email && p.email.includes('@')).length,
+      alreadyInscribedCount
     });
 
   } catch (error) {
@@ -3976,6 +4046,181 @@ router.get('/ranking-for-relance', authenticateToken, async (req, res) => {
   }
 });
 
+// Get players with FFB ranking for T1 relance (beginning of season)
+router.get('/t1-players', authenticateToken, async (req, res) => {
+  const db = require('../db-loader');
+  const { mode, category } = req.query;
+
+  if (!mode || !category) {
+    return res.status(400).json({ error: 'Mode and category required' });
+  }
+
+  try {
+    // Determine current season
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let season;
+    if (currentMonth >= 8) {
+      season = `${currentYear}-${currentYear + 1}`;
+    } else {
+      season = `${currentYear - 1}-${currentYear}`;
+    }
+
+    // Find the category (flexible match: N3 matches N3 or N3GC)
+    const categoryUpper = category.toUpperCase();
+    const categoryRow = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM categories WHERE UPPER(game_type) = $1 AND (UPPER(level) = $2 OR UPPER(level) LIKE $3)`,
+        [mode.toUpperCase(), categoryUpper, categoryUpper + '%'],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    if (!categoryRow) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    // Get the rank column for this game mode from game_modes table
+    const gameMode = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT rank_column FROM game_modes WHERE UPPER(mode_name) = UPPER($1) OR UPPER(display_name) = UPPER($1)`,
+        [mode],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    // Determine rank column based on mode if not found in game_modes
+    let rankColumn = gameMode?.rank_column;
+    if (!rankColumn) {
+      const modeUpper = mode.toUpperCase();
+      if (modeUpper === 'LIBRE') rankColumn = 'rank_libre';
+      else if (modeUpper === '3BANDES' || modeUpper === '3 BANDES') rankColumn = 'rank_3bandes';
+      else if (modeUpper === 'BANDE') rankColumn = 'rank_bande';
+      else if (modeUpper === 'CADRE' || modeUpper.includes('CADRE')) rankColumn = 'rank_cadre';
+      else rankColumn = 'rank_libre'; // Default fallback
+    }
+
+    // Get all players with matching FFB ranking for this category level
+    // The category level (e.g., R3, N2) should match the player's FFB ranking
+    const players = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT p.licence, p.first_name, p.last_name, p.${rankColumn} as ffb_ranking,
+                pc.email, pc.club, pc.email_optin
+         FROM players p
+         LEFT JOIN player_contacts pc ON REPLACE(p.licence, ' ', '') = REPLACE(pc.licence, ' ', '')
+         WHERE UPPER(p.${rankColumn}) = UPPER($1)
+           AND UPPER(p.licence) NOT LIKE 'TEST%'
+         ORDER BY p.last_name, p.first_name`,
+        [categoryRow.level],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    // Try to get T1 from tournoi_ext with flexible name matching
+    // First get mode mappings
+    const modeMappings = await new Promise((resolve, reject) => {
+      db.all(
+        'SELECT ionos_mode FROM mode_mapping WHERE UPPER(game_type) = UPPER($1)',
+        [mode],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows || []);
+        }
+      );
+    });
+
+    // Build mode matching condition
+    let modeCondition;
+    let modeParams = [];
+    if (modeMappings.length > 0) {
+      const placeholders = modeMappings.map((_, i) => `$${i + 1}`).join(', ');
+      modeCondition = `UPPER(mode) IN (${placeholders})`;
+      modeParams = modeMappings.map(m => m.ionos_mode.toUpperCase());
+    } else {
+      modeCondition = 'UPPER(mode) = $1';
+      modeParams = [mode.toUpperCase()];
+    }
+
+    // Use flexible name matching (T1, TOURNOI 1, TOURNOI1)
+    const nameCondition = "(UPPER(nom) LIKE '%T1%' OR UPPER(nom) LIKE '%TOURNOI 1%' OR UPPER(nom) LIKE '%TOURNOI1%')";
+    const catParamIdx = modeParams.length + 1;
+
+    const t1External = await new Promise((resolve, reject) => {
+      db.get(
+        `SELECT * FROM tournoi_ext
+         WHERE ${modeCondition} AND UPPER(categorie) = $${catParamIdx}
+         AND ${nameCondition}
+         ORDER BY debut DESC LIMIT 1`,
+        [...modeParams, category.toUpperCase()],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+
+    // Get inscriptions for T1 tournament to mark already inscribed players
+    let inscribedLicences = new Set();
+    const t1TournoiId = t1External?.tournoi_id;
+    if (t1TournoiId) {
+      const inscriptions = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT REPLACE(UPPER(licence), ' ', '') as normalized_licence FROM inscriptions WHERE tournoi_id = $1`,
+          [t1TournoiId],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+      inscribedLicences = new Set(inscriptions.map(i => i.normalized_licence));
+    }
+
+    const alreadyInscribedCount = players.filter(p =>
+      inscribedLicences.has(p.licence?.replace(/\s/g, '').toUpperCase())
+    ).length;
+
+    res.json({
+      category: categoryRow,
+      season,
+      mode,
+      t1Tournament: t1External ? {
+        date: t1External.debut,
+        location: t1External.lieu,
+        tournoi_id: t1TournoiId
+      } : null,
+      participants: players.map(p => ({
+        licence: p.licence,
+        player_name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.licence,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        email: p.email,
+        club: p.club,
+        ffb_ranking: p.ffb_ranking,
+        email_optin: p.email_optin,
+        already_inscribed: inscribedLicences.has(p.licence?.replace(/\s/g, '').toUpperCase())
+      })),
+      emailCount: players.filter(p => p.email && p.email.includes('@')).length,
+      alreadyInscribedCount
+    });
+
+  } catch (error) {
+    console.error('Error fetching T1 players:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get qualified players for finale relance
 router.get('/finale-qualified', authenticateToken, async (req, res) => {
   const db = require('../db-loader');
@@ -4088,6 +4333,26 @@ router.get('/finale-qualified', authenticateToken, async (req, res) => {
     const qualifiedCount = rankings.length < 9 ? 4 : 6;
     const qualified = rankings.filter(r => r.rank_position <= qualifiedCount);
 
+    // Get inscriptions for finale tournament to mark already inscribed players
+    let inscribedLicences = new Set();
+    if (finale?.tournoi_id) {
+      const inscriptions = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT REPLACE(UPPER(licence), ' ', '') as normalized_licence FROM inscriptions WHERE tournoi_id = $1`,
+          [finale.tournoi_id],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+      inscribedLicences = new Set(inscriptions.map(i => i.normalized_licence));
+    }
+
+    const alreadyInscribedCount = qualified.filter(r =>
+      inscribedLicences.has(r.licence?.replace(/\s/g, '').toUpperCase())
+    ).length;
+
     // Calculate deadline date (7 days before finale)
     let deadlineDate = null;
     let finaleFormattedDate = null;
@@ -4123,9 +4388,11 @@ router.get('/finale-qualified', authenticateToken, async (req, res) => {
         rank_position: r.rank_position,
         total_points: r.total_match_points,
         avg_moyenne: r.avg_moyenne,
-        email_optin: r.email_optin
+        email_optin: r.email_optin,
+        already_inscribed: inscribedLicences.has(r.licence?.replace(/\s/g, '').toUpperCase())
       })),
-      emailCount: qualified.filter(r => r.email && r.email.includes('@')).length
+      emailCount: qualified.filter(r => r.email && r.email.includes('@')).length,
+      alreadyInscribedCount
     });
 
   } catch (error) {
@@ -4146,7 +4413,7 @@ router.post('/send-relance', authenticateToken, async (req, res) => {
     });
   }
 
-  if (!['t2', 't3', 'finale'].includes(relanceType)) {
+  if (!['t1', 't2', 't3', 'finale'].includes(relanceType)) {
     return res.status(400).json({ error: 'Type de relance invalide' });
   }
 
