@@ -2505,7 +2505,6 @@ router.post('/inscription-confirmation', async (req, res) => {
     });
 
     // Log email to database
-    const db = require('../db-loader');
     db.run(
       `INSERT INTO inscription_email_logs (email_type, player_email, player_name, tournament_name, mode, category, tournament_date, location, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent')`,
@@ -2519,14 +2518,14 @@ router.post('/inscription-confirmation', async (req, res) => {
   } catch (error) {
     console.error('Error sending inscription confirmation:', error);
     // Log failed email
-    const db = require('../db-loader');
-    const dateStr = tournament_date
+    const dbErr = require('../db-loader');
+    const errDateStr = tournament_date
       ? new Date(tournament_date).toLocaleDateString('fr-FR')
       : '';
-    db.run(
+    dbErr.run(
       `INSERT INTO inscription_email_logs (email_type, player_email, player_name, tournament_name, mode, category, tournament_date, location, status, error_message)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'failed', $9)`,
-      ['inscription', player_email, player_name, tournament_name, mode || '', category || '', dateStr, location || '', error.message],
+      ['inscription', player_email, player_name, tournament_name, mode || '', category || '', errDateStr, location || '', error.message],
       () => {}
     );
     res.status(500).json({ error: error.message });
@@ -2633,7 +2632,6 @@ router.post('/inscription-cancellation', async (req, res) => {
     });
 
     // Log email to database
-    const db = require('../db-loader');
     db.run(
       `INSERT INTO inscription_email_logs (email_type, player_email, player_name, tournament_name, mode, category, tournament_date, location, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent')`,
@@ -2647,14 +2645,14 @@ router.post('/inscription-cancellation', async (req, res) => {
   } catch (error) {
     console.error('Error sending inscription cancellation:', error);
     // Log failed email
-    const db = require('../db-loader');
-    const dateStr = tournament_date
+    const dbErr = require('../db-loader');
+    const errDateStr = tournament_date
       ? new Date(tournament_date).toLocaleDateString('fr-FR')
       : '';
-    db.run(
+    dbErr.run(
       `INSERT INTO inscription_email_logs (email_type, player_email, player_name, tournament_name, mode, category, tournament_date, location, status, error_message)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'failed', $9)`,
-      ['desinscription', player_email, player_name, tournament_name, mode || '', category || '', dateStr, location || '', error.message],
+      ['desinscription', player_email, player_name, tournament_name, mode || '', category || '', errDateStr, location || '', error.message],
       () => {}
     );
     res.status(500).json({ error: error.message });
