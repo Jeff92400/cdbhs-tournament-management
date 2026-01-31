@@ -1113,8 +1113,46 @@ async function processTemplatedScheduledEmail(db, resend, scheduled, delay) {
   let sentCount = 0;
   let failedCount = 0;
 
+  // Get email settings once (before the loop)
+  const primaryColor = emailSettings.primary_color || '#1F4788';
+  const senderName = emailSettings.email_sender_name || 'CDBHS';
+  const senderEmail = emailSettings.email_communication || 'communication@cdbhs.net';
+  const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
+  const orgName = emailSettings.organization_name || 'Comité Départemental Billard Hauts-de-Seine';
+  const orgShortName = emailSettings.organization_short_name || 'CDBHS';
+  const playerAppUrl = 'https://cdbhs-player-app-production.up.railway.app';
+
   for (const recipient of recipients) {
     try {
+      // Check if recipient has a Player App account
+      const recipientLicence = recipient.licence || '';
+      const hasAppAccount = await new Promise((resolve, reject) => {
+        db.get(
+          `SELECT 1 FROM player_accounts WHERE REPLACE(licence, ' ', '') = REPLACE($1, ' ', '')`,
+          [recipientLicence],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(!!row);
+          }
+        );
+      });
+
+      // Build inscription method HTML based on account status
+      let inscriptionMethodHtml;
+      if (hasAppAccount) {
+        // Player has app account - show button to go directly to competitions
+        inscriptionMethodHtml = `<div style="text-align: center; margin: 20px 0;">
+          <a href="${playerAppUrl}/?page=tournaments" target="_blank" style="display: inline-block; background: ${primaryColor}; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+            📱 S'inscrire via l'Espace Joueur
+          </a>
+        </div>`;
+      } else {
+        // Player doesn't have app account - show cdbhs.net option
+        inscriptionMethodHtml = `<div style="margin: 15px 0; padding: 15px; background: #fff; border-left: 4px solid ${primaryColor};">
+          <p style="margin: 0;">Confirmez votre inscription sur <a href="https://cdbhs.net" target="_blank" style="color: ${primaryColor}; font-weight: bold;">cdbhs.net</a> ou en répondant à cet email.</p>
+        </div>`;
+      }
+
       // Replace template variables
       let emailBody = (scheduled.body || '')
         .replace(/\{player_name\}/g, `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim())
@@ -1129,7 +1167,8 @@ async function processTemplatedScheduledEmail(db, resend, scheduled, delay) {
         .replace(/\{tournament_lieu\}/g, templateVariables.tournament_lieu || '')
         .replace(/\{finale_date\}/g, templateVariables.finale_date || '')
         .replace(/\{finale_lieu\}/g, templateVariables.finale_lieu || '')
-        .replace(/\{deadline_date\}/g, templateVariables.deadline_date || '');
+        .replace(/\{deadline_date\}/g, templateVariables.deadline_date || '')
+        .replace(/\{inscription_method\}/g, inscriptionMethodHtml);
 
       let emailSubject = (scheduled.subject || '')
         .replace(/\{category\}/g, templateVariables.category || '')
@@ -1137,13 +1176,6 @@ async function processTemplatedScheduledEmail(db, resend, scheduled, delay) {
 
       const outroText = scheduled.outro_text || '';
       const imageHtml = scheduled.image_url ? `<div style="text-align: center; margin: 20px 0;"><img src="${scheduled.image_url}" alt="Image" style="max-width: 100%; height: auto; border-radius: 8px;"></div>` : '';
-
-      const primaryColor = emailSettings.primary_color || '#1F4788';
-      const senderName = emailSettings.email_sender_name || 'CDBHS';
-      const senderEmail = emailSettings.email_communication || 'communication@cdbhs.net';
-      const replyToEmail = emailSettings.summary_email || 'cdbhs92@gmail.com';
-      const orgName = emailSettings.organization_name || 'Comité Départemental Billard Hauts-de-Seine';
-      const orgShortName = emailSettings.organization_short_name || 'CDBHS';
 
       await resend.emails.send({
         from: `${senderName} <${senderEmail}>`,

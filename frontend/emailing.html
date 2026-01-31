@@ -3503,12 +3503,13 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       editor.style.display = 'block';
 
       // Set extra vars based on template type
+      // Note: {inscription_method} shows app button for players with account, or cdbhs.net link for others
       if (key === 'relance_t2') {
-        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code>';
+        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code> <code style="background:#e8f5e9;border-color:#4caf50;">{inscription_method}</code>';
       } else if (key === 'relance_t3') {
-        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code>';
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code> <code style="background:#e8f5e9;border-color:#4caf50;">{inscription_method}</code>';
       } else if (key === 'relance_finale') {
-        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{qualified_count}</code> <code>{finale_date}</code> <code>{finale_lieu}</code> <code>{deadline_date}</code>';
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{qualified_count}</code> <code>{finale_date}</code> <code>{finale_lieu}</code> <code>{deadline_date}</code> <code style="background:#e8f5e9;border-color:#4caf50;">{inscription_method}</code>';
       }
 
       // Load template from server or use default
@@ -3957,8 +3958,9 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
       const clubOptions = getClubOptionsHtml();
 
       // Update extra variables based on type
+      // Note: {inscription_method} shows app button for players with account, or cdbhs.net link for others
       if (relanceType === 't2') {
-        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code>';
+        extraVarsSpan.innerHTML = '<code>{t1_position}</code> <code>{t1_points}</code> <code>{t1_date}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code> <code style="background:#e8f5e9;border-color:#4caf50;">{inscription_method}</code>';
         customFieldsContent.innerHTML = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div>
@@ -3975,7 +3977,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         `;
         customFieldsDiv.style.display = 'block';
       } else if (relanceType === 't3') {
-        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code>';
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{tournament_date}</code> <code>{tournament_lieu}</code> <code>{deadline_date}</code> <code style="background:#e8f5e9;border-color:#4caf50;">{inscription_method}</code>';
         customFieldsContent.innerHTML = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div>
@@ -3992,7 +3994,7 @@ Le Comité Départemental de Billard des Hauts-de-Seine`
         `;
         customFieldsDiv.style.display = 'block';
       } else if (relanceType === 'finale') {
-        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{qualified_count}</code> <code>{finale_date}</code> <code>{finale_lieu}</code> <code>{deadline_date}</code>';
+        extraVarsSpan.innerHTML = '<code>{rank_position}</code> <code>{total_points}</code> <code>{qualified_count}</code> <code>{finale_date}</code> <code>{finale_lieu}</code> <code>{deadline_date}</code> <code style="background:#e8f5e9;border-color:#4caf50;">{inscription_method}</code>';
         customFieldsContent.innerHTML = `
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div>
